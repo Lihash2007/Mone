@@ -1,0 +1,90 @@
+name: Build iOS (mone)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios_build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ios/**'
+  workflow_dispatch:
+    inputs:
+      build_target:
+        description: 'Target to build'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - 'both'
+          - 'ipa (Physical iPhone / Sideloading)'
+          - 'simulator (Xcode Simulator .app)'
+
+jobs:
+  build-ios:
+    name: Build iOS (Target 17.0+)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Environment
+        run: |
+          flutter doctor -v
+          xcodebuild -version
+
+      - name: Install Flutter Dependencies
+        working-directory: ./ios
+        run: |
+          flutter pub get
+
+      - name: Build iOS Release (Unsigned .app & .ipa)
+        if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        working-directory: ./ios
+        run: |
+          echo "Building iOS Release (no codesign)..."
+          flutter build ios --release --no-codesign
+          
+          echo "Packaging into unsigned IPA..."
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r mone-release-unsigned.ipa Payload
+          echo "Created mone-release-unsigned.ipa successfully!"
+
+      - name: Build iOS Simulator (.app)
+        if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'simulator (Xcode Simulator .app)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        working-directory: ./ios
+        run: |
+          echo "Building iOS Simulator (no codesign)..."
+          flutter build ios --simulator --no-codesign
+          
+          echo "Zipping Simulator App bundle..."
+          cd build/ios/iphonesimulator
+          zip -r ../../../mone-simulator.zip Runner.app
+          cd ../../..
+          echo "Created mone-simulator.zip successfully!"
+
+      - name: Upload Unsigned IPA
+        if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mone-ios-release-unsigned-ipa
+          path: ./ios/mone-release-unsigned.ipa
+          retention-days: 14
+
+      - name: Upload Simulator App
+        if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'simulator (Xcode Simulator .app)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mone-ios-simulator-app
+          path: ./ios/mone-simulator.zip
+          retention-days: 14

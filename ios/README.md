@@ -5,9 +5,25 @@
 
 ---
 
-## 🚀 Running on Mac & Xcode
+## ☁️ Zero-Mac Cloud Build (GitHub Actions)
 
-When you clone this Git repository on your Mac:
+You don't need a Mac or a VirtualBox VM to build this iOS app! GitHub Actions builds it automatically in the cloud on Apple Silicon runners (`macos-14`):
+
+### How to trigger a build & download the app:
+1. Go to your GitHub repository: [https://github.com/Lihash2007/Mone](https://github.com/Lihash2007/Mone)
+2. Click the **Actions** tab.
+3. In the left sidebar, click **"Build iOS (mone)"**.
+4. Click **"Run workflow"** -> Select branch `main` -> Click **"Run workflow"**.
+5. Once the build completes (~3 minutes), click on the completed run.
+6. Scroll down to **Artifacts** to download:
+   - **`mone-ios-release-unsigned-ipa`**: Ready to install on physical iPhones via [Sideloadly](https://sideloadly.io/) or [AltStore](https://altstore.io/) (from your Windows PC over USB!).
+   - **`mone-ios-simulator-app`**: Unpack and drag into any Xcode iOS Simulator.
+
+---
+
+## 🚀 Running on Mac & Xcode (Local)
+
+When you clone this Git repository on a physical Mac:
 
 ```bash
 # 1. Navigate to the iOS folder
