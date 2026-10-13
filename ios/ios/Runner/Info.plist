@@ -83,5 +83,7 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>mone uses Face ID to securely authenticate and protect your private financial records.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>

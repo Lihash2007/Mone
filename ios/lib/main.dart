@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -375,6 +376,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
+    HomeWidget.setAppGroupId('group.com.personalmoneyos.frontend');
     WidgetsBinding.instance.addObserver(this);
     _ambientController = AnimationController(vsync: this, duration: const Duration(seconds: 15))..repeat();
     _initDatabase();
@@ -398,6 +400,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkClipboardForSms();
+      _syncPendingBackgroundTransactions();
     }
   }
 
@@ -601,6 +604,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     }
     
     _checkPendingResolutions();
+    await _syncPendingBackgroundTransactions();
     _updateWidget();
     _checkWidgetLaunch();
     _setupQuickActions();
@@ -661,17 +665,100 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     }
   }
 
+  Future<void> _syncPendingBackgroundTransactions() async {
+    if (!_isDbReady) return;
+    try {
+      final jsonStr = await HomeWidget.getWidgetData<String>('pending_transactions_json');
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final dynamic decoded = jsonDecode(jsonStr);
+        if (decoded is List && decoded.isNotEmpty) {
+          for (var item in decoded) {
+            if (item is Map) {
+              String? rawBody = item['rawBody']?.toString();
+              String? sender = item['sender']?.toString();
+              if (rawBody != null && rawBody.isNotEmpty) {
+                await processIncomingSmsString(rawBody: rawBody, senderAddress: sender, showNotification: false);
+              }
+            }
+          }
+          await HomeWidget.saveWidgetData<String>('pending_transactions_json', null);
+          if (mounted) setState(() {});
+        }
+      }
+    } catch (e) {
+      debugPrint("Sync pending transactions error: $e");
+    }
+  }
+
   Future<void> _updateWidget() async {
     if (!_isDbReady) return;
-    final allTxs = await _database.query('transactions');
-    double walletBalance = 0;
-    for (var t in allTxs) {
-      if (t['type'] == 'INCOME' || t['type'] == 'TRANSFER_IN') walletBalance += (t['amount'] as num).toDouble();
-      else if (t['type'] == 'EXPENSE' || t['type'] == 'GOAL_TRANSFER' || t['type'] == 'TRANSFER_OUT') walletBalance -= (t['amount'] as num).toDouble();
+    try {
+      final allTxs = await _database.query('transactions', orderBy: 'date DESC');
+      double walletBalance = 0;
+      double todaySpent = 0;
+      DateTime now = DateTime.now();
+      String todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      int txCountToday = 0;
+
+      for (var t in allTxs) {
+        double amt = (t['amount'] as num).toDouble();
+        String type = t['type'] as String;
+        String dateStr = t['date']?.toString() ?? '';
+
+        if (type == 'INCOME' || type == 'TRANSFER_IN') {
+          walletBalance += amt;
+        } else if (type == 'EXPENSE' || type == 'GOAL_TRANSFER' || type == 'TRANSFER_OUT') {
+          walletBalance -= amt;
+          if (dateStr.startsWith(todayStr)) {
+            todaySpent += amt;
+            txCountToday++;
+          }
+        }
+      }
+
+      String recentMerchant = 'mone';
+      String recentAmount = 'Active';
+      String recentBank = 'Bank';
+      String recentTime = 'Today';
+
+      if (allTxs.isNotEmpty) {
+        final last = allTxs.first;
+        recentMerchant = last['merchant']?.toString() ?? 'Transaction';
+        bool isIncome = last['type'] == 'INCOME';
+        recentAmount = "${isIncome ? '+' : '-'}₹${(last['amount'] as num).toDouble().toStringAsFixed(0)}";
+        int? accId = last['account_id'] as int?;
+        if (accId != null) {
+          final accs = await _database.query('accounts', where: 'id = ?', whereArgs: [accId]);
+          if (accs.isNotEmpty) {
+            recentBank = accs.first['bank_name']?.toString() ?? accs.first['name']?.toString() ?? 'Bank';
+          }
+        }
+        try {
+          DateTime dt = DateTime.parse(last['date'].toString());
+          recentTime = "${dt.hour % 12 == 0 ? 12 : dt.hour % 12}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour >= 12 ? 'PM' : 'AM'}";
+        } catch (_) {}
+      }
+
+      String balanceStr = walletBalance < 0 ? '-₹ ${walletBalance.abs().toStringAsFixed(0)}' : '₹ ${walletBalance.toStringAsFixed(0)}';
+      String spentStr = '₹ ${todaySpent.toStringAsFixed(0)}';
+
+      await HomeWidget.saveWidgetData<String>('balance', balanceStr);
+      await HomeWidget.saveWidgetData<double>('raw_balance', walletBalance);
+      await HomeWidget.saveWidgetData<String>('today_spent', spentStr);
+      await HomeWidget.saveWidgetData<double>('raw_today_spent', todaySpent);
+      await HomeWidget.saveWidgetData<int>('raw_tx_count_today', txCountToday);
+      await HomeWidget.saveWidgetData<String>('recent_merchant', recentMerchant);
+      await HomeWidget.saveWidgetData<String>('recent_amount', recentAmount);
+      await HomeWidget.saveWidgetData<String>('recent_bank', recentBank);
+      await HomeWidget.saveWidgetData<String>('recent_time', recentTime);
+
+      await HomeWidget.updateWidget(
+        name: 'MoneBalanceWidget',
+        iOSName: 'MoneBalanceWidget',
+      );
+    } catch (e) {
+      debugPrint("Error updating widget: $e");
     }
-    String balanceStr = walletBalance < 0 ? '-₹ ${walletBalance.abs().toStringAsFixed(0)}' : '₹ ${walletBalance.toStringAsFixed(0)}';
-    await HomeWidget.saveWidgetData<String>('balance', balanceStr);
-    await HomeWidget.updateWidget(name: 'MoneyWidgetProvider');
   }
 
   Future<void> _authenticate() async {

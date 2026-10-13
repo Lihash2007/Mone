@@ -46,28 +46,42 @@ flutter run -d ios
 
 ---
 
-## ⚡ How SMS Tracking Works on iOS
+## ⚡ Silent Background SMS Tracking (Zero Screen Opening!)
 
-Because iOS sandboxes third-party apps from directly reading the Messages inbox, `mone` uses **Apple Shortcuts Personal Automation** and **Custom URL Schemes**:
+`mone` utilizes Apple's **`AppIntents` framework** (`openAppWhenRun = false`). Transactions are logged **silently in the background** without ever switching away from your current app, game, or video!
 
-### 1. Native Deep Link Scheme
-- Scheme: `mone://import-sms?text=<SMS_BODY>`
-- Configured in: `ios/Runner/Info.plist` (`CFBundleURLTypes`)
-- Processed by: `app_links` in Flutter
-
-### 2. Apple Shortcuts 1-Minute Automation Setup
+### Apple Shortcuts Silent Setup (1 Minute):
 1. Open the **Shortcuts** app on your iPhone.
-2. Tap the **Automation** tab at the bottom, then tap **+** (Create Personal Automation).
+2. Tap the **Automation** tab at the bottom -> tap **+** (Create Personal Automation).
 3. Select **Message** as the trigger.
 4. Set **Message Contains**: `debited`, `credited`, `spent`, `UPI`, `ATM`.
-5. Add action: **Open URLs** and set the URL to:
-   ```text
-   mone://import-sms?text=[Shortcut Input]
-   ```
-6. Turn off **"Ask Before Running"** so it executes silently in the background.
-7. Tap **Done**.
+5. Select **Run Immediately** (and turn off *"Notify When Run"*).
+6. Tap **Next** -> tap **New Blank Automation** -> tap **Add Action**.
+7. Search for **mone** -> select **"Log Bank SMS in mone"**.
+8. Tap the **SMS Body** field -> select **Shortcut Input**.
+9. Tap **Done**!
 
-Whenever your bank sends a transaction alert, iOS Shortcuts instantly triggers `mone`, parses the exact amount, merchant, and bank account, logs it into local SQLite, updates your available balance, and displays the **Dynamic Island** alert!
+> [!NOTE]
+> When your bank sends an SMS alert, iOS runs `LogBankSmsIntent` **in ~50 milliseconds in the background**. The app never opens to the foreground, anti-fraud filters reject spam/OTPs, the transaction is enqueued to local storage, and the **Dynamic Island** briefly flashes the transaction summary!
+
+---
+
+## 🎙️ Siri Intelligence via App Intents
+
+`mone` integrates natively with Siri and Apple Intelligence:
+- **"Hey Siri, check daily spending in mone"** -> Siri reads back your today's total spending, transaction count, and remaining balance.
+- **"Hey Siri, what's my balance in mone?"** -> Siri announces your net worth across all connected accounts.
+
+---
+
+## 📱 Interactive Home Screen Widgets & Dynamic Island
+
+- **Home Screen Widget**:
+  - Add the **mone Balance** widget (Small or Medium) to your Home Screen.
+  - Features real-time balance, today's spending, and last merchant chip.
+  - **Interactive Privacy Toggle (iOS 17+)**: Tap the eye icon directly on the widget to blur or reveal your balance without opening the app!
+- **Dynamic Island & Live Activities (iOS 16.1+)**:
+  - When money moves, a sleek capsule pops on the Dynamic Island for 6 seconds displaying `-₹450 at Swiggy • Bal: ₹14,250`.
 
 ### 3. Smart Clipboard Auto-Detection
 - When opening `mone`, if you've copied an SMS transaction from Messages or WhatsApp, `mone` instantly recognizes it and prompts with a 1-tap **"Import Transaction"** sheet.
