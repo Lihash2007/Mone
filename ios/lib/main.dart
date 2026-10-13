@@ -208,7 +208,7 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
         requestSoundPermission: true,
         notificationCategories: darwinNotificationCategories,
       );
-      const InitializationSettings initializationSettings = InitializationSettings(
+      final InitializationSettings initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
         iOS: initializationSettingsDarwin,
       );
@@ -529,7 +529,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         requestSoundPermission: true,
         notificationCategories: darwinNotificationCategories,
       );
-      const InitializationSettings initializationSettings = InitializationSettings(
+      final InitializationSettings initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
         iOS: initializationSettingsDarwin,
       );
