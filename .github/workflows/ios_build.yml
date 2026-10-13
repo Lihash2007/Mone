@@ -37,35 +37,29 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Verify Environment
+      - name: Verify Environment & Precache iOS
         run: |
-          flutter doctor -v
+          flutter --version
           xcodebuild -version
+          flutter precache --ios
 
-      - name: Install Flutter Dependencies
+      - name: Install Dependencies
         working-directory: ./ios
         run: |
           flutter pub get
-
-      - name: Build iOS Release (Unsigned .app & .ipa)
-        if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
-        working-directory: ./ios
-        run: |
-          echo "Building iOS Release (no codesign)..."
-          flutter build ios --release --no-codesign
-          
-          echo "Packaging into unsigned IPA..."
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r mone-release-unsigned.ipa Payload
-          echo "Created mone-release-unsigned.ipa successfully!"
 
       - name: Build iOS Simulator (.app)
         if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'simulator (Xcode Simulator .app)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
         working-directory: ./ios
         run: |
           echo "Building iOS Simulator (no codesign)..."
-          flutter build ios --simulator --no-codesign
+          flutter build ios --simulator --no-codesign -v > build_simulator.log 2>&1 || {
+            echo "### ❌ iOS Simulator Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            tail -n 120 build_simulator.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
           
           echo "Zipping Simulator App bundle..."
           cd build/ios/iphonesimulator
@@ -73,18 +67,50 @@ jobs:
           cd ../../..
           echo "Created mone-simulator.zip successfully!"
 
+      - name: Build iOS Release (Unsigned .app & .ipa)
+        if: ${{ always() && (github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request') }}
+        working-directory: ./ios
+        run: |
+          echo "Building iOS Release (no codesign)..."
+          flutter build ios --release --no-codesign -v > build_release.log 2>&1 || {
+            echo "### ❌ iOS Release Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            tail -n 120 build_release.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
+          
+          echo "Packaging into unsigned IPA..."
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r mone-release-unsigned.ipa Payload
+          echo "Created mone-release-unsigned.ipa successfully!"
+
       - name: Upload Unsigned IPA
-        if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        if: ${{ always() && (github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request') }}
         uses: actions/upload-artifact@v4
         with:
           name: mone-ios-release-unsigned-ipa
           path: ./ios/mone-release-unsigned.ipa
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Upload Simulator App
-        if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'simulator (Xcode Simulator .app)' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        if: ${{ always() && (github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'simulator (Xcode Simulator .app)' || github.event_name == 'push' || github.event_name == 'pull_request') }}
         uses: actions/upload-artifact@v4
         with:
           name: mone-ios-simulator-app
           path: ./ios/mone-simulator.zip
+          if-no-files-found: ignore
           retention-days: 14
+
+      - name: Upload Build Logs on Failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-diagnostic-logs
+          path: |
+            ./ios/build_simulator.log
+            ./ios/build_release.log
+          if-no-files-found: ignore
+          retention-days: 7
