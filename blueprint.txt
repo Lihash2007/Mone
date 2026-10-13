@@ -1,0 +1,451 @@
+PERSONAL MONEY OS
+Product Requirements & Technical Blueprint
+India-first personal finance platform for iOS and Android
+Master Product Document • Version 1.0 • October 2026
+1. Executive Summary
+Personal Money OS is an India-first cross-platform personal finance application designed to give users one clear view of their money across UPI, bank accounts, cards, cash, recurring payments, peer-to-peer transfers, savings goals and investments. The product is intended to solve a practical problem: digital payments make spending effortless, but financial visibility remains fragmented.
+The app will combine transaction intelligence, budgeting, cash-flow planning, financial goals and an AI assistant. The central experience is not simply showing historical expenses; it is helping users understand where money went, what commitments are coming next, and what amount is available for discretionary spending.
+The product will be built for both iOS and Android, with a shared mobile codebase, a secure backend, a transaction-normalization layer, and an independent AI/ML layer. India-specific integrations and regulatory requirements will be treated as architecture-level concerns from the beginning.
+2. Product Vision
+Vision: Build a personal financial operating system for everyday users in India.
+Core promise:
+Know where your money is going, what is coming next, and how much you can safely spend.
+2.1 Product Principles
+India-first: UPI, cash, bank transfers, cards and Indian spending patterns are first-class concepts.
+Simple by default: users should understand their financial position without reading accounting terminology.
+Explainable intelligence: automated classifications and insights should show enough context for users to correct them.
+User control: users decide categories, budgets, goals and whether an automated interpretation is correct.
+Privacy and security by design: financial information is sensitive and must be minimized, protected and auditable.
+Modular architecture: payment-data integrations, AI models and financial features must be replaceable without rebuilding the mobile client.
+3. Problem Statement
+Problem
+Current user experience
+Product response
+UPI fragmentation
+Many small payments across multiple UPI apps and bank accounts.
+Normalize transactions into one searchable financial timeline.
+Unclear spending
+Users see transaction descriptions rather than useful categories.
+Merchant recognition and intelligent categorization.
+Transfers mistaken for expenses
+Moving money between own accounts can distort budgets.
+Detect internal transfers and credit-card repayments.
+Cash disappears from digital records
+Cash spending is rarely captured consistently.
+Fast cash-entry flow and natural-language input.
+Recurring commitments are easy to miss
+Bills and subscriptions appear only when they are charged.
+Recurring-payment detection and financial calendar.
+Peer-to-peer ambiguity
+UPI transfers to people may be expenses, loans, gifts or transfers.
+Classification with user confirmation and learning.
+Multiple financial obligations
+Rent, cards, SIPs, subscriptions and bills are spread across services.
+Upcoming commitments and cash-flow forecast.
+Budgeting is reactive
+Users learn they overspent after the month ends.
+Safe-to-spend and live budget progress.
+4. Target Users
+College students managing UPI, cash and limited monthly income.
+Young professionals receiving salary and using UPI, cards and subscriptions.
+Families managing multiple accounts, bills and recurring commitments.
+Freelancers and small earners with irregular income.
+Users who want financial visibility without maintaining spreadsheets manually.
+4.1 Primary Use Cases
+Track all everyday spending.
+Understand monthly income versus expenses.
+Set and monitor category budgets.
+Identify recurring bills and subscriptions.
+Distinguish real expenses from transfers and repayments.
+Track money lent to or borrowed from other people.
+Plan savings goals.
+Ask natural-language questions about personal transaction history.
+Receive alerts about unusual or unexpected spending.
+5. Product Scope
+Module
+MVP
+Future
+Transaction management
+Yes
+Advanced reconciliation
+UPI-aware categorization
+Yes
+Deeper merchant intelligence
+Cash tracking
+Yes
+Receipt/OCR workflows
+Budgets
+Yes
+Adaptive budget recommendations
+Goals
+Yes
+Advanced scenario planning
+Recurring payments
+Yes
+Prediction and optimization
+Credit cards
+Yes
+Rewards/benefit intelligence
+AI assistant
+Basic
+Advanced financial copilot
+Account Aggregator
+Architecture-ready
+Consent-based integration
+Investment tracking
+Basic/manual
+Expanded portfolio connectivity
+6. Core Feature Set
+6.1 Unified Financial Dashboard
+Current available balance view based on configured accounts and data freshness.
+Income, spending and savings summary.
+Category spending breakdown.
+Upcoming bills and recurring commitments.
+Budget status.
+Savings-goal progress.
+AI-generated insight cards.
+6.2 Transaction Timeline
+Searchable transaction feed.
+Filters by account, payment method, category, merchant, date and transaction type.
+Editable category and transaction metadata.
+Transaction notes and tags.
+Support for UPI, card, bank transfer and cash records.
+6.3 Transaction Intelligence
+Merchant normalization.
+Category/sub-category classification.
+Internal-transfer detection.
+Credit-card-payment detection.
+Refund detection.
+Recurring transaction detection.
+Peer-to-peer transfer classification.
+6.4 Budgeting
+Monthly and category budgets.
+Budget progress in real time.
+Overspending warnings.
+Flexible custom categories.
+Budget rollover option where appropriate.
+AI-assisted budget suggestions based on historical behavior.
+6.5 Safe-to-Spend
+Estimate discretionary spending capacity from current available funds, upcoming commitments, configured savings goals and user-defined reserves.
+Show the assumptions behind the number.
+Allow users to adjust assumptions.
+6.6 Financial Goals
+Goal name, target amount and target date.
+Current progress.
+Required contribution estimate.
+Manual contribution tracking.
+Goal history.
+6.7 Recurring Payments
+Detect repeated transactions.
+Show expected next occurrence.
+Group subscriptions and bills.
+Calendar view of expected commitments.
+6.8 Lending and Borrowing
+Track money lent and borrowed.
+Due dates and status.
+Separate lending/borrowing from normal expenses.
+Optional reminders.
+6.9 Split Expenses
+Record shared expenses.
+Track amounts owed and received.
+Keep settlements separate from original expense records.
+6.10 AI Financial Assistant
+Natural-language queries over the user's authorized financial data.
+Explain spending changes.
+Summarize categories and periods.
+Identify recurring patterns and anomalies.
+Answer with transaction evidence rather than unsupported assumptions.
+7. India-Specific Transaction Model
+The transaction engine must distinguish financial events rather than treating every money movement as an expense.
+Transaction type
+Example
+Budget impact
+EXPENSE
+₹500 restaurant purchase
+Counts as spending
+INCOME
+Salary credit
+Counts as income
+INTERNAL_TRANSFER
+HDFC → SBI
+No net spending
+CREDIT_CARD_PAYMENT
+Bank → card bill
+No duplicate expense
+REFUND
+Merchant refund
+Offsets relevant spending
+CASH_WITHDRAWAL
+ATM withdrawal
+Moves money to cash; not automatically an expense
+CASH_EXPENSE
+₹100 cash lunch
+Counts as spending
+LENDING
+₹2,000 sent to friend as loan
+Not normal consumption
+BORROWING
+₹2,000 received from friend
+Not ordinary income
+INVESTMENT
+SIP contribution
+Tracked separately from consumption
+7.1 UPI Peer-to-Peer Classification
+A payment to a person cannot reliably be treated as an expense from the transaction alone. The app should present a lightweight confirmation when confidence is low, such as: Food split, Loan, Gift, Rent, Transfer, or Other. User corrections should improve future classification.
+8. AI and ML Layer
+Capability
+Input
+Output
+Transaction categorization
+Merchant, description, amount, history
+Category + confidence
+Merchant normalization
+Raw transaction description
+Normalized merchant entity
+Transfer detection
+Source, destination, amount, timing
+Transfer classification
+Recurring detection
+Historical transactions
+Recurring pattern + next estimate
+Anomaly detection
+User's historical behavior
+Unusual transaction signal
+Cash-flow forecasting
+Income + recurring commitments + history
+Projected cash position
+Natural-language assistant
+User query + authorized data
+Explainable answer
+8.1 Explainability Requirement
+AI outputs should distinguish observed transaction facts from inference. For example, the app may say 'This merchant was categorized as Food based on previous transactions' rather than presenting a classification as certain when the evidence is weak.
+9. Mobile Application UX
+The app should use a clean, fast, mobile-first interface with a small number of primary navigation destinations.
+Screen
+Purpose
+Key elements
+Home
+Financial overview
+Safe-to-spend, balances, budget, insights, upcoming
+Transactions
+Financial timeline
+Search, filters, categories, transaction details
+Budget
+Control spending
+Category budgets, progress, alerts
+Goals
+Plan savings
+Goals, progress, contributions
+Insights
+Understand patterns
+Trends, recurring payments, anomalies
+Assistant
+Ask questions
+Natural-language finance interface
+Accounts
+Manage sources
+Banks, cards, cash, manual accounts
+Settings
+Security and preferences
+Privacy, notifications, categories, export
+9.1 Quick Add
+A prominent quick-add action should support:
+Expense
+Income
+Transfer
+Lending
+Borrowing
+Cash transaction
+Goal contribution
+10. Technical Architecture
+Recommended architecture:
+iOS / Android mobile app → API gateway → authentication and user service → transaction service → normalization/classification engine → budgeting/forecasting engine → AI assistant → PostgreSQL/Redis and secure financial-data integration layer.
+Layer
+Recommended technology
+Responsibility
+Mobile
+Flutter + Dart
+Cross-platform iOS/Android application
+Backend API
+Python + FastAPI
+Business APIs and authentication
+Database
+PostgreSQL
+Users, accounts, transactions, budgets, goals
+Cache/queues
+Redis
+Caching, jobs and rate limiting
+ML
+Python + scikit-learn / appropriate ML stack
+Classification and anomaly models
+AI
+LLM service behind controlled backend APIs
+Natural-language finance assistant
+Infrastructure
+AWS + Docker
+Deployment and scaling
+Observability
+Centralized logs/metrics/tracing
+Reliability and security monitoring
+11. High-Level Data Model
+Entity
+Important fields
+User
+id, profile, preferences, security settings
+FinancialAccount
+id, type, institution, masked identifier, currency, status
+Transaction
+id, account_id, amount, timestamp, merchant, type, category, confidence
+Category
+id, name, parent_category, user_defined
+Budget
+id, category_id, period, limit, rollover
+Goal
+id, name, target_amount, current_amount, target_date
+RecurringPayment
+id, merchant, amount, frequency, next_expected_date
+LendingRecord
+id, person, amount, due_date, status
+BorrowingRecord
+id, person, amount, due_date, status
+Insight
+id, type, evidence, created_at, status
+ConsentRecord
+id, provider, purpose, status, timestamps
+12. API Modules
+Authentication and session APIs
+User profile and preferences APIs
+Financial account APIs
+Transaction ingestion and CRUD APIs
+Transaction classification APIs
+Budget APIs
+Goal APIs
+Recurring-payment APIs
+Lending/borrowing APIs
+Analytics and insight APIs
+AI assistant APIs
+Notification APIs
+Consent and data-access APIs
+Audit and security APIs
+13. Security, Privacy and Compliance
+Use encryption in transit and at rest.
+Never store UPI PINs, OTPs, CVVs, bank passwords or other authentication secrets.
+Use least-privilege access for services and data.
+Separate authentication secrets from financial records.
+Maintain audit logs for sensitive account and data-access events.
+Provide consent records and data-access transparency.
+Provide account/data export and deletion workflows where applicable.
+Minimize personally identifiable and financial data collected.
+Use secure mobile storage for tokens and device credentials.
+Perform threat modeling, penetration testing and dependency/security scanning before production launch.
+Treat RBI/NPCI, privacy and other applicable Indian regulatory requirements as a dedicated compliance workstream; validate the exact obligations for the final business model and integrations with qualified legal/compliance professionals before launch.
+13.1 Account Aggregator Strategy
+The architecture should be designed so consent-based financial data connectivity can be integrated without coupling the mobile app to a particular provider. The product should evaluate India's Account Aggregator ecosystem and applicable regulated-partner requirements before implementing live financial-data connectivity. The initial prototype can use manual/imported transaction data while the integration and compliance model is validated.
+14. Notifications
+Budget nearing limit.
+Unusual transaction detected.
+Upcoming recurring payment.
+Credit-card due-date reminder.
+Goal contribution reminder.
+Lending/borrowing due date.
+Monthly financial summary.
+Data synchronization or consent status change.
+15. MVP Development Plan
+Phase
+Scope
+Outcome
+Phase 0
+UX research, data model, security model, architecture
+Validated technical foundation
+Phase 1
+Auth, accounts, manual transactions, categories, dashboard
+Usable finance tracker
+Phase 2
+Budgets, goals, recurring payments, cash tracking
+Core money-management product
+Phase 3
+Transaction intelligence, transfer detection, anomaly detection
+India-focused intelligent tracker
+Phase 4
+AI assistant and natural-language queries
+Conversational finance layer
+Phase 5
+Financial-data connectivity and consent architecture
+Automation-ready platform
+Phase 6
+Hardening, testing, security audit, app-store release
+Production launch
+16. MVP Acceptance Criteria
+A user can create an account securely on iOS and Android.
+A user can add bank/card/cash accounts manually.
+A user can record and edit income and expenses.
+A transaction can be categorized and corrected.
+Transfers do not inflate expense totals.
+Credit-card payments do not duplicate the original card purchase.
+Users can create budgets and see live progress.
+Users can create savings goals and track progress.
+Recurring payments can be identified and displayed.
+The dashboard provides a coherent monthly financial summary.
+The application remains useful even without automated bank connectivity.
+Sensitive credentials such as UPI PINs and OTPs are never collected or stored.
+17. Future Roadmap
+Consent-based financial data aggregation.
+More advanced merchant/entity intelligence.
+Receipt scanning and OCR.
+Improved cash-flow forecasting.
+Personalized financial education.
+Expanded investment tracking.
+Family/shared budgeting with granular permissions.
+Advanced credit-card and rewards analytics.
+Multi-language support for major Indian languages.
+Financial wellness dashboards.
+Open financial-data integrations subject to applicable regulation and partnerships.
+18. Monetization Model
+Potential model, to validate through user research:
+Free core transaction and budgeting features.
+Premium AI insights and advanced forecasting.
+Premium family/shared finance features.
+Advanced analytics and export.
+Optional paid financial planning/education features where legally and commercially appropriate.
+Avoid business models that create incentives to sell or misuse users' sensitive financial data.
+19. Key Product Differentiator
+The product should not compete merely as another expense tracker. Its differentiation is the combination of India-specific transaction intelligence, UPI-aware classification, cash/card/bank unification, forward-looking commitment tracking, safe-to-spend planning and an explainable AI financial assistant.
+20. Product Success Metrics
+Metric
+Why it matters
+Weekly active users
+Measures recurring usefulness
+Transactions categorized
+Measures financial coverage
+Classification correction rate
+Measures intelligence quality
+Budget creation and retention
+Measures budgeting adoption
+Goal creation/completion
+Measures planning utility
+Recurring-payment detection accuracy
+Measures forward-looking value
+AI query resolution/usefulness
+Measures assistant value
+30-day retention
+Measures sustained product-market usefulness
+Security incidents
+Critical reliability and trust metric
+21. Recommended Initial Build Order
+Finalize product name and brand identity.
+Finalize user personas and top 10 user journeys.
+Design the transaction data model.
+Design mobile information architecture and core screens.
+Build authentication and local secure storage.
+Build accounts + transaction engine.
+Build budgeting and goals.
+Implement transaction normalization/classification.
+Add recurring-payment and transfer detection.
+Add analytics and AI assistant.
+Build integration abstraction for future financial-data providers.
+Complete security testing and compliance review.
+Beta test with real users using non-sensitive/manual or approved test data.
+Prepare production launch for iOS and Android.
+22. Final Product Definition
+Personal Money OS is envisioned as a cross-platform personal financial management application for India. Its first job is to make everyday money understandable. Its second job is to make future commitments visible. Its third job is to reduce the manual effort required to maintain a financial plan.
+The application should therefore be built around a reliable transaction ledger and a strong data model first, with AI layered on top of trustworthy financial records. Automation, UPI-aware intelligence and future financial connectivity should extend that foundation rather than replace it.

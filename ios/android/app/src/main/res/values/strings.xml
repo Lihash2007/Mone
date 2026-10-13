@@ -1,0 +1,4 @@
+<resources>
+    <string name="shortcut_add_expense_short">Add Expense</string>
+    <string name="shortcut_add_expense_long">Log a new expense in Walue</string>
+</resources>

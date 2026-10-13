@@ -1,0 +1,49 @@
+# Root .gitignore for mone
+
+# Build artifacts & releases
+build/
+**/build/
+*.apk
+*.aab
+.dart_tool/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+.vscode/
+
+# Ephemeral iOS / macOS
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.framework
+**/macos/Pods/
+**/macos/Flutter/ephemeral/
+
+# Legacy monolithic frontend (now separated into /android and /ios)
+frontend/
+
+# Python & Backend Virtual Environments
+venv/
+**/venv/
+ENV/
+env/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.db
+*.sqlite3
