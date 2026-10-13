@@ -1,6 +1,33 @@
 import Foundation
 import AppIntents
 import ActivityKit
+import UserNotifications
+
+// MARK: - 0. Notification Categories Registration
+public func registerMoneNotificationCategories() {
+    let confirmAction = UNNotificationAction(
+        identifier: "confirm_ok",
+        title: "✓ Confirm",
+        options: []
+    )
+    let transferAction = UNNotificationAction(
+        identifier: "change_transfer",
+        title: "⇄ Transfer",
+        options: []
+    )
+    let incomeAction = UNNotificationAction(
+        identifier: "change_income",
+        title: "+ Income",
+        options: []
+    )
+    let category = UNNotificationCategory(
+        identifier: "transaction_actions",
+        actions: [confirmAction, transferAction, incomeAction],
+        intentIdentifiers: [],
+        options: [.customDismissAction]
+    )
+    UNUserNotificationCenter.current().setNotificationCategories([category])
+}
 
 // MARK: - 1. Shared Storage (App Group + Standard Fallback)
 public struct MoneSharedStorage {
@@ -18,6 +45,33 @@ public struct MoneSharedStorage {
             list = decoded
         }
         list.append(txData)
+        if let newData = try? JSONSerialization.data(withJSONObject: list),
+           let jsonStr = String(data: newData, encoding: .utf8) {
+            storage.set(jsonStr, forKey: "pending_transactions_json")
+            storage.synchronize()
+        }
+    }
+
+    public static func updatePendingTransaction(id: String, actionId: String) {
+        var list: [[String: Any]] = []
+        if let currentJson = storage.string(forKey: "pending_transactions_json"),
+           let data = currentJson.data(using: .utf8),
+           let decoded = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            list = decoded
+        }
+        for i in 0..<list.count {
+            if let txId = list[i]["id"] as? String, txId == id {
+                if actionId == "confirm_ok" {
+                    list[i]["confirmed"] = true
+                } else if actionId == "change_transfer" {
+                    list[i]["type"] = "TRANSFER"
+                    list[i]["confirmed"] = true
+                } else if actionId == "change_income" {
+                    list[i]["type"] = "INCOME"
+                    list[i]["confirmed"] = true
+                }
+            }
+        }
         if let newData = try? JSONSerialization.data(withJSONObject: list),
            let jsonStr = String(data: newData, encoding: .utf8) {
             storage.set(jsonStr, forKey: "pending_transactions_json")
@@ -163,7 +217,7 @@ public struct MoneSmsParser {
     }
 }
 
-// MARK: - 3. Headless Background Intent for Shortcuts
+// MARK: - 3. Headless Background Intent for Shortcuts (Log Bank SMS)
 @available(iOS 16.0, *)
 public struct LogBankSmsIntent: AppIntent {
     public static var title: LocalizedStringResource = "Log Bank SMS in mone"
@@ -204,9 +258,12 @@ public struct LogBankSmsIntent: AppIntent {
             return .result(dialog: "Message does not match a verified transaction.")
         }
         
-        // Save to Shared Queue for Flutter SQLite sync
+        let notifId = UUID().uuidString
         let isoDate = ISO8601DateFormatter().string(from: Date())
+        
+        // Save to Shared Queue for Flutter SQLite sync
         MoneSharedStorage.enqueuePendingTransaction([
+            "id": notifId,
             "rawBody": trimmed,
             "sender": senderAddress ?? "",
             "amount": parsed.amount,
@@ -215,7 +272,8 @@ public struct LogBankSmsIntent: AppIntent {
             "bankName": parsed.bankName,
             "accountMask": parsed.accountMask,
             "availableBalance": parsed.availableBalance ?? 0.0,
-            "timestamp": isoDate
+            "timestamp": isoDate,
+            "confirmed": false
         ])
         
         MoneSharedStorage.recordTransaction(
@@ -226,7 +284,7 @@ public struct LogBankSmsIntent: AppIntent {
             balance: parsed.availableBalance
         )
         
-        // Show Dynamic Island / Live Activity
+        // Show Dynamic Island / Live Activity (if enabled)
         if #available(iOS 16.1, *) {
             MoneLiveActivityManager.showTransactionActivity(
                 amount: parsed.amount,
@@ -237,12 +295,114 @@ public struct LogBankSmsIntent: AppIntent {
             )
         }
         
+        // Ensure action categories are registered before scheduling
+        registerMoneNotificationCategories()
+        
+        // Post Native Interactive Notification Banner (with Confirm, Transfer, Income buttons)
+        let center = UNUserNotificationCenter.current()
+        let notifContent = UNMutableNotificationContent()
+        notifContent.title = parsed.isDebit ? "⚡ ₹\(String(format: "%.0f", parsed.amount)) Spent" : "⚡ ₹\(String(format: "%.0f", parsed.amount)) Received"
+        var bodyStr = "\(parsed.merchant) • \(parsed.bankName)"
+        if let bal = parsed.availableBalance {
+            bodyStr += " • Avl: ₹\(String(format: "%.0f", bal))"
+        }
+        bodyStr += "\nHold banner to Confirm or Transfer."
+        notifContent.body = bodyStr
+        notifContent.sound = .default
+        notifContent.categoryIdentifier = "transaction_actions"
+        notifContent.userInfo = [
+            "id": notifId,
+            "amount": parsed.amount,
+            "merchant": parsed.merchant,
+            "type": parsed.isDebit ? "EXPENSE" : "INCOME",
+            "bankName": parsed.bankName
+        ]
+        
+        let notifTrigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
+        let notifRequest = UNNotificationRequest(identifier: notifId, content: notifContent, trigger: notifTrigger)
+        center.add(notifRequest) { error in
+            if let error = error {
+                print("Failed to schedule notification: \(error)")
+            }
+        }
+        
         let typeStr = parsed.isDebit ? "debited at" : "credited from"
         return .result(dialog: "Recorded ₹\(String(format: "%.0f", parsed.amount)) \(typeStr) \(parsed.merchant) in mone.")
     }
 }
 
-// MARK: - 4. Siri Daily Spending Intent
+// MARK: - 4. Quick Log Expense Intent (Manual / Siri Headless Entry)
+@available(iOS 16.0, *)
+public struct QuickLogExpenseIntent: AppIntent {
+    public static var title: LocalizedStringResource = "Quick Log Expense in mone"
+    public static var description = IntentDescription("Log an expense amount and merchant directly without opening the app.")
+    public static var openAppWhenRun: Bool = false
+    
+    @Parameter(title: "Amount (₹)")
+    public var amount: Double
+    
+    @Parameter(title: "Merchant / Title", default: "Expense")
+    public var merchant: String
+    
+    @Parameter(title: "Bank Name", default: "Bank")
+    public var bankName: String
+    
+    public init() {}
+    
+    public func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard amount > 0 else {
+            return .result(dialog: "Please provide a valid amount greater than 0.")
+        }
+        let cleanMerchant = merchant.isEmpty ? "Expense" : merchant
+        let notifId = UUID().uuidString
+        let isoDate = ISO8601DateFormatter().string(from: Date())
+        
+        MoneSharedStorage.enqueuePendingTransaction([
+            "id": notifId,
+            "rawBody": "Manual: ₹\(amount) at \(cleanMerchant)",
+            "sender": "QuickLog",
+            "amount": amount,
+            "merchant": cleanMerchant,
+            "type": "EXPENSE",
+            "bankName": bankName,
+            "accountMask": "",
+            "availableBalance": 0.0,
+            "timestamp": isoDate,
+            "confirmed": true
+        ])
+        
+        MoneSharedStorage.recordTransaction(
+            amount: amount,
+            isDebit: true,
+            merchant: cleanMerchant,
+            bankName: bankName,
+            balance: nil
+        )
+        
+        registerMoneNotificationCategories()
+        let center = UNUserNotificationCenter.current()
+        let notifContent = UNMutableNotificationContent()
+        notifContent.title = "⚡ ₹\(String(format: "%.0f", amount)) Logged"
+        notifContent.body = "\(cleanMerchant) • \(bankName)\nHold banner to change type if needed."
+        notifContent.sound = .default
+        notifContent.categoryIdentifier = "transaction_actions"
+        notifContent.userInfo = [
+            "id": notifId,
+            "amount": amount,
+            "merchant": cleanMerchant,
+            "type": "EXPENSE",
+            "bankName": bankName
+        ]
+        
+        let notifTrigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
+        let notifRequest = UNNotificationRequest(identifier: notifId, content: notifContent, trigger: notifTrigger)
+        center.add(notifRequest, withCompletionHandler: nil)
+        
+        return .result(dialog: "Logged ₹\(String(format: "%.0f", amount)) at \(cleanMerchant) in mone.")
+    }
+}
+
+// MARK: - 5. Siri Daily Spending Intent
 @available(iOS 16.0, *)
 public struct CheckDailySpendingIntent: AppIntent {
     public static var title: LocalizedStringResource = "Check Daily Spending"
@@ -261,7 +421,7 @@ public struct CheckDailySpendingIntent: AppIntent {
     }
 }
 
-// MARK: - 5. Siri Balance Check Intent
+// MARK: - 6. Siri Balance Check Intent
 @available(iOS 16.0, *)
 public struct GetBalanceIntent: AppIntent {
     public static var title: LocalizedStringResource = "Get Total Balance"
@@ -276,7 +436,7 @@ public struct GetBalanceIntent: AppIntent {
     }
 }
 
-// MARK: - 6. Siri App Shortcuts Provider
+// MARK: - 7. Siri App Shortcuts Provider
 @available(iOS 16.0, *)
 public struct MoneShortcutsProvider: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
@@ -300,12 +460,13 @@ public struct MoneShortcutsProvider: AppShortcutsProvider {
             systemImageName: "indianrupeesign.circle.fill"
         )
         AppShortcut(
-            intent: LogBankSmsIntent(),
+            intent: QuickLogExpenseIntent(),
             phrases: [
-                "Log bank SMS in \(.applicationName)"
+                "Log expense in \(.applicationName)",
+                "Quick log in \(.applicationName)"
             ],
-            shortTitle: "Log SMS",
-            systemImageName: "message.fill"
+            shortTitle: "Quick Log",
+            systemImageName: "plus.circle.fill"
         )
     }
 }

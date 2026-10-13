@@ -22,6 +22,8 @@ import 'screens/analytics_screen.dart';
 import 'services/indian_banks.dart';
 import 'services/sms_parser.dart';
 
+const MethodChannel _nativeChannel = MethodChannel('com.personalmoneyos.mone/native_sync');
+
 int? smartAccountMatch(String text, List<Map<String, dynamic>> accountsData, {String? senderAddress}) {
   return IndianBankDirectory.matchAccountFromSms(
     senderAddress: senderAddress,
@@ -92,6 +94,8 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
   String? senderAddress,
   DateTime? date,
   bool showNotification = true,
+  String? overrideType,
+  bool isConfirmed = false,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
@@ -112,6 +116,16 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
   String typeStr = parsed.type;
   String merchant = parsed.merchant;
   String category = parsed.category;
+
+  if (overrideType != null && overrideType.isNotEmpty) {
+    typeStr = overrideType;
+    if (typeStr == 'TRANSFER') {
+      category = 'Transfer';
+    } else if (typeStr == 'INCOME') {
+      isIncome = true;
+      category = 'Income';
+    }
+  }
 
   String dbPath = p.join(await getDatabasesPath(), 'money_os_v8.db');
   Database db = await openDatabase(dbPath);
@@ -153,7 +167,7 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
     'date': txDate.toIso8601String(),
     'goal_id': null,
     'account_id': matchedAccountId,
-    'needs_review': 1,
+    'needs_review': isConfirmed ? 0 : 1,
   });
   
   // 3. Update account balance (using Ground-Truth balance from SMS if present)
@@ -711,21 +725,46 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   Future<void> _syncPendingBackgroundTransactions() async {
     if (!_isDbReady) return;
     try {
-      final jsonStr = await HomeWidget.getWidgetData<String>('pending_transactions_json');
+      String? jsonStr = await HomeWidget.getWidgetData<String>('pending_transactions_json');
+      if (jsonStr == null || jsonStr.isEmpty || jsonStr == '[]') {
+        try {
+          final nativeStr = await _nativeChannel.invokeMethod<String>('getPendingTransactions');
+          if (nativeStr != null && nativeStr.isNotEmpty && nativeStr != '[]') {
+            jsonStr = nativeStr;
+          }
+        } catch (_) {}
+      }
+
       if (jsonStr != null && jsonStr.isNotEmpty) {
         final dynamic decoded = jsonDecode(jsonStr);
         if (decoded is List && decoded.isNotEmpty) {
+          bool anyAdded = false;
           for (var item in decoded) {
             if (item is Map) {
               String? rawBody = item['rawBody']?.toString();
               String? sender = item['sender']?.toString();
+              String? overrideType = item['type']?.toString();
+              bool isConfirmed = item['confirmed'] == true;
               if (rawBody != null && rawBody.isNotEmpty) {
-                await processIncomingSmsString(rawBody: rawBody, senderAddress: sender, showNotification: false);
+                final tx = await processIncomingSmsString(
+                  rawBody: rawBody,
+                  senderAddress: sender,
+                  showNotification: false,
+                  overrideType: overrideType,
+                  isConfirmed: isConfirmed,
+                );
+                if (tx != null) anyAdded = true;
               }
             }
           }
           await HomeWidget.saveWidgetData<String>('pending_transactions_json', null);
-          if (mounted) setState(() {});
+          try {
+            await _nativeChannel.invokeMethod('clearPendingTransactions');
+          } catch (_) {}
+          if (anyAdded && mounted) {
+            await _updateWidget();
+            setState(() {});
+          }
         }
       }
     } catch (e) {
@@ -799,6 +838,12 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         name: 'MoneBalanceWidget',
         iOSName: 'MoneBalanceWidget',
       );
+      try {
+        await _nativeChannel.invokeMethod('syncBalanceToWidget', {
+          'balance': walletBalance,
+          'todaySpent': todaySpent,
+        });
+      } catch (_) {}
     } catch (e) {
       debugPrint("Error updating widget: $e");
     }
@@ -895,42 +940,84 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('Setup Steps (Takes 1 Minute):', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '100% SILENT BACKGROUND SYNC: mone logs transactions in ~50ms without opening the app and delivers an interactive Lock Screen confirmation banner.',
+                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text('1-Minute Setup Guide (Never Opens App):', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               _buildShortcutStep('1', 'Open the native Shortcuts app on your iPhone.'),
-              _buildShortcutStep('2', 'Go to Automation tab -> tap + (New Automation).'),
-              _buildShortcutStep('3', 'Select "Message" -> When I receive a message containing keywords: "debited", "credited", "UPI", "spent".'),
-              _buildShortcutStep('4', 'Add Action: "Open URLs" -> paste URL scheme: mone://import-sms?text=[Shortcut Input]'),
-              _buildShortcutStep('5', 'Turn off "Ask Before Running" and tap Done!'),
+              _buildShortcutStep('2', 'Tap Automation at the bottom -> tap + (New Automation).'),
+              _buildShortcutStep('3', 'Select "Message" -> When I receive message containing: "debited", "spent", "credited", "UPI", "INR", "Rs".'),
+              _buildShortcutStep('4', 'Select "Run Immediately" (Turn OFF "Notify When Run").'),
+              _buildShortcutStep('5', 'Tap "New Blank Automation" -> tap "Add Action".'),
+              _buildShortcutStep('6', 'Search "mone" -> Tap the native action "Log Bank SMS in mone".'),
+              _buildShortcutStep('7', 'Tap the blue "SMS Body" field -> select "Shortcut Input" (or Message).'),
+              _buildShortcutStep('8', 'Tap Done in top right corner. You are completely all set!'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF818CF8).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.2)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('How Lock Screen Confirmation Works:', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 6),
+                    Text(
+                      '• When SMS arrives, mone fires an interactive notification banner.\n'
+                      '• Long-press or pull down the banner from Lock Screen.\n'
+                      '• Tap [✓ Confirm] to verify, [⇄ Transfer] for self-transfers, or [+ Income] for salary/deposits.\n'
+                      '• You never need to launch the app to confirm!',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Clipboard.setData(const ClipboardData(text: 'mone://import-sms?text='));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Copied URL Scheme: mone://import-sms?text= to clipboard!'), backgroundColor: Color(0xFF10B981)),
-                        );
-                      },
-                      icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white),
-                      label: const Text('Copy URL Scheme', style: TextStyle(color: Colors.white, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF27272A), padding: const EdgeInsets.symmetric(vertical: 14)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _handleIncomingUri(Uri.parse('mone://import-sms?text=HDFC%20Bank%3A%20Rs%20649.00%20debited%20from%20a%2Fc%20**4321%20at%20Swiggy%20UPI.%20Avl%20Bal%3A%20INR%2024500.00'));
-                      },
-                      icon: const Icon(Icons.play_arrow_rounded, size: 20, color: Colors.white),
-                      label: const Text('Test Simulation', style: TextStyle(color: Colors.white, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 14)),
-                    ),
-                  ),
-                ],
+              ElevatedButton.icon(
+                onPressed: () async {
+                  try {
+                    await _nativeChannel.invokeMethod('testNotification');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Test notification banner fired! Long press it to test [✓ Confirm] / [⇄ Transfer]!'),
+                          backgroundColor: Color(0xFF10B981),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    await _handleIncomingUri(Uri.parse('mone://import-sms?text=HDFC%20Bank%3A%20Rs%20450.00%20debited%20from%20a%2Fc%20**4321%20at%20Swiggy%20UPI.%20Avl%20Bal%3A%20INR%2034500.00'));
+                  }
+                },
+                icon: const Icon(Icons.notifications_active_rounded, size: 20, color: Colors.white),
+                label: const Text('Test Interactive Lock Screen Banner', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
               ),
               const SizedBox(height: 12),
             ],
@@ -3989,21 +4076,58 @@ class HowToUseScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-             _buildFeatureCard(Icons.account_balance, 'Indian Banks Directory & Cards', 'Select from 25+ verified Indian banks (SBI, HDFC, ICICI, Axis, PNB, Kotak, etc.) with authentic corporate branding, official gradients, and individual card stacks.'),
-             _buildFeatureCard(Icons.mark_email_unread_rounded, 'Real-Time SMS Auto-Sync', 'Intelligent background SMS reader automatically captures incoming debit & credit alerts via TRAI sender IDs, maps them to your accounts, and delivers instant notification feedback.'),
-             _buildFeatureCard(Icons.account_balance_wallet_rounded, 'Available Balance & Accounts', 'Easily configure your exact available balance in Manage Accounts. Toggle accounts in your overall net worth or edit account credentials at any time.'),
-             _buildFeatureCard(Icons.speed_rounded, 'Safe Spending Pacer', 'The intelligent pacer computes real-time daily safe spend allowances based on your active budget and days remaining in the billing cycle.'),
-             _buildFeatureCard(Icons.vibration_rounded, 'Shake to Log Rapid Entry', 'Need to record an expense quickly? Shake your phone anywhere across the app to immediately open the rapid transaction logger.'),
-             _buildFeatureCard(Icons.insights_rounded, 'Financial Intelligence & Diagnostics', 'Comprehensive cash flow analytics, category distributions, recurring cost anomaly detection, and automated micro-savings goal funding.'),
-             _buildFeatureCard(Icons.compare_arrows_rounded, 'Transfers & ATM Cash Flow', 'Transfer funds between accounts or record ATM cash withdrawals without skewing your primary expense metrics or double-counting.'),
-             _buildFeatureCard(Icons.fingerprint_rounded, 'Biometric Security & Export', 'Secure your financial ledger with biometric authentication (Fingerprint / Face ID) and export your complete transaction history to CSV at any time.'),
+             _buildFeatureCard(
+               Icons.bolt_rounded,
+               'Silent Background SMS Tracking',
+               'Log transactions without ever opening the app! In the iOS Shortcuts app, create an Automation for "Message contains debited/spent" -> Set action to "Log Bank SMS in mone" with "Shortcut Input". It runs silently in ~50ms in the background—no app opening and no copy-paste required!',
+               badge: 'ZERO INTERRUPTIONS',
+             ),
+             _buildFeatureCard(
+               Icons.notifications_active_rounded,
+               'Interactive Notification Quick Actions',
+               'When an SMS alert arrives, press and hold (Haptic Touch) or pull down on the banner. Tap [✓ Confirm] to verify, [⇄ Transfer] for self-transfers, or [+ Income] for salary/deposits—directly from your lock screen without opening the app!',
+               badge: 'LOCK SCREEN CONTROL',
+             ),
+             _buildFeatureCard(
+               Icons.animation_rounded,
+               'Dynamic Island & Live Activities',
+               'On iPhone 14 Pro, 15, and 16, a sleek Dynamic Island capsule flashes for 6 seconds upon any transaction showing the merchant, amount, and updated balance. Ensure Settings -> mone -> Live Activities is toggled ON.',
+               badge: 'DYNAMIC ISLAND',
+             ),
+             _buildFeatureCard(
+               Icons.widgets_rounded,
+               'Interactive Home Screen Widgets',
+               'Add the "mone Balance" widget to your Home Screen. Features live net worth, today spend, and recent merchant chip. On iOS 17+, tap the eye icon directly on the widget to blur or unblur your balance!',
+               badge: 'iOS 17 WIDGETS',
+             ),
+             _buildFeatureCard(
+               Icons.mic_rounded,
+               'Siri Intelligence Voice Control',
+               'Ask Siri anytime: "Hey Siri, check daily spending in mone" or "What\'s my balance in mone?" Siri speaks your exact daily expense count and available balance without unlocking.',
+               badge: 'SIRI SHORTCUTS',
+             ),
+             _buildFeatureCard(
+               Icons.account_balance,
+               '25+ Verified Indian Banks & Cards',
+               'Authentic corporate branding, official gradients, and card stacks for SBI, HDFC, ICICI, Axis, Kotak, PNB, Canara, BoB, and more. Balances are matched automatically from bank account numbers.',
+             ),
+             _buildFeatureCard(
+               Icons.content_paste_rounded,
+               'Smart Clipboard & Manual Paste',
+               'Copied a bank SMS from Messages or WhatsApp? Open mone to auto-detect and import with a single tap, or use the Paste tile in Profile to test any message text on the fly.',
+             ),
+             _buildFeatureCard(
+               Icons.fingerprint_rounded,
+               'Biometric Face ID Security',
+               'Your financial data is 100% offline and stays strictly on your iPhone in local SQLite. Secured with Apple Face ID / Touch ID authentication.',
+             ),
           ]
         )
       )
     );
   }
 
-  Widget _buildFeatureCard(IconData icon, String title, String desc) {
+  Widget _buildFeatureCard(IconData icon, String title, String desc, {String? badge}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
@@ -4021,7 +4145,23 @@ class HowToUseScreen extends StatelessWidget {
              child: Column(
                crossAxisAlignment: CrossAxisAlignment.start,
                children: [
-                 Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                 Row(
+                   children: [
+                     Expanded(
+                       child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                     ),
+                     if (badge != null)
+                       Container(
+                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                         decoration: BoxDecoration(
+                           color: const Color(0xFF818CF8).withOpacity(0.2),
+                           borderRadius: BorderRadius.circular(10),
+                           border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.4)),
+                         ),
+                         child: Text(badge, style: const TextStyle(color: Color(0xFF818CF8), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                       ),
+                   ],
+                 ),
                  const SizedBox(height: 8),
                  Text(desc, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
                ]
