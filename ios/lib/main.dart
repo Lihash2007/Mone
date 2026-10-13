@@ -478,7 +478,15 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     try {
       final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
       const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+      const DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      const InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsDarwin,
+      );
       await flutterLocalNotificationsPlugin.initialize(
         settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse details) async {
@@ -490,16 +498,21 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
 
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'mone_sync_channel', 'Mone Auto Sync',
-        description: 'Instant notification on SMS transactions',
-        importance: Importance.max,
-        playSound: true,
-        enableVibration: true,
-      );
-      final androidPlugin = flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      await androidPlugin?.createNotificationChannel(channel);
-      await androidPlugin?.requestNotificationsPermission();
+      if (Platform.isAndroid) {
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'mone_sync_channel', 'Mone Auto Sync',
+          description: 'Instant notification on SMS transactions',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+        );
+        final androidPlugin = flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+        await androidPlugin?.createNotificationChannel(channel);
+        await androidPlugin?.requestNotificationsPermission();
+      } else if (Platform.isIOS) {
+        final iosPlugin = flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+        await iosPlugin?.requestPermissions(alert: true, badge: true, sound: true);
+      }
     } catch (_) {}
 
     final dbPath = await getDatabasesPath();
