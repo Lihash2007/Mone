@@ -182,10 +182,31 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
     try {
       final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
       const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
+      final List<DarwinNotificationCategory> darwinNotificationCategories = <DarwinNotificationCategory>[
+        DarwinNotificationCategory(
+          'transaction_actions',
+          actions: <DarwinNotificationAction>[
+            DarwinNotificationAction.plain(
+              'confirm_ok',
+              '✓ Confirm',
+            ),
+            DarwinNotificationAction.plain(
+              'change_transfer',
+              '⇄ Transfer',
+            ),
+            DarwinNotificationAction.plain(
+              'change_income',
+              '+ Income',
+            ),
+          ],
+        ),
+      ];
+
+      final DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
         requestSoundPermission: true,
+        notificationCategories: darwinNotificationCategories,
       );
       const InitializationSettings initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
@@ -239,6 +260,7 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        categoryIdentifier: 'transaction_actions',
       );
       final NotificationDetails platformChannelSpecifics = NotificationDetails(
         android: androidPlatformChannelSpecifics,
@@ -481,10 +503,31 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     try {
       final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
       const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
+      final List<DarwinNotificationCategory> darwinNotificationCategories = <DarwinNotificationCategory>[
+        DarwinNotificationCategory(
+          'transaction_actions',
+          actions: <DarwinNotificationAction>[
+            DarwinNotificationAction.plain(
+              'confirm_ok',
+              '✓ Confirm',
+            ),
+            DarwinNotificationAction.plain(
+              'change_transfer',
+              '⇄ Transfer',
+            ),
+            DarwinNotificationAction.plain(
+              'change_income',
+              '+ Income',
+            ),
+          ],
+        ),
+      ];
+
+      final DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
         requestSoundPermission: true,
+        notificationCategories: darwinNotificationCategories,
       );
       const InitializationSettings initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
