@@ -4161,229 +4161,220 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
             },
             itemBuilder: (context, index) {
               final info = widget.cards[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                child: GestureDetector(
-                  onTap: info.onTap,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: LinearGradient(
-                        colors: [info.startColor, info.endColor],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.50),
-                          blurRadius: 26,
-                          offset: const Offset(0, 12),
-                        ),
-                        BoxShadow(
-                          color: info.startColor.withValues(alpha: 0.22),
-                          blurRadius: 24,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+              Widget cardContent = Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: LinearGradient(
+                    colors: [info.startColor, info.endColor],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.50),
+                      blurRadius: 26,
+                      offset: const Offset(0, 12),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
-                      child: Stack(
-                        children: [
-                          // 1. Diagonal Specular Glass Light Sheen
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: const Alignment(-1.0, -1.0),
-                                  end: const Alignment(1.0, 1.0),
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0.16),
-                                    Colors.white.withValues(alpha: 0.04),
-                                    Colors.transparent,
-                                    Colors.white.withValues(alpha: 0.06),
-                                  ],
-                                  stops: const [0.0, 0.35, 0.65, 1.0],
-                                ),
-                              ),
+                    BoxShadow(
+                      color: info.startColor.withValues(alpha: 0.22),
+                      blurRadius: 24,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Stack(
+                    children: [
+                      // 1. Diagonal Specular Glass Light Sheen
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: const Alignment(-1.0, -1.0),
+                              end: const Alignment(1.0, 1.0),
+                              colors: [
+                                Colors.white.withValues(alpha: 0.16),
+                                Colors.white.withValues(alpha: 0.04),
+                                Colors.transparent,
+                                Colors.white.withValues(alpha: 0.06),
+                              ],
+                              stops: const [0.0, 0.35, 0.65, 1.0],
                             ),
                           ),
+                        ),
+                      ),
 
-                          // 2. Specular Top Rim Hairline
-                          Positioned(
-                            top: 0,
-                            left: 20,
-                            right: 20,
-                            height: 1.2,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0.0),
-                                    Colors.white.withValues(alpha: 0.40),
-                                    Colors.white.withValues(alpha: 0.0),
-                                  ],
-                                  stops: const [0.0, 0.5, 1.0],
-                                ),
-                              ),
+                      // 2. Specular Top Rim Hairline
+                      Positioned(
+                        top: 0,
+                        left: 20,
+                        right: 20,
+                        height: 1.2,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white.withValues(alpha: 0.0),
+                                Colors.white.withValues(alpha: 0.40),
+                                Colors.white.withValues(alpha: 0.0),
+                              ],
+                              stops: const [0.0, 0.5, 1.0],
                             ),
                           ),
+                        ),
+                      ),
 
-                          // 3. Card Content
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      // 3. Card Content
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top Row: EMV Gold Chip, Contactless Waves & Network Badge
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Top Row: EMV Gold Chip, Contactless Waves & Network Badge
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      children: [
-                                        // Metallic Micro-Circuit EMV Chip
-                                        Container(
-                                          width: 38,
-                                          height: 28,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(7),
-                                            gradient: const LinearGradient(
-                                              colors: [Color(0xFFE8CA82), Color(0xFFC79E47), Color(0xFFF3E0A3)],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            ),
-                                            border: Border.all(color: const Color(0xFF947325), width: 0.8),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.25),
-                                                blurRadius: 5,
-                                                offset: const Offset(0, 1),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Center(
-                                            child: Container(
-                                              width: 16,
-                                              height: 16,
-                                              decoration: BoxDecoration(
-                                                border: Border.all(color: const Color(0xFF7A5C14), width: 0.8),
-                                              ),
-                                            ),
-                                          ),
+                                    // Metallic Micro-Circuit EMV Chip
+                                    Container(
+                                      width: 38,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(7),
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFFE8CA82), Color(0xFFC79E47), Color(0xFFF3E0A3)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
                                         ),
-                                        const SizedBox(width: 10),
-                                        Icon(Icons.contactless_rounded, color: Colors.white.withValues(alpha: 0.70), size: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        if (info.bankBadge != null) ...[
-                                          info.bankBadge!,
-                                          const SizedBox(width: 8),
+                                        border: Border.all(color: const Color(0xFF947325), width: 0.8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.25),
+                                            blurRadius: 5,
+                                            offset: const Offset(0, 1),
+                                          ),
                                         ],
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      ),
+                                      child: Center(
+                                        child: Container(
+                                          width: 16,
+                                          height: 16,
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.8),
-                                          ),
-                                          child: Text(
-                                            info.network,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 1.2,
-                                            ),
+                                            border: Border.all(color: const Color(0xFF7A5C14), width: 0.8),
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ),
+                                    const SizedBox(width: 10),
+                                    Icon(Icons.contactless_rounded, color: Colors.white.withValues(alpha: 0.70), size: 20),
                                   ],
                                 ),
-
-                                const Spacer(),
-
-                                // Title & Balance
-                                Text(
-                                  info.title.toUpperCase(),
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.70),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.4,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  info.amount,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.6,
-                                  ),
-                                ),
-
-                                const Spacer(),
-
-                                // Bottom Row: Account Number & Cardholder
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          info.subtitle,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(alpha: 0.90),
-                                            fontSize: 13,
-                                            fontFamily: 'monospace',
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: 2.0,
-                                          ),
+                                    if (info.bankBadge != null) ...[
+                                      info.bankBadge!,
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.8),
+                                      ),
+                                      child: Text(
+                                        info.network,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 1.2,
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          info.cardHolder,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(alpha: 0.65),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 1.2,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          'MANAGE',
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(alpha: 0.55),
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1.2,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.45), size: 10),
-                                      ],
+                                      ),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+
+                            const Spacer(),
+
+                            // Title & Balance
+                            Text(
+                              info.title.toUpperCase(),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.70),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              info.amount,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 34,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.6,
+                              ),
+                            ),
+
+                            const Spacer(),
+
+                            // Bottom Row: Account Number & Cardholder
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      info.subtitle,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.90),
+                                        fontSize: 13,
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2.0,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      info.cardHolder,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.65),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
+              );
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                child: info.onTap != null
+                    ? GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: info.onTap,
+                        child: cardContent,
+                      )
+                    : cardContent,
               );
             },
           ),
@@ -4427,566 +4418,6 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
   }
 }
 
-// ---------------------------------------------------------
-// FACETED 3D LIQUID GLASS DECK (CONCEPT A)
-// ---------------------------------------------------------
-class Faceted3DCardDeck extends StatefulWidget {
-  final List<CardInfo> cards;
-  final ValueChanged<int>? onCardSelected;
-
-  const Faceted3DCardDeck({Key? key, required this.cards, this.onCardSelected}) : super(key: key);
-
-  @override
-  State<Faceted3DCardDeck> createState() => _Faceted3DCardDeckState();
-}
-
-class _Faceted3DCardDeckState extends State<Faceted3DCardDeck> with SingleTickerProviderStateMixin {
-  int _activeIndex = 0;
-  bool _isFanned = false;
-  late AnimationController _animController;
-  late Animation<double> _fanAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
-    _fanAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  void _toggleFan() {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _isFanned = !_isFanned;
-      if (_isFanned) {
-        _animController.forward();
-      } else {
-        _animController.reverse();
-      }
-    });
-  }
-
-  void _selectCard(int index) {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _activeIndex = index;
-      if (_isFanned) {
-        _isFanned = false;
-        _animController.reverse();
-      }
-    });
-    widget.onCardSelected?.call(index);
-    widget.cards[index].onTap?.call();
-  }
-
-  void _nextCard() {
-    if (widget.cards.isEmpty) return;
-    int next = (_activeIndex + 1) % widget.cards.length;
-    _selectCard(next);
-  }
-
-  void _prevCard() {
-    if (widget.cards.isEmpty) return;
-    int prev = (_activeIndex - 1 + widget.cards.length) % widget.cards.length;
-    _selectCard(prev);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.cards.isEmpty) return const SizedBox();
-
-    final count = widget.cards.length;
-    final activeCard = widget.cards[_activeIndex.clamp(0, count - 1)];
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Deck Header Control Bar
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF00F2FE),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0xFF00F2FE),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'CARDS & WALLETS ($count)',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.65),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-              if (count > 1)
-                GestureDetector(
-                  onTap: _toggleFan,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: _isFanned
-                          ? const Color(0xFF00F2FE).withValues(alpha: 0.18)
-                          : Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _isFanned
-                            ? const Color(0xFF00F2FE).withValues(alpha: 0.45)
-                            : Colors.white.withValues(alpha: 0.14),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _isFanned ? Icons.layers_clear_rounded : Icons.filter_none_rounded,
-                          color: _isFanned ? const Color(0xFF67E8F9) : Colors.white70,
-                          size: 13,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          _isFanned ? 'Collapse' : 'Fan Deck (3D)',
-                          style: TextStyle(
-                            color: _isFanned ? const Color(0xFF67E8F9) : Colors.white70,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-
-        // Animated Deck Stage
-        AnimatedBuilder(
-          animation: _fanAnim,
-          builder: (context, child) {
-            double fanProgress = _fanAnim.value;
-            double stageHeight = _isFanned
-                ? 218.0 + (count - 1) * (64.0 * fanProgress)
-                : 228.0;
-
-            return SizedBox(
-              height: stageHeight,
-              child: GestureDetector(
-                onHorizontalDragEnd: (details) {
-                  if (!_isFanned) {
-                    if (details.primaryVelocity != null && details.primaryVelocity! < -100) {
-                      _nextCard();
-                    } else if (details.primaryVelocity != null && details.primaryVelocity! > 100) {
-                      _prevCard();
-                    }
-                  }
-                },
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    if (!_isFanned) ...[
-                      // Stack Layer 2 (Back Card)
-                      if (count > 2)
-                        Positioned(
-                          top: 0,
-                          left: 18,
-                          right: 18,
-                          child: Transform.scale(
-                            scale: 0.88,
-                            alignment: Alignment.topCenter,
-                            child: Opacity(
-                              opacity: 0.50,
-                              child: _buildCardView(widget.cards[(_activeIndex + 2) % count], isStacked: true),
-                            ),
-                          ),
-                        ),
-
-                      // Stack Layer 1 (Mid Card)
-                      if (count > 1)
-                        Positioned(
-                          top: 10,
-                          left: 9,
-                          right: 9,
-                          child: Transform.scale(
-                            scale: 0.94,
-                            alignment: Alignment.topCenter,
-                            child: Opacity(
-                              opacity: 0.80,
-                              child: _buildCardView(widget.cards[(_activeIndex + 1) % count], isStacked: true),
-                            ),
-                          ),
-                        ),
-
-                      // Stack Layer 0 (Hero Active Card)
-                      Positioned(
-                        top: 20,
-                        left: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: () {
-                            if (count > 1) {
-                              _toggleFan();
-                            } else {
-                              activeCard.onTap?.call();
-                            }
-                          },
-                          child: _buildCardView(activeCard, isStacked: false),
-                        ),
-                      ),
-                    ] else ...[
-                      // Fanned Out 3D Vertical Cascade
-                      ...List.generate(count, (index) {
-                        final card = widget.cards[index];
-                        final isHero = index == _activeIndex;
-                        final topOffset = index * (64.0 * fanProgress);
-
-                        return Positioned(
-                          top: topOffset,
-                          left: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: () => _selectCard(index),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(26),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.65),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                  if (isHero)
-                                    BoxShadow(
-                                      color: const Color(0xFF00F2FE).withValues(alpha: 0.30),
-                                      blurRadius: 20,
-                                      spreadRadius: 1,
-                                    ),
-                                ],
-                              ),
-                              child: _buildCardView(card, isStacked: false, isFanned: true, isHero: isHero),
-                            ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-
-        // Mini Liquid Account Selector Pills
-        if (count > 1) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 38,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: count,
-              itemBuilder: (context, i) {
-                final c = widget.cards[i];
-                final isSelected = i == _activeIndex;
-                return GestureDetector(
-                  onTap: () => _selectCard(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF00F2FE).withValues(alpha: 0.20)
-                          : Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF00F2FE).withValues(alpha: 0.60)
-                            : Colors.white.withValues(alpha: 0.12),
-                        width: 1.0,
-                      ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFF00F2FE).withValues(alpha: 0.25),
-                                blurRadius: 10,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (c.bankBadge != null) ...[
-                          c.bankBadge!,
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          c.title,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.60),
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildCardView(CardInfo info, {bool isStacked = false, bool isFanned = false, bool isHero = false}) {
-    return Container(
-      width: double.infinity,
-      height: 206,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: LinearGradient(
-          colors: [info.startColor, info.endColor],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(
-          color: isHero
-              ? const Color(0xFF00F2FE).withValues(alpha: 0.65)
-              : Colors.white.withValues(alpha: 0.18),
-          width: isHero ? 1.6 : 1.1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.50),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: info.startColor.withValues(alpha: 0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: Stack(
-          children: [
-            // Diagonal Specular Glass Light Sheen
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: const Alignment(-1.0, -1.0),
-                    end: const Alignment(1.0, 1.0),
-                    colors: [
-                      Colors.white.withValues(alpha: 0.18),
-                      Colors.white.withValues(alpha: 0.04),
-                      Colors.transparent,
-                      Colors.white.withValues(alpha: 0.08),
-                    ],
-                    stops: const [0.0, 0.32, 0.65, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
-            // Specular Top Rim Hairline
-            Positioned(
-              top: 0,
-              left: 20,
-              right: 20,
-              height: 1.2,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.0),
-                      Colors.white.withValues(alpha: 0.45),
-                      Colors.white.withValues(alpha: 0.0),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
-            // Card Content
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Row: EMV Chip & Network / Bank Badge
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          // Metallic Gold EMV Chip
-                          Container(
-                            width: 36,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(6),
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFE8CA82), Color(0xFFC79E47), Color(0xFFF3E0A3)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              border: Border.all(color: const Color(0xFF947325), width: 0.8),
-                            ),
-                            child: Center(
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: const Color(0xFF7A5C14), width: 0.7),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(Icons.contactless_rounded, color: Colors.white.withValues(alpha: 0.75), size: 18),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          if (info.bankBadge != null) ...[
-                            info.bankBadge!,
-                            const SizedBox(width: 8),
-                          ],
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.20), width: 0.8),
-                            ),
-                            child: Text(
-                              info.network,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  const Spacer(),
-
-                  // Title & Balance
-                  Text(
-                    info.title.toUpperCase(),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.75),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    info.amount,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.6,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Bottom Row: Account Mask & Card Holder
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            info.subtitle,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.90),
-                              fontSize: 12.5,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 2.0,
-                            ),
-                          ),
-                          Text(
-                            info.cardHolder,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            'MANAGE',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.60),
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.50), size: 9),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // Backward compatibility alias
 class InteractiveCardStack extends StatelessWidget {
   final List<CardInfo> cards;
@@ -4994,7 +4425,7 @@ class InteractiveCardStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Faceted3DCardDeck(cards: cards);
+    return HorizontalCardCarousel(cards: cards);
   }
 }
 
@@ -5339,7 +4770,7 @@ class DashboardScreen extends StatelessWidget {
           icon: Icons.shield_rounded,
           cardHolder: userName.isNotEmpty ? userName.toUpperCase() : 'USER',
           bankBadge: const Icon(Icons.all_inclusive_rounded, color: Colors.white70, size: 20),
-          onTap: onManageAccountsRequested,
+          onTap: null,
         ));
         
         // Card 2+: Authentic Indian Bank Cards
@@ -5365,7 +4796,7 @@ class DashboardScreen extends StatelessWidget {
             icon: isCash ? Icons.payments_rounded : Icons.account_balance_rounded,
             cardHolder: userName.isNotEmpty ? userName.toUpperCase() : 'USER',
             bankBadge: bank.buildBadge(size: 26, showBorder: false),
-            onTap: onManageAccountsRequested,
+            onTap: null,
           ));
         }
 
@@ -5531,8 +4962,8 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
 
-              // Faceted 3D Liquid Glass Deck (Concept A)
-              Faceted3DCardDeck(cards: stackCards),
+              // Executive Card Carousel
+              HorizontalCardCarousel(cards: stackCards),
               const SizedBox(height: 20),
 
               // Formal 4-Action Fintech Dock (iOS 26 Liquid Water Droplets)
@@ -6990,14 +6421,14 @@ class ProfileScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// SPATIAL HISTORICAL TRENDS SCREEN (iOS 26 FLUID CANVAS)
+// TRENDS SCREEN (CLEAN LINEAR HISTORICAL LEDGER)
 // ---------------------------------------------------------
-class SpatialHistoricalTrendsScreen extends StatelessWidget {
+class TrendsScreen extends StatelessWidget {
   final Database database;
   final Function({Map<String, dynamic>? existingTx}) onAddRequested;
   final VoidCallback onTransactionChanged;
 
-  const SpatialHistoricalTrendsScreen({
+  const TrendsScreen({
     Key? key,
     required this.database,
     required this.onAddRequested,
@@ -7008,16 +6439,14 @@ class SpatialHistoricalTrendsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: database.rawQuery('''
-        SELECT strftime('%Y-%m', date) as month, SUM(amount) as total, COUNT(*) as tx_count
+        SELECT strftime('%Y-%m', date) as month, SUM(amount) as total
         FROM transactions
         WHERE type = 'EXPENSE'
         GROUP BY month
         ORDER BY month DESC
       '''),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFF00F2FE)));
-        }
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF8B5CF6)));
         final data = snapshot.data!;
 
         double maxTotal = 0;
@@ -7026,296 +6455,39 @@ class SpatialHistoricalTrendsScreen extends StatelessWidget {
           if (total > maxTotal) maxTotal = total;
         }
 
-        // Chronological data for Waveform
-        final chronoData = List<Map<String, dynamic>>.from(data.reversed);
-        List<FlSpot> spots = [];
-        for (int i = 0; i < chronoData.length; i++) {
-          double t = (chronoData[i]['total'] as num).toDouble();
-          spots.add(FlSpot(i.toDouble(), t));
-        }
-
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF8B5CF6),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Color(0xFF8B5CF6),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'HISTORICAL VELOCITY',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.55),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      const Text(
-                        'Spending Cycles',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
-                    ),
-                    child: Text(
-                      '${data.length} CYCLES',
-                      style: const TextStyle(
-                        color: Color(0xFFA78BFA),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Interactive Spending Velocity Waveform Hero
-              if (spots.length >= 2) ...[
-                WaterGlassCard(
-                  borderRadius: 26,
-                  padding: const EdgeInsets.all(20),
-                  glowColor: const Color(0xFF00F2FE),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'MONTHLY BURN TRAJECTORY',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          Text(
-                            'Peak: ₹ ${maxTotal.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              color: Color(0xFF67E8F9),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        height: 160,
-                        child: LineChart(
-                          LineChartData(
-                            minX: 0,
-                            maxX: (spots.length - 1).toDouble(),
-                            minY: 0,
-                            maxY: maxTotal * 1.15,
-                            gridData: FlGridData(
-                              show: true,
-                              drawVerticalLine: false,
-                              horizontalInterval: maxTotal > 0 ? maxTotal / 3 : 1000,
-                              getDrawingHorizontalLine: (val) => FlLine(
-                                color: Colors.white.withValues(alpha: 0.05),
-                                strokeWidth: 1,
-                              ),
-                            ),
-                            titlesData: FlTitlesData(
-                              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              bottomTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 22,
-                                  interval: 1,
-                                  getTitlesWidget: (value, meta) {
-                                    int idx = value.toInt();
-                                    if (idx >= 0 && idx < chronoData.length) {
-                                      List<String> p = (chronoData[idx]['month'] as String).split('-');
-                                      if (p.length == 2) {
-                                        int mIdx = int.tryParse(p[1]) ?? 1;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(top: 6),
-                                          child: Text(
-                                            monthNames[(mIdx - 1).clamp(0, 11)],
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(alpha: 0.45),
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                    return const SizedBox();
-                                  },
-                                ),
-                              ),
-                            ),
-                            borderData: FlBorderData(show: false),
-                            lineBarsData: [
-                              LineChartBarData(
-                                isCurved: true,
-                                curveSmoothness: 0.35,
-                                color: const Color(0xFF00F2FE),
-                                barWidth: 3.5,
-                                isStrokeCapRound: true,
-                                dotData: FlDotData(
-                                  show: true,
-                                  getDotPainter: (spot, pct, bar, idx) => FlDotCirclePainter(
-                                    radius: 5,
-                                    color: const Color(0xFF00F2FE),
-                                    strokeWidth: 2,
-                                    strokeColor: Colors.white,
-                                  ),
-                                ),
-                                belowBarData: BarAreaData(
-                                  show: true,
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      const Color(0xFF00F2FE).withValues(alpha: 0.35),
-                                      const Color(0xFF8B5CF6).withValues(alpha: 0.0),
-                                    ],
-                                  ),
-                                ),
-                                spots: spots,
-                              ),
-                            ],
-                            lineTouchData: LineTouchData(
-                              touchTooltipData: LineTouchTooltipData(
-                                getTooltipColor: (spot) => const Color(0xFF0B1424).withValues(alpha: 0.90),
-                                tooltipBorder: BorderSide(color: const Color(0xFF00F2FE).withValues(alpha: 0.4), width: 1),
-                                getTooltipItems: (touchedSpots) {
-                                  return touchedSpots.map((spot) {
-                                    int idx = spot.x.toInt();
-                                    String mLabel = '';
-                                    if (idx >= 0 && idx < chronoData.length) {
-                                      mLabel = chronoData[idx]['month'];
-                                    }
-                                    return LineTooltipItem(
-                                      '$mLabel\n₹ ${spot.y.toStringAsFixed(0)}',
-                                      const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                                    );
-                                  }).toList();
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Section Title
-              Text(
-                'MONTH-OVER-MONTH VELOCITY',
+              const Text(
+                'Historical Trends',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.60),
-                  fontSize: 11,
+                  color: Colors.white,
+                  fontSize: 26,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
+                  letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 12),
-
+              const SizedBox(height: 20),
               if (data.isEmpty)
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.all(40),
-                    child: Text('No historical transaction data yet.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                    child: Text('No historical data yet.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
                   ),
                 ),
-
-              // Month Cards with Real Month-over-Month Delta
-              ...List.generate(data.length, (index) {
-                final row = data[index];
+              ...data.map((row) {
                 String raw = row['month'] as String;
                 double total = (row['total'] as num).toDouble();
-                int txCount = (row['tx_count'] as num?)?.toInt() ?? 0;
                 List<String> parts = raw.split('-');
                 if (parts.length != 2) return const SizedBox();
                 int m = int.parse(parts[1]);
-                int y = int.parse(parts[0]);
-                String name = '${monthNames[(m - 1).clamp(0, 11)]} $y';
-                int daysInMonth = DateTime(y, m + 1, 0).day;
-                double dailyAvg = daysInMonth > 0 ? (total / daysInMonth) : 0;
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                String name = '${monthNames[m - 1]} ${parts[0]}';
+
                 double pct = maxTotal > 0 ? (total / maxTotal) : 0;
-
-                // Calculate Delta vs previous chronological month (next index in descending list)
-                String deltaText = '';
-                Color deltaColor = const Color(0xFF00F5A0);
-                IconData deltaIcon = Icons.arrow_downward_rounded;
-
-                if (index < data.length - 1) {
-                  double prevTotal = (data[index + 1]['total'] as num).toDouble();
-                  if (prevTotal > 0) {
-                    double delta = ((total - prevTotal) / prevTotal) * 100;
-                    if (delta < 0) {
-                      deltaText = '↓ ${delta.abs().toStringAsFixed(0)}% vs ${monthNames[(data[index + 1]['month'].toString().split('-')[1] == '01' ? 12 : int.parse(data[index + 1]['month'].toString().split('-')[1]) - 1) - 1]} (Saved ₹${(prevTotal - total).toStringAsFixed(0)})';
-                      deltaColor = const Color(0xFF00F5A0);
-                      deltaIcon = Icons.arrow_downward_rounded;
-                    } else if (delta > 0) {
-                      deltaText = '↑ ${delta.toStringAsFixed(0)}% vs ${monthNames[(data[index + 1]['month'].toString().split('-')[1] == '01' ? 12 : int.parse(data[index + 1]['month'].toString().split('-')[1]) - 1) - 1]} (+₹${(total - prevTotal).toStringAsFixed(0)})';
-                      deltaColor = const Color(0xFFFF3366);
-                      deltaIcon = Icons.arrow_upward_rounded;
-                    } else {
-                      deltaText = '• Same as previous month';
-                      deltaColor = const Color(0xFF00D2FF);
-                      deltaIcon = Icons.remove_rounded;
-                    }
-                  }
-                } else {
-                  deltaText = '★ Baseline Tracked Month';
-                  deltaColor = const Color(0xFF8B5CF6);
-                  deltaIcon = Icons.star_rounded;
-                }
 
                 return WaterGlassCard(
                   borderRadius: 22,
@@ -7352,14 +6524,14 @@ class SpatialHistoricalTrendsScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
                                 ),
-                                child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 17),
+                                child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 18),
                               ),
                               const SizedBox(width: 12),
                               Text(
                                 name,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 16.5,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -7368,86 +6540,28 @@ class SpatialHistoricalTrendsScreen extends StatelessWidget {
                           Text(
                             '₹ ${total.toStringAsFixed(0)}',
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
+                              color: Color(0xFFF43F5E),
+                              fontSize: 17,
                               fontWeight: FontWeight.w900,
                               letterSpacing: -0.3,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-
-                      // Real Delta Pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: deltaColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: deltaColor.withValues(alpha: 0.30)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(deltaIcon, color: deltaColor, size: 13),
-                            const SizedBox(width: 4),
-                            Text(
-                              deltaText,
-                              style: TextStyle(
-                                color: deltaColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Metrics & Progress bar
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Avg ₹ ${dailyAvg.toStringAsFixed(0)}/day • $txCount txs',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.50),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Text(
-                                'VIEW LEDGER',
-                                style: TextStyle(
-                                  color: const Color(0xFF00F2FE).withValues(alpha: 0.8),
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                              const SizedBox(width: 3),
-                              Icon(Icons.arrow_forward_ios_rounded, color: const Color(0xFF00F2FE).withValues(alpha: 0.7), size: 9),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 14),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         child: LinearProgressIndicator(
                           value: pct,
                           backgroundColor: Colors.white.withValues(alpha: 0.08),
                           color: const Color(0xFF8B5CF6),
-                          minHeight: 8,
+                          minHeight: 10,
                         ),
                       ),
                     ],
                   ),
                 );
-              }),
+              }).toList(),
             ],
           ),
         );
@@ -7457,28 +6571,7 @@ class SpatialHistoricalTrendsScreen extends StatelessWidget {
 }
 
 // Backward compatibility alias for Tab 2
-class TrendsScreen extends StatelessWidget {
-  final Database database;
-  final Function({Map<String, dynamic>? existingTx}) onAddRequested;
-  final VoidCallback onTransactionChanged;
-
-  const TrendsScreen({
-    Key? key,
-    required this.database,
-    required this.onAddRequested,
-    required this.onTransactionChanged,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return SpatialHistoricalTrendsScreen(
-      database: database,
-      onAddRequested: onAddRequested,
-      onTransactionChanged: onTransactionChanged,
-    );
-  }
-}
-
+typedef SpatialHistoricalTrendsScreen = TrendsScreen;
 
 class HowToUseScreen extends StatelessWidget {
   const HowToUseScreen({Key? key}) : super(key: key);
