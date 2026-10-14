@@ -160,10 +160,28 @@ class AnalyticsService {
     final budgetsRows = await db.query('budgets');
 
     double baseBudget = 0.0;
+    double initialSpent = 0.0;
+    int initialSpentYear = 0;
+    int initialSpentMonth = 0;
+
     for (var s in settingsRows) {
       if (s['key'] == 'total_budget') {
         baseBudget = (s['value'] as num?)?.toDouble() ?? 0.0;
       }
+      if (s['key'] == 'initial_month_spent') {
+        initialSpent = (s['value'] as num?)?.toDouble() ?? 0.0;
+      }
+      if (s['key'] == 'initial_month_spent_year') {
+        initialSpentYear = (s['value'] as num?)?.toInt() ?? 0;
+      }
+      if (s['key'] == 'initial_month_spent_month') {
+        initialSpentMonth = (s['value'] as num?)?.toInt() ?? 0;
+      }
+    }
+
+    double activeInitialSpent = 0.0;
+    if (initialSpentYear == now.year && initialSpentMonth == now.month) {
+      activeInitialSpent = initialSpent;
     }
 
     Map<String, double> categoryLimits = {};
@@ -206,10 +224,12 @@ class AnalyticsService {
       }
     }
 
+    final double effectiveOutflow = totalOutflow + activeInitialSpent;
+
     // Net Savings Rate
     double netSavingsRate = 0.0;
     if (totalInflow > 0) {
-      netSavingsRate = ((totalInflow - totalOutflow) / totalInflow) * 100.0;
+      netSavingsRate = ((totalInflow - effectiveOutflow) / totalInflow) * 100.0;
     }
 
     // Days calculation
@@ -217,14 +237,14 @@ class AnalyticsService {
     final int daysElapsed = math.max(1, math.min(daysInPeriod, now.difference(startDate).inDays + 1));
     final int daysRemaining = math.max(1, daysInPeriod - daysElapsed);
 
-    final double dailyBurnRate = daysElapsed > 0 ? totalOutflow / daysElapsed : 0.0;
-    final double remainingBudget = baseBudget > totalOutflow ? (baseBudget - totalOutflow) : 0.0;
+    final double dailyBurnRate = daysElapsed > 0 ? effectiveOutflow / daysElapsed : 0.0;
+    final double remainingBudget = baseBudget > effectiveOutflow ? (baseBudget - effectiveOutflow) : 0.0;
     final double safeDailyAllowance = daysRemaining > 0 ? remainingBudget / daysRemaining : 0.0;
     final double projectedEomBalance = totalInflow - (dailyBurnRate * daysInPeriod);
 
     // Burn Trajectory & Cumulative Spend
     List<DailySpendPoint> burnTrajectory = [];
-    double cumulative = 0.0;
+    double cumulative = activeInitialSpent;
     final double linearDailyBudget = baseBudget > 0 ? baseBudget / daysInPeriod : 0.0;
 
     // Group actual expenses by day offset (1 to daysInPeriod)
@@ -372,7 +392,7 @@ class AnalyticsService {
 
     return AnalyticsData(
       totalInflow: totalInflow,
-      totalOutflow: totalOutflow,
+      totalOutflow: effectiveOutflow,
       netSavingsRate: netSavingsRate,
       baseBudget: baseBudget,
       projectedEomBalance: projectedEomBalance,

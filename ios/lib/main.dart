@@ -1497,21 +1497,277 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
     );
   }
 
-  void _showSetTotalBudgetModal() {
-    final _amountCtrl = TextEditingController();
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF18181B), title: const Text('Overall Monthly Budget', style: TextStyle(color: Colors.white)),
-      content: TextField(controller: _amountCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Limit (₹)', labelStyle: TextStyle(color: Colors.grey))),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton(onPressed: () async {
-          if (_amountCtrl.text.isNotEmpty) {
-            await _database.insert('settings', {'key': 'total_budget', 'value': double.parse(_amountCtrl.text)}, conflictAlgorithm: ConflictAlgorithm.replace);
-            Navigator.pop(ctx); setState(() {});
-          }
-        }, child: const Text('Save'))
-      ]
-    ));
+  void _showSetTotalBudgetModal() async {
+    final settings = await _database.query('settings');
+    double currentBudget = 0.0;
+    double currentInitialSpent = 0.0;
+    int savedYear = 0;
+    int savedMonth = 0;
+    DateTime now = DateTime.now();
+
+    for (var s in settings) {
+      if (s['key'] == 'total_budget') currentBudget = (s['value'] as num).toDouble();
+      if (s['key'] == 'initial_month_spent') currentInitialSpent = (s['value'] as num).toDouble();
+      if (s['key'] == 'initial_month_spent_year') savedYear = (s['value'] as num).toInt();
+      if (s['key'] == 'initial_month_spent_month') savedMonth = (s['value'] as num).toInt();
+    }
+
+    if (savedYear != now.year || savedMonth != now.month) {
+      currentInitialSpent = 0.0;
+    }
+
+    final _budgetCtrl = TextEditingController(text: currentBudget > 0 ? currentBudget.toStringAsFixed(0) : '');
+    final _spentCtrl = TextEditingController(text: currentInitialSpent > 0 ? currentInitialSpent.toStringAsFixed(0) : '');
+
+    int daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    int daysRemaining = (daysInMonth - now.day + 1).clamp(1, 31);
+    const months = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    String currentMonthName = months[now.month];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          double budgetVal = double.tryParse(_budgetCtrl.text) ?? 0.0;
+          double spentVal = double.tryParse(_spentCtrl.text) ?? 0.0;
+          double remaining = budgetVal - spentVal;
+          double dailySafe = (remaining > 0 && daysRemaining > 0) ? (remaining / daysRemaining) : 0.0;
+
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              left: 20,
+              right: 20,
+              top: 24,
+            ),
+            decoration: const BoxDecoration(
+              color: Color(0xFF14151F),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.track_changes_rounded, color: Color(0xFF818CF8), size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Monthly Budget & Starting Spend',
+                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$currentMonthName ${now.year} • Day ${now.day} of $daysInMonth ($daysRemaining days remaining)',
+                              style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Overall Monthly Budget Field
+                  const Text('1. OVERALL MONTHLY BUDGET', style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _budgetCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.currency_rupee, color: Color(0xFF818CF8), size: 20),
+                      hintText: 'e.g. 30000',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Mid-Month / Already Spent Field
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '2. ALREADY SPENT THIS MONTH',
+                        style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                      ),
+                      if (spentVal > 0)
+                        GestureDetector(
+                          onTap: () {
+                            _spentCtrl.clear();
+                            setDialogState(() {});
+                          },
+                          child: const Text('Clear', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Starting mone mid-month or late in the cycle? Enter what you already spent before using the app so your daily pacer & budget stay 100% accurate.',
+                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, height: 1.3),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _spentCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.history_toggle_off_rounded, color: Color(0xFFF59E0B), size: 20),
+                      hintText: 'e.g. 12000 (Optional)',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Live Preview Calculation Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          remaining < 0 ? const Color(0xFF2A1215) : const Color(0xFF131A29),
+                          const Color(0xFF0F1420),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: remaining < 0 ? Colors.redAccent.withOpacity(0.3) : const Color(0xFF6366F1).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Unspent Budget Remaining:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text(
+                              remaining < 0 ? '-₹ ${remaining.abs().toStringAsFixed(0)} (Exceeded)' : '₹ ${remaining.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                color: remaining < 0 ? Colors.redAccent : const Color(0xFF10B981),
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Daily Safe Spending Pacer:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text(
+                              '₹ ${dailySafe.toStringAsFixed(0)} / day',
+                              style: const TextStyle(
+                                color: Color(0xFF818CF8),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            spentVal > 0
+                                ? 'Pacer accounts for ₹${spentVal.toStringAsFixed(0)} prior spend over remaining $daysRemaining days.'
+                                : 'Allocates evenly over remaining $daysRemaining days of $currentMonthName.',
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            double b = double.tryParse(_budgetCtrl.text) ?? 0.0;
+                            double s = double.tryParse(_spentCtrl.text) ?? 0.0;
+                            await _database.insert('settings', {'key': 'total_budget', 'value': b}, conflictAlgorithm: ConflictAlgorithm.replace);
+                            await _database.insert('settings', {'key': 'initial_month_spent', 'value': s}, conflictAlgorithm: ConflictAlgorithm.replace);
+                            await _database.insert('settings', {'key': 'initial_month_spent_year', 'value': now.year.toDouble()}, conflictAlgorithm: ConflictAlgorithm.replace);
+                            await _database.insert('settings', {'key': 'initial_month_spent_month', 'value': now.month.toDouble()}, conflictAlgorithm: ConflictAlgorithm.replace);
+                            Navigator.pop(ctx);
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(s > 0
+                                    ? 'Saved! Budget: ₹${b.toStringAsFixed(0)} (₹${s.toStringAsFixed(0)} prior spend applied to $currentMonthName)'
+                                    : 'Saved! Budget: ₹${b.toStringAsFixed(0)}'),
+                                backgroundColor: const Color(0xFF10B981),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6366F1),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: const Text('Save & Apply', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showSetBudgetModal() async {
@@ -2316,6 +2572,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         onManageAccountsRequested: _showManageAccountsModal,
         onNavigateTab: (idx) => setState(() => _selectedIndex = idx),
         onRefreshRequested: _manualSyncSms,
+        onSetTotalBudget: _showSetTotalBudgetModal,
       ),
       ModernAnalyticsScreen(database: _database, initialTimePeriod: _timePeriod, onAddRequested: _showAddTransactionModal),
       TrendsScreen(database: _database, onAddRequested: _showAddTransactionModal, onTransactionChanged: () => setState(() {})),
@@ -2748,6 +3005,7 @@ class DashboardScreen extends StatelessWidget {
   final VoidCallback onManageAccountsRequested;
   final Function(int) onNavigateTab;
   final Future<void> Function() onRefreshRequested;
+  final VoidCallback onSetTotalBudget;
 
   const DashboardScreen({
     Key? key,
@@ -2759,6 +3017,7 @@ class DashboardScreen extends StatelessWidget {
     required this.onManageAccountsRequested,
     required this.onNavigateTab,
     required this.onRefreshRequested,
+    required this.onSetTotalBudget,
   }) : super(key: key);
 
   String _getGreeting() {
@@ -2978,11 +3237,26 @@ class DashboardScreen extends StatelessWidget {
         for (var e in periodExpenses) periodSpent += (e['amount'] as num).toDouble();
         
         double baseBudget = 0;
+        double initialSpent = 0.0;
+        int initialSpentYear = 0;
+        int initialSpentMonth = 0;
+
         for (var s in settings) {
           if (s['key'] == 'total_budget') baseBudget = (s['value'] as num).toDouble();
+          if (s['key'] == 'initial_month_spent') initialSpent = (s['value'] as num).toDouble();
+          if (s['key'] == 'initial_month_spent_year') initialSpentYear = (s['value'] as num).toInt();
+          if (s['key'] == 'initial_month_spent_month') initialSpentMonth = (s['value'] as num).toInt();
         }
-        
-        double unspentBudget = baseBudget - periodSpent;
+
+        double activeInitialSpent = 0.0;
+        if (timePeriod == 'Monthly' && initialSpentYear == now.year && initialSpentMonth == now.month) {
+          activeInitialSpent = initialSpent;
+        } else if (timePeriod == 'Yearly' && initialSpentYear == now.year) {
+          activeInitialSpent = initialSpent;
+        }
+
+        double effectiveSpent = periodSpent + activeInitialSpent;
+        double unspentBudget = baseBudget - effectiveSpent;
         double safeDailyAllowance = (unspentBudget > 0 ? (unspentBudget / daysRemaining) : 0.0);
 
         List<CardInfo> stackCards = [];
@@ -3224,92 +3498,122 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 18),
 
               // Formal Adaptive Daily Pacer & Budget Status Card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF12141D),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))
-                  ]
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6366F1).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
+              InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: onSetTotalBudget,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF12141D),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))
+                    ]
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6366F1).withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.speed_rounded, color: Color(0xFF818CF8), size: 20),
                               ),
-                              child: const Icon(Icons.speed_rounded, color: Color(0xFF818CF8), size: 20),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'DAILY SAFE SPENDING PACER',
-                                  style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
-                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(12),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'DAILY SAFE SPENDING PACER',
+                                        style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Icon(Icons.edit_rounded, color: const Color(0xFF818CF8).withOpacity(0.6), size: 12),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
+                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          child: Text(
-                            '$daysRemaining d left',
-                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                          Row(
+                            children: [
+                              if (activeInitialSpent > 0)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
+                                    style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w800),
+                                  ),
+                                ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.06),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '$daysRemaining d left',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: (periodSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
-                        backgroundColor: Colors.white.withOpacity(0.06),
-                        color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                        minHeight: 10,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
-                          style: TextStyle(
-                            color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                      const SizedBox(height: 18),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
+                          backgroundColor: Colors.white.withOpacity(0.06),
+                          color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                          minHeight: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
+                            style: TextStyle(
+                              color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
-                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ],
+                          Text(
+                            activeInitialSpent > 0
+                                ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
+                                : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -3890,7 +4194,7 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     ListTile(leading: const Icon(Icons.calendar_month, color: Color(0xFF8B5CF6)), title: const Text('View Analytics As', style: TextStyle(color: Colors.white)), trailing: DropdownButton<String>(dropdownColor: const Color(0xFF18181B), value: currentPeriod, style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold), underline: const SizedBox(), items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (val) => onPeriodChanged(val!))),
                     Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onSetTotalBudget, leading: const Icon(Icons.account_balance, color: Color(0xFF10B981)), title: const Text('Overall Monthly Budget', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.edit, color: Colors.grey)),
+                    ListTile(onTap: onSetTotalBudget, leading: const Icon(Icons.account_balance, color: Color(0xFF10B981)), title: const Text('Overall Monthly Budget & Starting Spend', style: TextStyle(color: Colors.white)), subtitle: const Text('Set monthly limit & mid-month already spent offset', style: TextStyle(color: Colors.grey, fontSize: 12)), trailing: const Icon(Icons.edit, color: Colors.grey)),
                     Divider(color: Colors.white.withOpacity(0.1), height: 1),
                     ListTile(onTap: onAddBudget, leading: const Icon(Icons.track_changes, color: Color(0xFF6366F1)), title: const Text('Set Category Limits', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.add, color: Color(0xFF6366F1))),
                     Divider(color: Colors.white.withOpacity(0.1), height: 1),
@@ -4076,6 +4380,12 @@ class HowToUseScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+             _buildFeatureCard(
+               Icons.speed_rounded,
+               'Mid-Month Starting Spend & Safe Pacer',
+               'Starting mone mid-month or late in the billing cycle? Tap the Daily Safe Spending Pacer on your home dashboard (or in Profile -> Monthly Budget) to enter what you already spent this month. The app automatically calculates your true remaining budget and exact safe spending allowance per day!',
+               badge: 'MID-MONTH READY',
+             ),
              _buildFeatureCard(
                Icons.bolt_rounded,
                'Silent Background SMS Tracking',
