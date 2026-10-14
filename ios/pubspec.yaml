@@ -101,6 +101,7 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 flutter_launcher_icons:
-  android: true
-  ios: false
+  android: false
+  ios: true
   image_path: "assets/mone_logo.png"
+  remove_alpha_ios: true
