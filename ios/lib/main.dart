@@ -13,7 +13,6 @@ import 'package:app_links/app_links.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/services.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:home_widget/home_widget.dart';
@@ -388,61 +387,135 @@ class _LiquidWaterPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Deep Oceanic Abyss Base
     final Rect rect = Offset.zero & size;
+    final double t = progress * 2 * math.pi;
+
+    // 1. Deep Oceanic Obsidian Abyss Base
     final baseGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFF0C101B), Color(0xFF07090F), Color(0xFF04060A)],
-      stops: [0.0, 0.5, 1.0],
+      colors: [Color(0xFF0B101D), Color(0xFF060A13), Color(0xFF020408)],
+      stops: [0.0, 0.55, 1.0],
     ).createShader(rect);
-
     canvas.drawRect(rect, Paint()..shader = baseGradient);
 
-    // 2. Liquid Caustic Water Orbs with Sinusoidal Flow
-    final double t = progress * 2 * math.pi;
-
-    // Orb A: Cyan / Aqua Water Refraction (Top-Left)
-    final double oxA = size.width * 0.22 + 40 * math.cos(t);
-    final double oyA = size.height * 0.16 + 32 * math.sin(t);
+    // 2. Harmonic Fluid Caustic Light Pools (4 Dynamic Nodes)
+    // Node A: Radiant Aqua & Cyan Refraction (Top-Left)
+    final double oxA = size.width * 0.22 + 42 * math.cos(t);
+    final double oyA = size.height * 0.18 + 35 * math.sin(t * 1.1);
     final paintA = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF06B6D4).withOpacity(0.18),
-          const Color(0xFF0891B2).withOpacity(0.08),
+          const Color(0xFF06B6D4).withValues(alpha: 0.22),
+          const Color(0xFF0891B2).withValues(alpha: 0.08),
           Colors.transparent,
         ],
         stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(oxA, oyA), radius: 260));
-    canvas.drawCircle(Offset(oxA, oyA), 260, paintA);
+      ).createShader(Rect.fromCircle(center: Offset(oxA, oyA), radius: 300));
+    canvas.drawCircle(Offset(oxA, oyA), 300, paintA);
 
-    // Orb B: Royal Aquatic Indigo (Mid-Right)
-    final double oxB = size.width * 0.82 + 35 * math.sin(t * 0.8);
-    final double oyB = size.height * 0.42 + 38 * math.cos(t * 0.8);
+    // Node B: Royal Aquatic Indigo (Mid-Right)
+    final double oxB = size.width * 0.82 + 38 * math.sin(t * 0.85);
+    final double oyB = size.height * 0.40 + 40 * math.cos(t * 0.85);
     final paintB = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF3B82F6).withOpacity(0.16),
-          const Color(0xFF1D4ED8).withOpacity(0.06),
+          const Color(0xFF3B82F6).withValues(alpha: 0.18),
+          const Color(0xFF1D4ED8).withValues(alpha: 0.07),
           Colors.transparent,
         ],
         stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(oxB, oyB), radius: 290));
-    canvas.drawCircle(Offset(oxB, oyB), 290, paintB);
+      ).createShader(Rect.fromCircle(center: Offset(oxB, oyB), radius: 320));
+    canvas.drawCircle(Offset(oxB, oyB), 320, paintB);
 
-    // Orb C: Deep Amethyst / Bioluminescent Violet (Bottom-Left)
-    final double oxC = size.width * 0.38 + 42 * math.sin(t * 1.2);
-    final double oyC = size.height * 0.78 + 36 * math.cos(t * 1.2);
+    // Node C: Bioluminescent Emerald Seafoam (Bottom-Left)
+    final double oxC = size.width * 0.28 + 45 * math.sin(t * 1.15 + 1.2);
+    final double oyC = size.height * 0.72 + 38 * math.cos(t * 1.15);
     final paintC = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF8B5CF6).withOpacity(0.14),
-          const Color(0xFF6366F1).withOpacity(0.05),
+          const Color(0xFF10B981).withValues(alpha: 0.16),
+          const Color(0xFF059669).withValues(alpha: 0.06),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(oxC, oyC), radius: 290));
+    canvas.drawCircle(Offset(oxC, oyC), 290, paintC);
+
+    // Node D: Celestial Radiant Violet (Mid-Bottom Right)
+    final double oxD = size.width * 0.75 + 40 * math.cos(t * 0.75 + 2.0);
+    final double oyD = size.height * 0.82 + 35 * math.sin(t * 0.75);
+    final paintD = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+          const Color(0xFF6366F1).withValues(alpha: 0.05),
           Colors.transparent,
         ],
         stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(oxC, oyC), radius: 270));
-    canvas.drawCircle(Offset(oxC, oyC), 270, paintC);
+      ).createShader(Rect.fromCircle(center: Offset(oxD, oyD), radius: 310));
+    canvas.drawCircle(Offset(oxD, oyD), 310, paintD);
+
+    // 3. Fluid Caustic Wave Ribbons (Harmonic Undulation)
+    final wavePaint1 = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          const Color(0xFF06B6D4).withValues(alpha: 0.08),
+          const Color(0xFF3B82F6).withValues(alpha: 0.03),
+          Colors.transparent,
+        ],
+      ).createShader(rect)
+      ..style = PaintingStyle.fill;
+
+    final path1 = Path();
+    final double wY1 = size.height * 0.28 + 24 * math.sin(t);
+    final double wY2 = size.height * 0.35 + 28 * math.cos(t * 0.9);
+    path1.moveTo(0, size.height * 0.22);
+    path1.cubicTo(
+      size.width * 0.35, wY1,
+      size.width * 0.68, wY2,
+      size.width, size.height * 0.30,
+    );
+    path1.lineTo(size.width, size.height * 0.48);
+    path1.cubicTo(
+      size.width * 0.65, size.height * 0.42 + 20 * math.sin(t * 1.1),
+      size.width * 0.32, size.height * 0.46 + 22 * math.cos(t * 1.1),
+      0, size.height * 0.38,
+    );
+    path1.close();
+    canvas.drawPath(path1, wavePaint1);
+
+    final wavePaint2 = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        colors: [
+          const Color(0xFF10B981).withValues(alpha: 0.07),
+          const Color(0xFF8B5CF6).withValues(alpha: 0.03),
+          Colors.transparent,
+        ],
+      ).createShader(rect)
+      ..style = PaintingStyle.fill;
+
+    final path2 = Path();
+    final double w2Y1 = size.height * 0.62 + 26 * math.cos(t * 0.8);
+    final double w2Y2 = size.height * 0.68 + 30 * math.sin(t * 0.85);
+    path2.moveTo(0, size.height * 0.65);
+    path2.cubicTo(
+      size.width * 0.30, w2Y1,
+      size.width * 0.72, w2Y2,
+      size.width, size.height * 0.60,
+    );
+    path2.lineTo(size.width, size.height * 0.76);
+    path2.cubicTo(
+      size.width * 0.62, size.height * 0.78 + 22 * math.cos(t),
+      size.width * 0.28, size.height * 0.72 + 20 * math.sin(t),
+      0, size.height * 0.75,
+    );
+    path2.close();
+    canvas.drawPath(path2, wavePaint2);
   }
 
   @override
@@ -468,7 +541,7 @@ class WaterGlassCard extends StatelessWidget {
     this.borderRadius = 24.0,
     this.onTap,
     this.glowColor,
-    this.blurSigma = 24.0,
+    this.blurSigma = 26.0,
     this.customBorder,
     this.customGradient,
   }) : super(key: key);
@@ -483,17 +556,40 @@ class WaterGlassCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF131E32).withOpacity(0.72),
-            const Color(0xFF0A0F1A).withOpacity(0.85),
+            const Color(0xFF131D31).withValues(alpha: 0.75),
+            const Color(0xFF090E18).withValues(alpha: 0.88),
           ],
           stops: const [0.0, 1.0],
         ),
         border: customBorder ?? Border.all(
-          color: Colors.white.withOpacity(0.14),
+          color: Colors.white.withValues(alpha: 0.16),
           width: 1.2,
         ),
       ),
-      child: child,
+      child: Stack(
+        children: [
+          // Subtle inner specular light rim across the top
+          Positioned(
+            top: 0,
+            left: 12,
+            right: 12,
+            height: 1.0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.0),
+                    Colors.white.withValues(alpha: 0.28),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
     );
 
     if (onTap != null) {
@@ -502,8 +598,8 @@ class WaterGlassCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(borderRadius),
           onTap: onTap,
-          splashColor: const Color(0xFF06B6D4).withOpacity(0.15),
-          highlightColor: Colors.white.withOpacity(0.05),
+          splashColor: (glowColor ?? const Color(0xFF06B6D4)).withValues(alpha: 0.16),
+          highlightColor: Colors.white.withValues(alpha: 0.06),
           child: content,
         ),
       );
@@ -515,14 +611,14 @@ class WaterGlassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: (glowColor ?? const Color(0xFF06B6D4)).withOpacity(0.09),
-            blurRadius: 22,
+            color: (glowColor ?? const Color(0xFF06B6D4)).withValues(alpha: 0.10),
+            blurRadius: 24,
             spreadRadius: -2,
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.40),
-            blurRadius: 18,
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 20,
             offset: const Offset(0, 8),
           ),
         ],
@@ -3428,60 +3524,103 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
 
   Widget _buildFloatingBottomNav() {
     return Container(
-      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 22),
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
+        borderRadius: BorderRadius.circular(40),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 32.0, sigmaY: 32.0),
+          filter: ImageFilter.blur(sigmaX: 34.0, sigmaY: 34.0),
           child: Container(
-            height: 72,
+            height: 74,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withOpacity(0.12),
-                  Colors.white.withOpacity(0.04),
+                  const Color(0xFF131E33).withValues(alpha: 0.78),
+                  const Color(0xFF090E18).withValues(alpha: 0.88),
                 ],
               ),
-              borderRadius: BorderRadius.circular(36),
-              border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.2),
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
               boxShadow: [
-                BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.16), blurRadius: 28, spreadRadius: -2, offset: const Offset(0, 8)),
-                BoxShadow(color: Colors.black.withOpacity(0.55), blurRadius: 24, offset: const Offset(0, 10)),
+                BoxShadow(
+                  color: const Color(0xFF06B6D4).withValues(alpha: 0.18),
+                  blurRadius: 30,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.60),
+                  blurRadius: 26,
+                  offset: const Offset(0, 10),
+                ),
               ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            child: Stack(
               children: [
-                _buildNavItem(Icons.account_balance_wallet_rounded, 0),
-                _buildNavItem(Icons.pie_chart_rounded, 1),
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF6366F1)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                // Inner top specular hairline
+                Positioned(
+                  top: 0,
+                  left: 24,
+                  right: 24,
+                  height: 1.0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.0),
+                          Colors.white.withValues(alpha: 0.35),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
                     ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.45), blurRadius: 18, offset: const Offset(0, 4)),
-                    ],
-                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      _showAddTransactionModal();
-                    },
                   ),
                 ),
-                _buildNavItem(Icons.bar_chart_rounded, 2),
-                _buildNavItem(Icons.settings_rounded, 3),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(Icons.account_balance_wallet_rounded, 0),
+                    _buildNavItem(Icons.pie_chart_rounded, 1),
+
+                    // Central Radiant Water Droplet Action Button
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        _showAddTransactionModal();
+                      },
+                      child: Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF06B6D4).withValues(alpha: 0.50),
+                              blurRadius: 20,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.4),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.add_rounded, color: Colors.white, size: 30),
+                        ),
+                      ),
+                    ),
+
+                    _buildNavItem(Icons.bar_chart_rounded, 2),
+                    _buildNavItem(Icons.settings_rounded, 3),
+                  ],
+                ),
               ],
             ),
           ),
@@ -3497,19 +3636,49 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         HapticFeedback.selectionClick();
         setState(() => _selectedIndex = index);
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF06B6D4).withOpacity(0.16) : Colors.transparent,
-          shape: BoxShape.circle,
-          border: isSelected ? Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4), width: 1.0) : null,
-        ),
-        child: Icon(
-          icon,
-          color: isSelected ? const Color(0xFF67E8F9) : Colors.white.withOpacity(0.35),
-          size: 26,
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF06B6D4).withValues(alpha: 0.18) : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: isSelected ? Border.all(color: const Color(0xFF06B6D4).withValues(alpha: 0.40), width: 1.0) : null,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF06B6D4).withValues(alpha: 0.25),
+                        blurRadius: 12,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? const Color(0xFF67E8F9) : Colors.white.withValues(alpha: 0.38),
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 3),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: isSelected ? 5 : 0,
+            height: isSelected ? 5 : 0,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF67E8F9),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0xFF06B6D4),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3577,7 +3746,7 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 220,
+          height: 226,
           child: PageView.builder(
             controller: _pageController,
             itemCount: widget.cards.length,
@@ -3593,167 +3762,220 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
                   onTap: info.onTap,
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
                     decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
                       gradient: LinearGradient(
                         colors: [info.startColor, info.endColor],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(26),
-                      border: Border.all(color: Colors.white.withOpacity(0.14), width: 1.0),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.45),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
+                          color: Colors.black.withValues(alpha: 0.50),
+                          blurRadius: 26,
+                          offset: const Offset(0, 12),
                         ),
                         BoxShadow(
-                          color: info.startColor.withOpacity(0.18),
-                          blurRadius: 20,
+                          color: info.startColor.withValues(alpha: 0.22),
+                          blurRadius: 24,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Top Row: EMV Gold Chip, Contactless Waves & Network Badge
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                // Realistic Metallic EMV Chip
-                                Container(
-                                  width: 36,
-                                  height: 26,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(6),
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFFE2C275), Color(0xFFC59F4E), Color(0xFFE8D390)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    border: Border.all(color: const Color(0xFF997A2E), width: 0.8),
-                                    boxShadow: [
-                                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 1))
-                                    ],
-                                  ),
-                                  child: Center(
-                                    child: Container(
-                                      width: 14,
-                                      height: 14,
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: const Color(0xFF7D6018), width: 0.8),
-                                      ),
-                                    ),
-                                  ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: Stack(
+                        children: [
+                          // 1. Diagonal Specular Glass Light Sheen
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: const Alignment(-1.0, -1.0),
+                                  end: const Alignment(1.0, 1.0),
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.16),
+                                    Colors.white.withValues(alpha: 0.04),
+                                    Colors.transparent,
+                                    Colors.white.withValues(alpha: 0.06),
+                                  ],
+                                  stops: const [0.0, 0.35, 0.65, 1.0],
                                 ),
-                                const SizedBox(width: 10),
-                                Icon(Icons.contactless_rounded, color: Colors.white.withOpacity(0.65), size: 20),
-                              ],
+                              ),
                             ),
-                            Row(
-                              children: [
-                                if (info.bankBadge != null) ...[
-                                  info.bankBadge!,
-                                  const SizedBox(width: 8),
-                                ],
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.white.withOpacity(0.15), width: 0.8),
-                                  ),
-                                  child: Text(
-                                    info.network,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
+                          ),
+
+                          // 2. Specular Top Rim Hairline
+                          Positioned(
+                            top: 0,
+                            left: 20,
+                            right: 20,
+                            height: 1.2,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.0),
+                                    Colors.white.withValues(alpha: 0.40),
+                                    Colors.white.withValues(alpha: 0.0),
+                                  ],
+                                  stops: const [0.0, 0.5, 1.0],
                                 ),
-                              ],
+                              ),
                             ),
-                          ],
-                        ),
-
-                        const Spacer(),
-
-                        // Title & Balance
-                        Text(
-                          info.title.toUpperCase(),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.65),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.4,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          info.amount,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
 
-                        const Spacer(),
-
-                        // Bottom Row: Account Number & Cardholder
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
+                          // 3. Card Content
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  info.subtitle,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.85),
-                                    fontSize: 13,
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 2.0,
-                                  ),
+                                // Top Row: EMV Gold Chip, Contactless Waves & Network Badge
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        // Metallic Micro-Circuit EMV Chip
+                                        Container(
+                                          width: 38,
+                                          height: 28,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(7),
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFFE8CA82), Color(0xFFC79E47), Color(0xFFF3E0A3)],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            border: Border.all(color: const Color(0xFF947325), width: 0.8),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.25),
+                                                blurRadius: 5,
+                                                offset: const Offset(0, 1),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Container(
+                                              width: 16,
+                                              height: 16,
+                                              decoration: BoxDecoration(
+                                                border: Border.all(color: const Color(0xFF7A5C14), width: 0.8),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Icon(Icons.contactless_rounded, color: Colors.white.withValues(alpha: 0.70), size: 20),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        if (info.bankBadge != null) ...[
+                                          info.bankBadge!,
+                                          const SizedBox(width: 8),
+                                        ],
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.8),
+                                          ),
+                                          child: Text(
+                                            info.network,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 1.2,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 2),
+
+                                const Spacer(),
+
+                                // Title & Balance
                                 Text(
-                                  info.cardHolder,
+                                  info.title.toUpperCase(),
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
-                                    fontSize: 10,
+                                    color: Colors.white.withValues(alpha: 0.70),
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.2,
+                                    letterSpacing: 1.4,
                                   ),
                                 ),
-                              ],
-                            ),
-                            Row(
-                              children: [
+                                const SizedBox(height: 4),
                                 Text(
-                                  'MANAGE',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
+                                  info.amount,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.6,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withOpacity(0.4), size: 10),
+
+                                const Spacer(),
+
+                                // Bottom Row: Account Number & Cardholder
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          info.subtitle,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.90),
+                                            fontSize: 13,
+                                            fontFamily: 'monospace',
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 2.0,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          info.cardHolder,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.65),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'MANAGE',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.55),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.45), size: 10),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -3768,13 +3990,28 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
             children: List.generate(widget.cards.length, (i) {
               bool isActive = i == _currentIndex;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
                 margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: isActive ? 22 : 6,
+                width: isActive ? 24 : 7,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: isActive ? const Color(0xFF818CF8) : Colors.white.withOpacity(0.2),
+                  gradient: isActive
+                      ? const LinearGradient(
+                          colors: [Color(0xFF06B6D4), Color(0xFF6366F1)],
+                        )
+                      : null,
+                  color: isActive ? null : Colors.white.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(10),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF06B6D4).withValues(alpha: 0.5),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
                 ),
               );
             }),
@@ -4179,51 +4416,163 @@ class DashboardScreen extends StatelessWidget {
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Formal Executive Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_getGreeting(), style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 2),
-                      Text('$userName 👋', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                    ]
+              // iOS 26 Liquid Floating Glass Capsule Header
+              Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF131D31).withValues(alpha: 0.65),
+                      const Color(0xFF090E18).withValues(alpha: 0.82),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF06B6D4).withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      spreadRadius: -2,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        // User Avatar Droplet with Glowing Gradient Ring
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF06B6D4).withValues(alpha: 0.40),
+                                blurRadius: 12,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2.0),
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0xFF0C101B),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
+                                  style: const TextStyle(
+                                    color: Color(0xFF67E8F9),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        child: const Row(
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.circle, color: Color(0xFF10B981), size: 7),
-                            SizedBox(width: 6),
-                            Text('LIVE SYNC', style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                            Text(
+                              _getGreeting(),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              '$userName 👋',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Image.asset('assets/mone_logo.png', width: 40, height: 40),
-                    ],
-                  ),
-                ]
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        // Live Sync Liquid Capsule Pill
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle, color: Color(0xFF10B981), size: 6.5),
+                              SizedBox(width: 5),
+                              Text(
+                                'LIVE SYNC',
+                                style: TextStyle(
+                                  color: Color(0xFF34D399),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Mone Glass Logo Badge
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Image.asset('assets/mone_logo.png', width: 36, height: 36),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 18),
 
               // Executive Card Carousel
               HorizontalCardCarousel(cards: stackCards),
               const SizedBox(height: 20),
 
-              // Formal 4-Action Fintech Dock (iOS 26 Liquid Water Glass)
+              // Formal 4-Action Fintech Dock (iOS 26 Liquid Water Droplets)
               WaterGlassCard(
-                borderRadius: 24,
+                borderRadius: 26,
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                 glowColor: const Color(0xFF06B6D4),
                 child: Row(
@@ -4232,6 +4581,7 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.add_circle_outline_rounded,
                       label: 'Record',
+                      dropletColor: const Color(0xFF06B6D4),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onAddRequested();
@@ -4240,6 +4590,7 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.sync_alt_rounded,
                       label: 'Transfer',
+                      dropletColor: const Color(0xFF3B82F6),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onAddRequested(existingTx: {'type': 'TRANSFER'});
@@ -4248,6 +4599,7 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.account_balance_wallet_outlined,
                       label: 'Accounts',
+                      dropletColor: const Color(0xFF8B5CF6),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onManageAccountsRequested();
@@ -4256,6 +4608,7 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.insights_rounded,
                       label: 'Analytics',
+                      dropletColor: const Color(0xFF10B981),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onNavigateTab(1);
@@ -4273,23 +4626,23 @@ class DashboardScreen extends StatelessWidget {
                 glowColor: const Color(0xFF10B981),
                 customGradient: LinearGradient(
                   colors: [
-                    const Color(0xFF0F2622).withOpacity(0.70),
-                    const Color(0xFF07151B).withOpacity(0.85),
+                    const Color(0xFF0F2622).withValues(alpha: 0.70),
+                    const Color(0xFF07151B).withValues(alpha: 0.85),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                customBorder: Border.all(color: const Color(0xFF10B981).withOpacity(0.3), width: 1.2),
+                customBorder: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3), width: 1.2),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.20),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.20),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF10B981).withOpacity(0.35),
+                            color: const Color(0xFF10B981).withValues(alpha: 0.35),
                             blurRadius: 10,
                           ),
                         ],
@@ -4314,7 +4667,7 @@ class DashboardScreen extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             'Active for SBI, HDFC, ICICI, Axis & 25+ Indian Banks',
-                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11),
                           ),
                         ],
                       ),
@@ -4325,9 +4678,9 @@ class DashboardScreen extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
+                          color: Colors.white.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.15)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                         ),
                         child: const Text('BANKS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
@@ -4338,12 +4691,12 @@ class DashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 18),
 
-              // Formal Adaptive Daily Pacer & Budget Status Card (iOS 26 Water Glass)
+              // iOS 26 Crystalline Liquid Reservoir Gauge (Safe Spending Pacer)
               WaterGlassCard(
-                borderRadius: 24,
+                borderRadius: 26,
                 padding: const EdgeInsets.all(22),
                 onTap: onSetTotalBudget,
-                glowColor: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                glowColor: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF06B6D4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -4353,14 +4706,20 @@ class DashboardScreen extends StatelessWidget {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(9),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF6366F1).withOpacity(0.20),
-                                borderRadius: BorderRadius.circular(12),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFF06B6D4).withValues(alpha: 0.30),
+                                    const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFF06B6D4).withValues(alpha: 0.4)),
                               ),
-                              child: const Icon(Icons.speed_rounded, color: Color(0xFF818CF8), size: 20),
+                              child: const Icon(Icons.water_drop_rounded, color: Color(0xFF67E8F9), size: 20),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -4368,16 +4727,16 @@ class DashboardScreen extends StatelessWidget {
                                   children: [
                                     const Text(
                                       'DAILY SAFE SPENDING PACER',
-                                      style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                                      style: TextStyle(color: Color(0xFF67E8F9), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.edit_rounded, color: const Color(0xFF818CF8).withOpacity(0.6), size: 12),
+                                    const SizedBox(width: 5),
+                                    Icon(Icons.edit_rounded, color: const Color(0xFF67E8F9).withValues(alpha: 0.6), size: 11),
                                   ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
-                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.4),
                                 ),
                               ],
                             ),
@@ -4390,21 +4749,21 @@ class DashboardScreen extends StatelessWidget {
                                 margin: const EdgeInsets.only(right: 6),
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B).withOpacity(0.20),
+                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
+                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                                 ),
                                 child: Text(
                                   '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
-                                  style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w800),
+                                  style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.w800),
                                 ),
                               ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.08),
+                                color: Colors.white.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
                               ),
                               child: Text(
                                 '$daysRemaining d left',
@@ -4416,15 +4775,71 @@ class DashboardScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 18),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
-                        backgroundColor: Colors.white.withOpacity(0.08),
-                        color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                        minHeight: 10,
-                      ),
+
+                    // Liquid Reservoir Cylinder Fill
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final double pct = (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0);
+                        final Color barColor = unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981);
+                        final Color barEndColor = unspentBudget < 0 ? const Color(0xFFF43F5E) : const Color(0xFF06B6D4);
+
+                        return Container(
+                          height: 14,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Stack(
+                              children: [
+                                FractionallySizedBox(
+                                  widthFactor: pct,
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [barColor, barEndColor],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: barColor.withValues(alpha: 0.5),
+                                          blurRadius: 10,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Specular hairline on top of reservoir
+                                Positioned(
+                                  top: 1,
+                                  left: 6,
+                                  right: 6,
+                                  height: 1.5,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.white.withValues(alpha: 0.0),
+                                          Colors.white.withValues(alpha: 0.45),
+                                          Colors.white.withValues(alpha: 0.0),
+                                        ],
+                                        stops: const [0.0, 0.5, 1.0],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
+
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4432,8 +4847,8 @@ class DashboardScreen extends StatelessWidget {
                         Text(
                           unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
                           style: TextStyle(
-                            color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                            fontWeight: FontWeight.w700,
+                            color: unspentBudget < 0 ? const Color(0xFFF87171) : const Color(0xFF34D399),
+                            fontWeight: FontWeight.w800,
                             fontSize: 12,
                           ),
                         ),
@@ -4441,7 +4856,7 @@ class DashboardScreen extends StatelessWidget {
                           activeInitialSpent > 0
                               ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
                               : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
-                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.60), fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -4652,29 +5067,52 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildQuickAction({
     required IconData icon,
     required String label,
+    required Color dropletColor,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  dropletColor.withValues(alpha: 0.28),
+                  dropletColor.withValues(alpha: 0.08),
+                ],
+              ),
+              border: Border.all(color: dropletColor.withValues(alpha: 0.40), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: dropletColor.withValues(alpha: 0.30),
+                  blurRadius: 14,
+                  spreadRadius: -1,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Center(
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.82),
               fontSize: 11,
               fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -5037,105 +5475,332 @@ class ProfileScreen extends StatelessWidget {
         final goals = snapshot.data ?? [];
 
         return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(), padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 120),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 64, height: 64, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF6366F1).withOpacity(0.2), border: Border.all(color: const Color(0xFF6366F1), width: 2)),
-                    child: Center(child: Text(userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 28, fontWeight: FontWeight.bold))),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(userName, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                    const Text('Money OS User', style: TextStyle(color: Colors.white54, fontSize: 14)),
-                  ])),
-                  IconButton(icon: const Icon(Icons.edit, color: Colors.grey), onPressed: onEditProfile),
-                ],
-              ),
-              const SizedBox(height: 32),
-              const Text('System Setup', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
-              Material(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(24),
-                child: Column(
+              // Executive User Header (iOS 26 Liquid Water Glass)
+              WaterGlassCard(
+                borderRadius: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                glowColor: const Color(0xFF8B5CF6),
+                child: Row(
                   children: [
-                    ListTile(leading: const Icon(Icons.calendar_month, color: Color(0xFF8B5CF6)), title: const Text('View Analytics As', style: TextStyle(color: Colors.white)), trailing: DropdownButton<String>(dropdownColor: const Color(0xFF18181B), value: currentPeriod, style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold), underline: const SizedBox(), items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (val) => onPeriodChanged(val!))),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onSetTotalBudget, leading: const Icon(Icons.account_balance, color: Color(0xFF10B981)), title: const Text('Overall Monthly Budget & Starting Spend', style: TextStyle(color: Colors.white)), subtitle: const Text('Set monthly limit & mid-month already spent offset', style: TextStyle(color: Colors.grey, fontSize: 12)), trailing: const Icon(Icons.edit, color: Colors.grey)),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onAddBudget, leading: const Icon(Icons.track_changes, color: Color(0xFF6366F1)), title: const Text('Set Category Limits', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.add, color: Color(0xFF6366F1))),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onManageCategories, leading: const Icon(Icons.category, color: Color(0xFFF59E0B)), title: const Text('Manage Categories', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onManageAccounts, leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)), title: const Text('Manage Accounts', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
-            const SizedBox(height: 12),
-            const Text('Tools & Automation', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            const SizedBox(height: 12),
-                    ListTile(
-                      onTap: onOpenShortcutsGuide,
-                      leading: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8)),
-                      title: const Text('Apple Shortcuts SMS Sync', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Setup instant background SMS capture via iOS Shortcuts', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF8B5CF6), Color(0xFF3B82F6), Color(0xFF06B6D4)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.40),
+                            blurRadius: 14,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2.5),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF0C101B),
+                          ),
+                          child: Center(
+                            child: Text(
+                              userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
+                              style: const TextStyle(
+                                color: Color(0xFFA78BFA),
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    SwitchListTile(
-                      value: isClipboardSyncEnabled,
-                      onChanged: onToggleClipboardSync,
-                      secondary: const Icon(Icons.content_paste_rounded, color: Colors.greenAccent),
-                      title: const Text('Clipboard Auto-Detection', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Scans copied bank SMS transaction alerts on app launch', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      activeColor: Colors.greenAccent,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'mone iOS Edition • Offline & Private',
+                            style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
                     ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(
-                      onTap: onPasteSms,
-                      leading: const Icon(Icons.mark_email_read_rounded, color: Color(0xFFF59E0B)),
-                      title: const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Quick paste & parse any financial SMS message', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                    IconButton(
+                      icon: const Icon(Icons.edit_rounded, color: Colors.white70),
+                      onPressed: onEditProfile,
                     ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    SwitchListTile(
-                      value: isBiometricEnabled,
-                      onChanged: onToggleBiometric,
-                      secondary: const Icon(Icons.fingerprint, color: Colors.cyanAccent),
-                      title: const Text('Biometric App Lock (Face ID)', style: TextStyle(color: Colors.white)),
-                      activeColor: Colors.cyanAccent,
-                    ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                  ListTile(onTap: () => _exportToCsv(context), leading: const Icon(Icons.file_download, color: Colors.purpleAccent), title: const Text('Export Data to CSV', style: TextStyle(color: Colors.white)), subtitle: const Text('Share your transactions as a spreadsheet', style: TextStyle(color: Colors.grey, fontSize: 12)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
-                  Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                  ListTile(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())), leading: const Icon(Icons.help_outline, color: Colors.blueAccent), title: const Text('How to Use?', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('My Goals', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.add_circle, color: Color(0xFF6366F1), size: 30), onPressed: onAddGoal)]),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 28),
+              const Text('System Setup', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 14),
+
+              WaterGlassCard(
+                borderRadius: 24,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 20),
+                      ),
+                      title: const Text('View Analytics As', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      trailing: DropdownButton<String>(
+                        dropdownColor: const Color(0xFF131A2A),
+                        value: currentPeriod,
+                        style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold),
+                        underline: const SizedBox(),
+                        items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                        onChanged: (val) => onPeriodChanged(val!),
+                      ),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    ListTile(
+                      onTap: onSetTotalBudget,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.speed_rounded, color: Color(0xFF34D399), size: 20),
+                      ),
+                      title: const Text('Monthly Budget & Starting Spend', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Set monthly limit & mid-month already spent offset', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      trailing: const Icon(Icons.edit_rounded, color: Colors.white54, size: 18),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    ListTile(
+                      onTap: onAddBudget,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.track_changes_rounded, color: Color(0xFF818CF8), size: 20),
+                      ),
+                      title: const Text('Set Category Limits', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.add_rounded, color: Color(0xFF818CF8)),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    ListTile(
+                      onTap: onManageCategories,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.category_rounded, color: Color(0xFFFBBF24), size: 20),
+                      ),
+                      title: const Text('Manage Categories', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    ListTile(
+                      onTap: onManageAccounts,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06B6D4).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.account_balance_rounded, color: Color(0xFF22D3EE), size: 20),
+                      ),
+                      title: const Text('Manage Accounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              const Text('Tools & Automation', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 14),
+
+              WaterGlassCard(
+                borderRadius: 24,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  children: [
+                    ListTile(
+                      onTap: onOpenShortcutsGuide,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF818CF8).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 20),
+                      ),
+                      title: const Text('Apple Shortcuts SMS Sync', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Setup instant background SMS capture via iOS Shortcuts', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    SwitchListTile(
+                      value: isClipboardSyncEnabled,
+                      onChanged: onToggleClipboardSync,
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.content_paste_rounded, color: Color(0xFF34D399), size: 20),
+                      ),
+                      title: const Text('Clipboard Auto-Detection', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Scans copied bank SMS transaction alerts on app launch', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      activeThumbColor: const Color(0xFF10B981),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    ListTile(
+                      onTap: onPasteSms,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.mark_email_read_rounded, color: Color(0xFFFBBF24), size: 20),
+                      ),
+                      title: const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Quick paste & parse any financial SMS message', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    SwitchListTile(
+                      value: isBiometricEnabled,
+                      onChanged: onToggleBiometric,
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06B6D4).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.fingerprint_rounded, color: Color(0xFF22D3EE), size: 20),
+                      ),
+                      title: const Text('Biometric App Lock (Face ID)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      activeThumbColor: const Color(0xFF06B6D4),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    ListTile(
+                      onTap: () => _exportToCsv(context),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFA855F7).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.file_download_rounded, color: Color(0xFFC084FC), size: 20),
+                      ),
+                      title: const Text('Export Data to CSV', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Share your transactions as a spreadsheet', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    ),
+                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    ListTile(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.help_outline_rounded, color: Color(0xFF60A5FA), size: 20),
+                      ),
+                      title: const Text('How to Use?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('My Goals', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_rounded, color: Color(0xFF6366F1), size: 28),
+                    onPressed: onAddGoal,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
               ...goals.map((g) {
-                double target = g['target']; double saved = g['saved']; double pct = (saved / target).clamp(0.0, 1.0);
-                return GestureDetector(
+                double target = g['target'];
+                double saved = g['saved'];
+                double pct = (saved / target).clamp(0.0, 1.0);
+                return WaterGlassCard(
+                  borderRadius: 22,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(20),
+                  glowColor: const Color(0xFF6366F1),
                   onTap: () => onGoalEdit(g),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(32)),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(g['title'], style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text('${(pct * 100).toInt()}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold))]),
-                      const SizedBox(height: 16),
-                      ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: pct, backgroundColor: Colors.white.withOpacity(0.05), color: const Color(0xFF818CF8), minHeight: 12)),
-                      const SizedBox(height: 12), Text('Saved: ₹${saved.toStringAsFixed(0)} / Target: ₹${target.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
-                    ]),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(g['title'], style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text('${(pct * 100).toInt()}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.w900)),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                          color: const Color(0xFF818CF8),
+                          minHeight: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Saved: ₹${saved.toStringAsFixed(0)} / Target: ₹${target.toStringAsFixed(0)}',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                      ),
+                    ],
                   ),
                 );
               }).toList(),
             ],
           ),
         );
-      }
+      },
     );
   }
 }
@@ -5176,8 +5841,8 @@ class TrendsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(' Historical Trends', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 32),
+              const Text('Historical Trends', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+              const SizedBox(height: 20),
               if (data.isEmpty) const Text('No data yet.', style: TextStyle(color: Colors.white54)),
               ...data.map((row) {
                 String raw = row['month'] as String;
@@ -5190,39 +5855,54 @@ class TrendsScreen extends StatelessWidget {
                 
                 double pct = maxTotal > 0 ? (total / maxTotal) : 0;
                 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 28),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (ctx) => Scaffold(
-                        backgroundColor: const Color(0xFF09090B),
-                        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, title: const Text(''), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(ctx))),
-                        body: AnalyticsScreen(database: database, timePeriod: 'Monthly', onResolveRollover: (a,b){}, onAddRequested: onAddRequested, onTransactionChanged: onTransactionChanged, overrideMonth: raw)
-                      )));
-                    },
+                return WaterGlassCard(
+                  borderRadius: 22,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(18),
+                  glowColor: const Color(0xFF8B5CF6),
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => Scaffold(
+                      backgroundColor: const Color(0xFF04060A),
+                      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(ctx))),
+                      body: AnalyticsScreen(database: database, timePeriod: 'Monthly', onResolveRollover: (a,b){}, onAddRequested: onAddRequested, onTransactionChanged: onTransactionChanged, overrideMonth: raw)
+                    )));
+                  },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text('₹${total.toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 18, fontWeight: FontWeight.bold)),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.20),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 16),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          Text('₹ ${total.toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 16, fontWeight: FontWeight.w900)),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10), 
                         child: LinearProgressIndicator(
                           value: pct, 
-                          backgroundColor: Colors.white.withOpacity(0.05), 
+                          backgroundColor: Colors.white.withValues(alpha: 0.08), 
                           color: const Color(0xFF8B5CF6), 
-                          minHeight: 12
-                        )
+                          minHeight: 10,
+                        ),
                       ),
-                    ]
-                  )
-                ));
+                    ],
+                  ),
+                );
               }).toList(),
             ],
           ),
@@ -5309,47 +5989,62 @@ class HowToUseScreen extends StatelessWidget {
   }
 
   Widget _buildFeatureCard(IconData icon, String title, String desc, {String? badge}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+    return WaterGlassCard(
+      borderRadius: 24,
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white.withOpacity(0.1))),
+      glowColor: const Color(0xFF6366F1),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           Container(
-             padding: const EdgeInsets.all(12),
-             decoration: BoxDecoration(color: const Color(0xFF818CF8).withOpacity(0.2), shape: BoxShape.circle),
-             child: Icon(icon, color: const Color(0xFF818CF8), size: 28)
-           ),
-           const SizedBox(width: 16),
-           Expanded(
-             child: Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
-               children: [
-                 Row(
-                   children: [
-                     Expanded(
-                       child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
-                     ),
-                     if (badge != null)
-                       Container(
-                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                         decoration: BoxDecoration(
-                           color: const Color(0xFF818CF8).withOpacity(0.2),
-                           borderRadius: BorderRadius.circular(10),
-                           border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.4)),
-                         ),
-                         child: Text(badge, style: const TextStyle(color: Color(0xFF818CF8), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                       ),
-                   ],
-                 ),
-                 const SizedBox(height: 8),
-                 Text(desc, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
-               ]
-             )
-           )
-        ]
-      )
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                    if (badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06B6D4).withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF06B6D4).withValues(alpha: 0.45)),
+                        ),
+                        child: Text(badge, style: const TextStyle(color: Color(0xFF67E8F9), fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(desc, style: TextStyle(color: Colors.white.withValues(alpha: 0.70), fontSize: 13, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
