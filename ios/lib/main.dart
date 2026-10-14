@@ -96,6 +96,7 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
   bool showNotification = true,
   String? overrideType,
   bool isConfirmed = false,
+  int? targetAccountId,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
@@ -139,11 +140,14 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
 
   // 2. Smart Account Match with Indian Bank identification & number matching
   final accounts = await db.query('accounts');
-  int? matchedAccountId = IndianBankDirectory.matchAccountFromSms(
-    senderAddress: senderAddress,
-    messageBody: trimmedBody,
-    accounts: accounts,
-  );
+  int? matchedAccountId = targetAccountId;
+  if (matchedAccountId == null) {
+    matchedAccountId = IndianBankDirectory.matchAccountFromSms(
+      senderAddress: senderAddress,
+      messageBody: trimmedBody,
+      accounts: accounts,
+    );
+  }
   if (matchedAccountId == null && accounts.isNotEmpty) {
     matchedAccountId = accounts.first['id'] as int;
   }
@@ -355,6 +359,185 @@ void main() {
   runApp(const PersonalMoneyOS());
 }
 
+// ---------------------------------------------------------
+// iOS 26 LIQUID WATER & GLASS EFFECTS DESIGN SYSTEM
+// ---------------------------------------------------------
+
+class LiquidWaterMeshBackground extends StatelessWidget {
+  final Animation<double> animation;
+
+  const LiquidWaterMeshBackground({Key? key, required this.animation}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        return CustomPaint(
+          size: Size.infinite,
+          painter: _LiquidWaterPainter(progress: animation.value),
+        );
+      },
+    );
+  }
+}
+
+class _LiquidWaterPainter extends CustomPainter {
+  final double progress;
+  _LiquidWaterPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Deep Oceanic Abyss Base
+    final Rect rect = Offset.zero & size;
+    final baseGradient = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFF0C101B), Color(0xFF07090F), Color(0xFF04060A)],
+      stops: [0.0, 0.5, 1.0],
+    ).createShader(rect);
+
+    canvas.drawRect(rect, Paint()..shader = baseGradient);
+
+    // 2. Liquid Caustic Water Orbs with Sinusoidal Flow
+    final double t = progress * 2 * math.pi;
+
+    // Orb A: Cyan / Aqua Water Refraction (Top-Left)
+    final double oxA = size.width * 0.22 + 40 * math.cos(t);
+    final double oyA = size.height * 0.16 + 32 * math.sin(t);
+    final paintA = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF06B6D4).withOpacity(0.18),
+          const Color(0xFF0891B2).withOpacity(0.08),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(oxA, oyA), radius: 260));
+    canvas.drawCircle(Offset(oxA, oyA), 260, paintA);
+
+    // Orb B: Royal Aquatic Indigo (Mid-Right)
+    final double oxB = size.width * 0.82 + 35 * math.sin(t * 0.8);
+    final double oyB = size.height * 0.42 + 38 * math.cos(t * 0.8);
+    final paintB = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF3B82F6).withOpacity(0.16),
+          const Color(0xFF1D4ED8).withOpacity(0.06),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(oxB, oyB), radius: 290));
+    canvas.drawCircle(Offset(oxB, oyB), 290, paintB);
+
+    // Orb C: Deep Amethyst / Bioluminescent Violet (Bottom-Left)
+    final double oxC = size.width * 0.38 + 42 * math.sin(t * 1.2);
+    final double oyC = size.height * 0.78 + 36 * math.cos(t * 1.2);
+    final paintC = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF8B5CF6).withOpacity(0.14),
+          const Color(0xFF6366F1).withOpacity(0.05),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(oxC, oyC), radius: 270));
+    canvas.drawCircle(Offset(oxC, oyC), 270, paintC);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LiquidWaterPainter oldDelegate) => oldDelegate.progress != progress;
+}
+
+class WaterGlassCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double borderRadius;
+  final VoidCallback? onTap;
+  final Color? glowColor;
+  final double blurSigma;
+  final Border? customBorder;
+  final Gradient? customGradient;
+
+  const WaterGlassCard({
+    Key? key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.borderRadius = 24.0,
+    this.onTap,
+    this.glowColor,
+    this.blurSigma = 24.0,
+    this.customBorder,
+    this.customGradient,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget content = Container(
+      padding: padding ?? const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        gradient: customGradient ?? LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF131E32).withOpacity(0.72),
+            const Color(0xFF0A0F1A).withOpacity(0.85),
+          ],
+          stops: const [0.0, 1.0],
+        ),
+        border: customBorder ?? Border.all(
+          color: Colors.white.withOpacity(0.14),
+          width: 1.2,
+        ),
+      ),
+      child: child,
+    );
+
+    if (onTap != null) {
+      content = Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(borderRadius),
+          onTap: onTap,
+          splashColor: const Color(0xFF06B6D4).withOpacity(0.15),
+          highlightColor: Colors.white.withOpacity(0.05),
+          child: content,
+        ),
+      );
+    }
+
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: (glowColor ?? const Color(0xFF06B6D4)).withOpacity(0.09),
+            blurRadius: 22,
+            spreadRadius: -2,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.40),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
 class PersonalMoneyOS extends StatelessWidget {
   const PersonalMoneyOS({Key? key}) : super(key: key);
 
@@ -405,6 +588,8 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   late AnimationController _ambientController;
   bool _showIsland = false;
   Map<String, dynamic>? _lastIslandTx;
+  Timer? _islandTimer;
+  List<Map<String, dynamic>> _cachedAccounts = [];
   String _cardText = 'MONEY OS PREMIUM';
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
   DateTime _lastShakeTime = DateTime.now();
@@ -430,6 +615,343 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         }
       }
     });
+  }
+
+  void _triggerIsland(Map<String, dynamic> tx) {
+    _islandTimer?.cancel();
+    setState(() {
+      _lastIslandTx = tx;
+      _showIsland = true;
+    });
+    HapticFeedback.heavyImpact();
+    _islandTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _showIsland = false);
+    });
+  }
+
+  String _getAccountShortLabel(int? accId) {
+    if (accId == null) return 'Choose Account';
+    if (_cachedAccounts.isNotEmpty) {
+      final matches = _cachedAccounts.where((a) => a['id'] == accId);
+      if (matches.isNotEmpty) {
+        final a = matches.first;
+        final numStr = a['account_number']?.toString() ?? '';
+        final name = a['name']?.toString() ?? 'Account';
+        return numStr.isNotEmpty ? '$name ••$numStr' : name;
+      }
+    }
+    return 'Choose Account';
+  }
+
+  Future<void> _switchTransactionAccount(Map<String, dynamic> tx, int newAccountId) async {
+    final txId = tx['id'];
+    final int? oldAccountId = tx['account_id'];
+    if (oldAccountId == newAccountId) return;
+
+    final double amt = (tx['amount'] as num).toDouble();
+    final String type = tx['type'] ?? 'EXPENSE';
+    final bool isIncome = type == 'INCOME' || type == 'TRANSFER_IN';
+
+    // 1. Revert previous account balance
+    if (oldAccountId != null) {
+      final oldAccRows = await _database.query('accounts', where: 'id = ?', whereArgs: [oldAccountId]);
+      if (oldAccRows.isNotEmpty) {
+        double oldBal = (oldAccRows.first['balance'] as num).toDouble();
+        double revertedBal = isIncome ? (oldBal - amt) : (oldBal + amt);
+        await _database.update('accounts', {'balance': revertedBal}, where: 'id = ?', whereArgs: [oldAccountId]);
+      }
+    }
+
+    // 2. Apply to new account balance
+    final newAccRows = await _database.query('accounts', where: 'id = ?', whereArgs: [newAccountId]);
+    if (newAccRows.isNotEmpty) {
+      double currentNewBal = (newAccRows.first['balance'] as num).toDouble();
+      double updatedNewBal = isIncome ? (currentNewBal + amt) : (currentNewBal - amt);
+      await _database.update('accounts', {'balance': updatedNewBal}, where: 'id = ?', whereArgs: [newAccountId]);
+    }
+
+    // 3. Update transaction record
+    await _database.update('transactions', {
+      'account_id': newAccountId,
+      'needs_review': 0,
+    }, where: 'id = ?', whereArgs: [txId]);
+
+    // 4. Update widget and state
+    await _updateWidget();
+    _cachedAccounts = await _database.query('accounts');
+    final updatedTxRows = await _database.query('transactions', where: 'id = ?', whereArgs: [txId]);
+    if (mounted) {
+      setState(() {
+        if (updatedTxRows.isNotEmpty) {
+          _lastIslandTx = updatedTxRows.first;
+        }
+      });
+    }
+  }
+
+  void _showSelectAccountModal(Map<String, dynamic> tx) async {
+    HapticFeedback.mediumImpact();
+    final accounts = await _database.query('accounts');
+    if (accounts.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No accounts found to assign transaction to.')),
+        );
+      }
+      return;
+    }
+
+    final double amt = (tx['amount'] as num).toDouble();
+    final String merchant = tx['merchant'] ?? 'Transaction';
+    final String category = tx['category'] ?? 'General';
+    final String type = tx['type'] ?? 'EXPENSE';
+    final int? currentAccountId = tx['account_id'];
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+            color: const Color(0xFF101420).withOpacity(0.92),
+            border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.12), blurRadius: 30, spreadRadius: 2),
+              BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 24),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF06B6D4).withOpacity(0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.3)),
+                            ),
+                            child: const Icon(Icons.water_drop_rounded, color: Color(0xFF06B6D4), size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Choose Account',
+                                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                              ),
+                              Text(
+                                'Select account for this transaction',
+                                style: TextStyle(color: Colors.white60, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white60),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Transaction Preview Glass Pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: getCategoryColor(category).withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(getCategoryIcon(category), color: getCategoryColor(category), size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(merchant, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                              Text(category, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${type == 'INCOME' ? '+' : '-'}₹${amt.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            color: type == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'AVAILABLE ACCOUNTS',
+                    style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                  ),
+                  const SizedBox(height: 10),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.42),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: accounts.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) {
+                        final acc = accounts[i];
+                        final int accId = acc['id'] as int;
+                        final bool isSelected = accId == currentAccountId;
+                        final bool isCash = acc['type'] == 'CASH';
+                        final String bName = acc['bank_name']?.toString() ?? '';
+                        final String bCode = acc['bank_code']?.toString() ?? '';
+                        final BankInfo bank = isCash
+                            ? IndianBankDirectory.getBankById('cash')
+                            : IndianBankDirectory.findBankByName(bCode.isNotEmpty ? bCode : bName);
+                        final String accNum = acc['account_number']?.toString() ?? '';
+                        final double bal = (acc['balance'] as num?)?.toDouble() ?? 0.0;
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            await _switchTransactionAccount(tx, accId);
+                            HapticFeedback.mediumImpact();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Transaction moved to ${acc['name']}${accNum.isNotEmpty ? ' (••$accNum)' : ''}!',
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFF161A26),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              );
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF06B6D4).withOpacity(0.12) : Colors.white.withOpacity(0.04),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF06B6D4) : Colors.white.withOpacity(0.08),
+                                width: isSelected ? 1.6 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                bank.buildBadge(size: 32),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            acc['name']?.toString() ?? 'Account',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                          ),
+                                          if (isSelected) ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF06B6D4).withOpacity(0.2),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Text('CURRENT', style: TextStyle(color: Color(0xFF06B6D4), fontSize: 9, fontWeight: FontWeight.w900)),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        accNum.isNotEmpty ? '•••• $accNum' : (isCash ? 'Cash In Hand' : bank.name),
+                                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '₹${bal.toStringAsFixed(0)}',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                                    ),
+                                    Text(
+                                      'Balance',
+                                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                  color: isSelected ? const Color(0xFF06B6D4) : Colors.white30,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -466,14 +988,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
           if (tx != null) {
             await _updateWidget();
             if (mounted) {
-              setState(() {
-                _lastIslandTx = tx;
-                _showIsland = true;
-              });
-              HapticFeedback.heavyImpact();
-              Future.delayed(const Duration(seconds: 4), () {
-                if (mounted) setState(() => _showIsland = false);
-              });
+              _triggerIsland(tx);
             }
           }
         }
@@ -510,6 +1025,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     _linkSubscription?.cancel();
     _ambientController.dispose();
     _accelerometerSubscription?.cancel();
+    _islandTimer?.cancel();
     super.dispose();
   }
 
@@ -631,7 +1147,9 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     var existingAccs = await _database.query('accounts');
     if (existingAccs.isEmpty) {
       await _database.insert('accounts', {'name': 'Cash', 'type': 'CASH', 'balance': 0.0, 'account_number': ''});
+      existingAccs = await _database.query('accounts');
     }
+    _cachedAccounts = existingAccs;
 
     setState(() => _isDbReady = true);
     
@@ -1045,110 +1563,219 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     );
   }
 
-  void _showClipboardDetectedSheet(String text, ParsedSmsResult parsed) {
+  void _showClipboardDetectedSheet(String text, ParsedSmsResult parsed) async {
+    final accounts = await _database.query('accounts');
+    int? selectedAccountId = IndianBankDirectory.matchAccountFromSms(
+      senderAddress: null,
+      messageBody: text,
+      accounts: accounts,
+    );
+    if (selectedAccountId == null && accounts.isNotEmpty) {
+      selectedAccountId = accounts.first['id'] as int;
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Color(0xFF14151C),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
-                  child: const Icon(Icons.content_paste_rounded, color: Color(0xFF10B981), size: 24),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Bank SMS in Clipboard', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text('Detected transaction ready to import', style: TextStyle(color: Colors.white54, fontSize: 13)),
-                    ],
-                  ),
-                ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 34),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F1422).withOpacity(0.92),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+              border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+              boxShadow: [
+                BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.14), blurRadius: 30, spreadRadius: 2),
+                BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 24),
               ],
             ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(16)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(parsed.merchant, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(parsed.category, style: const TextStyle(color: Colors.white54, fontSize: 13)),
-                    ],
-                  ),
-                  Text(
-                    '${parsed.type == 'INCOME' ? '+' : '-'}₹${parsed.amount.toStringAsFixed(0)}',
-                    style: TextStyle(
-                      color: parsed.type == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF06B6D4).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.35)),
+                          ),
+                          child: const Icon(Icons.water_drop_rounded, color: Color(0xFF06B6D4), size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Bank SMS Detected', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text('Choose target account before auto-importing', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(parsed.merchant, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Text(parsed.category, style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13)),
+                            ],
+                          ),
+                          Text(
+                            '${parsed.type == 'INCOME' ? '+' : '-'}₹${parsed.amount.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              color: parsed.type == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'CHARGE / CREDIT TO ACCOUNT:',
+                      style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                    ),
+                    const SizedBox(height: 10),
+                    if (accounts.isNotEmpty)
+                      SizedBox(
+                        height: 52,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: accounts.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (context, i) {
+                            final acc = accounts[i];
+                            final int accId = acc['id'] as int;
+                            final bool isSel = accId == selectedAccountId;
+                            final bool isCash = acc['type'] == 'CASH';
+                            final BankInfo bank = isCash
+                                ? IndianBankDirectory.getBankById('cash')
+                                : IndianBankDirectory.findBankByName(acc['bank_code'] ?? acc['bank_name'] ?? '');
+                            final String accNum = acc['account_number']?.toString() ?? '';
+
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setModalState(() => selectedAccountId = accId);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSel ? const Color(0xFF06B6D4).withOpacity(0.18) : Colors.white.withOpacity(0.04),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSel ? const Color(0xFF06B6D4) : Colors.white.withOpacity(0.1),
+                                    width: isSel ? 1.6 : 1.0,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    bank.buildBadge(size: 22),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${acc['name'] ?? 'Account'}${accNum.isNotEmpty ? ' ••$accNum' : ''}',
+                                      style: TextStyle(
+                                        color: isSel ? Colors.white : Colors.white70,
+                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (isSel) ...[
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.check_circle_rounded, color: Color(0xFF06B6D4), size: 14),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              final tx = await processIncomingSmsString(rawBody: text, targetAccountId: selectedAccountId);
+                              if (tx != null && mounted) {
+                                await _updateWidget();
+                                _triggerIsland(tx);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: const Text('Import Transaction', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      final tx = await processIncomingSmsString(rawBody: text);
-                      if (tx != null && mounted) {
-                        await _updateWidget();
-                        setState(() {
-                          _lastIslandTx = tx;
-                          _showIsland = true;
-                        });
-                        HapticFeedback.heavyImpact();
-                        Future.delayed(const Duration(seconds: 4), () {
-                          if (mounted) setState(() => _showIsland = false);
-                        });
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), padding: const EdgeInsets.symmetric(vertical: 14)),
-                    child: const Text('Import Transaction', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  void _showPasteSmsModal() {
+  void _showPasteSmsModal() async {
+    final accounts = await _database.query('accounts');
+    int? selectedAccountId = accounts.isNotEmpty ? accounts.first['id'] as int : null;
     final TextEditingController controller = TextEditingController();
     ParsedSmsResult? previewParsed;
+
+    if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -1158,103 +1785,195 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Color(0xFF14151C),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 34),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F1422).withOpacity(0.92),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+              border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+              boxShadow: [
+                BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.14), blurRadius: 30, spreadRadius: 2),
+                BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 24),
+              ],
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: const Icon(Icons.paste_rounded, color: Color(0xFF818CF8)),
-                        tooltip: 'Paste from Clipboard',
-                        onPressed: () async {
-                          ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
-                          if (data?.text != null) {
-                            controller.text = data!.text!;
-                            setModalState(() {
-                              previewParsed = SmsTransactionParser.parse(body: data.text!);
-                            });
-                          }
-                        },
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: controller,
-                    maxLines: 4,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: 'e.g. HDFC Bank: Rs 550.00 debited from a/c **1234 at Starbucks UPI. Avl bal: INR 12,000.00',
-                      hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.04),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                    ),
-                    onChanged: (val) {
-                      setModalState(() {
-                        previewParsed = SmsTransactionParser.parse(body: val);
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  if (previewParsed != null && previewParsed!.isValid)
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))),
-                      child: Row(
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Recognized: ₹${previewParsed!.amount.toStringAsFixed(0)} ${previewParsed!.type} at ${previewParsed!.merchant} (${previewParsed!.category})',
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                            ),
+                          const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.paste_rounded, color: Color(0xFF818CF8)),
+                            tooltip: 'Paste from Clipboard',
+                            onPressed: () async {
+                              ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
+                              if (data?.text != null) {
+                                controller.text = data!.text!;
+                                final p = SmsTransactionParser.parse(body: data.text!);
+                                int? autoMatched = IndianBankDirectory.matchAccountFromSms(senderAddress: null, messageBody: data.text!, accounts: accounts);
+                                setModalState(() {
+                                  previewParsed = p;
+                                  if (autoMatched != null) selectedAccountId = autoMatched;
+                                });
+                              }
+                            },
                           ),
                         ],
                       ),
-                    ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final text = controller.text.trim();
-                        if (text.isEmpty) return;
-                        Navigator.pop(ctx);
-                        final tx = await processIncomingSmsString(rawBody: text);
-                        if (tx != null && mounted) {
-                          await _updateWidget();
-                          setState(() {
-                            _lastIslandTx = tx;
-                            _showIsland = true;
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: controller,
+                        maxLines: 4,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'e.g. HDFC Bank: Rs 550.00 debited from a/c **1234 at Starbucks UPI. Avl bal: INR 12,000.00',
+                          hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.04),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        ),
+                        onChanged: (val) {
+                          final p = SmsTransactionParser.parse(body: val);
+                          int? autoMatched = IndianBankDirectory.matchAccountFromSms(senderAddress: null, messageBody: val, accounts: accounts);
+                          setModalState(() {
+                            previewParsed = p;
+                            if (autoMatched != null) selectedAccountId = autoMatched;
                           });
-                          HapticFeedback.heavyImpact();
-                          Future.delayed(const Duration(seconds: 4), () {
-                            if (mounted) setState(() => _showIsland = false);
-                          });
-                        } else if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Could not detect transaction in pasted text'), backgroundColor: Colors.redAccent),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                      child: const Text('Parse & Save Transaction', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      if (previewParsed != null && previewParsed!.isValid) ...[
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Recognized: ₹${previewParsed!.amount.toStringAsFixed(0)} ${previewParsed!.type} at ${previewParsed!.merchant} (${previewParsed!.category})',
+                                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'ASSIGN TO ACCOUNT:',
+                          style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                        ),
+                        const SizedBox(height: 10),
+                        if (accounts.isNotEmpty)
+                          SizedBox(
+                            height: 52,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: accounts.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 8),
+                              itemBuilder: (context, i) {
+                                final acc = accounts[i];
+                                final int accId = acc['id'] as int;
+                                final bool isSel = accId == selectedAccountId;
+                                final bool isCash = acc['type'] == 'CASH';
+                                final BankInfo bank = isCash
+                                    ? IndianBankDirectory.getBankById('cash')
+                                    : IndianBankDirectory.findBankByName(acc['bank_code'] ?? acc['bank_name'] ?? '');
+                                final String accNum = acc['account_number']?.toString() ?? '';
+
+                                return InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setModalState(() => selectedAccountId = accId);
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: isSel ? const Color(0xFF06B6D4).withOpacity(0.18) : Colors.white.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isSel ? const Color(0xFF06B6D4) : Colors.white.withOpacity(0.1),
+                                        width: isSel ? 1.6 : 1.0,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        bank.buildBadge(size: 22),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${acc['name'] ?? 'Account'}${accNum.isNotEmpty ? ' ••$accNum' : ''}',
+                                          style: TextStyle(
+                                            color: isSel ? Colors.white : Colors.white70,
+                                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        if (isSel) ...[
+                                          const SizedBox(width: 6),
+                                          const Icon(Icons.check_circle_rounded, color: Color(0xFF06B6D4), size: 14),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final text = controller.text.trim();
+                            if (text.isEmpty) return;
+                            Navigator.pop(ctx);
+                            final tx = await processIncomingSmsString(rawBody: text, targetAccountId: selectedAccountId);
+                            if (tx != null && mounted) {
+                              await _updateWidget();
+                              _triggerIsland(tx);
+                            } else if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Could not detect transaction in pasted text'), backgroundColor: Colors.redAccent),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6366F1),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: const Text('Parse & Save Transaction', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -1468,14 +2187,14 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
                         } else {
                           final data = { 'merchant': _merchantCtrl.text, 'category': finalCat, 'amount': amt, 'type': _selectedType, 'date': _selectedDate.toIso8601String(), 'goal_id': null, 'account_id': _selectedAccountId };
                           if (existingTx == null) { 
-                            await _database.insert('transactions', data); 
+                            int newId = await _database.insert('transactions', data); 
+                            data['id'] = newId;
                             if (_selectedAccountId != null) {
                               var acc = accountsRaw.firstWhere((a) => a['id'] == _selectedAccountId, orElse: () => {'balance': 0.0});
                               double newBal = (acc['balance'] as double) + (_selectedType == 'INCOME' ? amt : -amt);
                               await _database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [_selectedAccountId]);
                             }
-                            setState(() { _lastIslandTx = data; _showIsland = true; }); 
-                            Future.delayed(const Duration(seconds: 4), () { if (mounted) setState(() => _showIsland = false); });
+                            _triggerIsland(data);
                           }
                           else { 
                              await _database.update('transactions', data, where: 'id = ?', whereArgs: [existingTx['id']]);
@@ -2573,6 +3292,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         onNavigateTab: (idx) => setState(() => _selectedIndex = idx),
         onRefreshRequested: _manualSyncSms,
         onSetTotalBudget: _showSetTotalBudgetModal,
+        onSelectAccountRequested: _showSelectAccountModal,
       ),
       ModernAnalyticsScreen(database: _database, initialTimePeriod: _timePeriod, onAddRequested: _showAddTransactionModal),
       TrendsScreen(database: _database, onAddRequested: _showAddTransactionModal, onTransactionChanged: () => setState(() {})),
@@ -2603,45 +3323,99 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
 
     return Scaffold(
       extendBody: true,
-      backgroundColor: const Color(0xFF090A0E),
+      backgroundColor: const Color(0xFF04060A),
       body: Stack(
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF13151F), Color(0xFF090A0E), Color(0xFF07080B)],
-                stops: [0.0, 0.45, 1.0],
-              ),
-            ),
+          // Live Liquid Water Caustic & Refraction Mesh (iOS 26 Ambient Effect)
+          Positioned.fill(
+            child: LiquidWaterMeshBackground(animation: _ambientController),
           ),
           SafeArea(bottom: false, child: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _screens[_selectedIndex])),
           
+          // iOS 26 Interactive Liquid Water Glass Dynamic Island HUD
           AnimatedPositioned(
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeOutBack,
-            top: _showIsland ? 60 : -100,
-            left: 20, right: 20,
+            top: _showIsland ? 58 : -120,
+            left: 16, right: 16,
             child: _lastIslandTx == null ? const SizedBox() : Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF161822).withOpacity(0.95),
+              child: GestureDetector(
+                onTap: () {
+                  _islandTimer?.cancel();
+                  _showSelectAccountModal(_lastIslandTx!);
+                },
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(40),
-                  border: Border.all(color: Colors.white.withOpacity(0.12)),
-                  boxShadow: [BoxShadow(color: getCategoryColor(_lastIslandTx!['category']).withOpacity(0.25), blurRadius: 24)]
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: getCategoryColor(_lastIslandTx!['category']).withOpacity(0.2), shape: BoxShape.circle), child: Icon(getCategoryIcon(_lastIslandTx!['category']), color: getCategoryColor(_lastIslandTx!['category']), size: 16)),
-                    const SizedBox(width: 12),
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Recorded ${_lastIslandTx!['merchant']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text('${_lastIslandTx!['type'] == 'INCOME' ? '+' : '-'}₹${_lastIslandTx!['amount']}', style: TextStyle(color: _lastIslandTx!['type'] == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFFF43F5E), fontWeight: FontWeight.bold, fontSize: 13)),
-                    ]),
-                  ],
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F1424).withOpacity(0.88),
+                        borderRadius: BorderRadius.circular(40),
+                        border: Border.all(color: Colors.white.withOpacity(0.20), width: 1.2),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.22), blurRadius: 28, spreadRadius: 1),
+                          BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: getCategoryColor(_lastIslandTx!['category']).withOpacity(0.25),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(getCategoryIcon(_lastIslandTx!['category']), color: getCategoryColor(_lastIslandTx!['category']), size: 16),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Recorded ${_lastIslandTx!['merchant']}',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              Text(
+                                '${_lastIslandTx!['type'] == 'INCOME' ? '+' : '-'}₹${_lastIslandTx!['amount']}',
+                                style: TextStyle(
+                                  color: _lastIslandTx!['type'] == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          // Interactive Account Selection Pill
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF06B6D4).withOpacity(0.20),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.45)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.account_balance_rounded, size: 12, color: Color(0xFF06B6D4)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _getAccountShortLabel(_lastIslandTx!['account_id']),
+                                  style: const TextStyle(color: Color(0xFF67E8F9), fontSize: 11, fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(width: 2),
+                                const Icon(Icons.arrow_drop_down_rounded, size: 16, color: Color(0xFF67E8F9)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -2654,21 +3428,29 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
 
   Widget _buildFloatingBottomNav() {
     return Container(
-      margin: const EdgeInsets.only(left: 24, right: 24, bottom: 20),
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 22),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(36),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
+          filter: ImageFilter.blur(sigmaX: 32.0, sigmaY: 32.0),
           child: Container(
             height: 72,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF12141D).withOpacity(0.94),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.0),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.12),
+                  Colors.white.withOpacity(0.04),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(36),
+              border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.2),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 8))
-              ]
+                BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.16), blurRadius: 28, spreadRadius: -2, offset: const Offset(0, 8)),
+                BoxShadow(color: Colors.black.withOpacity(0.55), blurRadius: 24, offset: const Offset(0, 10)),
+              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -2676,17 +3458,19 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
                 _buildNavItem(Icons.account_balance_wallet_rounded, 0),
                 _buildNavItem(Icons.pie_chart_rounded, 1),
                 Container(
-                  width: 52, height: 52,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                      colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF6366F1)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 14, offset: const Offset(0, 4))
+                      BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.45), blurRadius: 18, offset: const Offset(0, 4)),
                     ],
+                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
@@ -2709,8 +3493,24 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
   Widget _buildNavItem(IconData icon, int index) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: isSelected ? Colors.white.withOpacity(0.1) : Colors.transparent, shape: BoxShape.circle), child: Icon(icon, color: isSelected ? const Color(0xFF818CF8) : Colors.white.withOpacity(0.35), size: 26)),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedIndex = index);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF06B6D4).withOpacity(0.16) : Colors.transparent,
+          shape: BoxShape.circle,
+          border: isSelected ? Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4), width: 1.0) : null,
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? const Color(0xFF67E8F9) : Colors.white.withOpacity(0.35),
+          size: 26,
+        ),
+      ),
     );
   }
 }
@@ -3006,6 +3806,7 @@ class DashboardScreen extends StatelessWidget {
   final Function(int) onNavigateTab;
   final Future<void> Function() onRefreshRequested;
   final VoidCallback onSetTotalBudget;
+  final Function(Map<String, dynamic> tx)? onSelectAccountRequested;
 
   const DashboardScreen({
     Key? key,
@@ -3018,6 +3819,7 @@ class DashboardScreen extends StatelessWidget {
     required this.onNavigateTab,
     required this.onRefreshRequested,
     required this.onSetTotalBudget,
+    this.onSelectAccountRequested,
   }) : super(key: key);
 
   String _getGreeting() {
@@ -3051,160 +3853,192 @@ class DashboardScreen extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 34),
           decoration: BoxDecoration(
-            color: const Color(0xFF13151F),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            color: const Color(0xFF0F1422).withOpacity(0.94),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+            border: Border.all(color: Colors.white.withOpacity(0.14), width: 1.2),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.12), blurRadius: 28, spreadRadius: 2),
+              BoxShadow(color: Colors.black.withOpacity(0.55), blurRadius: 24),
+            ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 42, height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B), size: 14),
-                        SizedBox(width: 4),
-                        Text('SMS AUTO-SYNCED', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
-                      ],
+                  Center(
+                    child: Container(
+                      width: 44, height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
-                  Text(accName, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B), size: 14),
+                            SizedBox(width: 4),
+                            Text('SMS AUTO-SYNCED', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                          ],
+                        ),
+                      ),
+                      Text(accName, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(tx['merchant'] ?? 'Transaction', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('₹${amt.toStringAsFixed(2)} • ${tx['category']}', style: TextStyle(color: type == 'INCOME' ? const Color(0xFF10B981) : Colors.white70, fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 24),
+                  const Text('Confirm or Reclassify with 1-Tap:', style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                  const SizedBox(height: 12),
+                  
+                  // 1. Confirm Option
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    tileColor: Colors.white.withOpacity(0.04),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), shape: BoxShape.circle),
+                      child: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 20),
+                    ),
+                    title: Text(type == 'INCOME' ? 'Confirm as Income' : 'Confirm as Expense', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: Text('Keep ₹${amt.toStringAsFixed(0)} logged to ${tx['category']}', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11)),
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      await database.update('transactions', {'needs_review': 0}, where: 'id = ?', whereArgs: [txId]);
+                      Navigator.pop(ctx);
+                      onTransactionChanged();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 2. Transfer / Move Option
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    tileColor: Colors.white.withOpacity(0.04),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFF3B82F6).withOpacity(0.15), shape: BoxShape.circle),
+                      child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF3B82F6), size: 20),
+                    ),
+                    title: const Text('Move / Transfer Between Accounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('Reclassify as transfer without affecting spending budget', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      if (accId != null && type == 'INCOME') {
+                        final accs = await database.query('accounts', where: 'id = ?', whereArgs: [accId]);
+                        if (accs.isNotEmpty) {
+                          double bal = (accs.first['balance'] as num).toDouble();
+                          await database.update('accounts', {'balance': bal - amt}, where: 'id = ?', whereArgs: [accId]);
+                        }
+                      }
+                      await database.update('transactions', {
+                        'type': 'TRANSFER_OUT',
+                        'category': 'Transfer Out',
+                        'needs_review': 0,
+                      }, where: 'id = ?', whereArgs: [txId]);
+                      Navigator.pop(ctx);
+                      onTransactionChanged();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 3. Switch Direction (Expense <-> Income)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    tileColor: Colors.white.withOpacity(0.04),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withOpacity(0.15), shape: BoxShape.circle),
+                      child: Icon(type == 'INCOME' ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, color: const Color(0xFF8B5CF6), size: 20),
+                    ),
+                    title: Text(type == 'INCOME' ? 'Switch to Expense' : 'Switch to Income', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('Correct transaction flow and account balance', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      String newType = type == 'INCOME' ? 'EXPENSE' : 'INCOME';
+                      String newCat = newType == 'INCOME' ? 'Salary' : 'Other';
+                      if (accId != null) {
+                        final accs = await database.query('accounts', where: 'id = ?', whereArgs: [accId]);
+                        if (accs.isNotEmpty) {
+                          double bal = (accs.first['balance'] as num).toDouble();
+                          double newBal = newType == 'INCOME' ? bal + (2 * amt) : bal - (2 * amt);
+                          await database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [accId]);
+                        }
+                      }
+                      await database.update('transactions', {
+                        'type': newType,
+                        'category': newCat,
+                        'needs_review': 0,
+                      }, where: 'id = ?', whereArgs: [txId]);
+                      Navigator.pop(ctx);
+                      onTransactionChanged();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 4. Switch Account Option (iOS Choose Account)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    tileColor: Colors.white.withOpacity(0.04),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFF06B6D4).withOpacity(0.15), shape: BoxShape.circle),
+                      child: const Icon(Icons.account_balance_rounded, color: Color(0xFF06B6D4), size: 20),
+                    ),
+                    title: const Text('Switch Account', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: Text('Currently assigned to $accName', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      if (onSelectAccountRequested != null) {
+                        onSelectAccountRequested!(tx);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 5. Edit full details
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    tileColor: Colors.white.withOpacity(0.04),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+                      child: const Icon(Icons.edit_rounded, color: Colors.white70, size: 20),
+                    ),
+                    title: const Text('Edit Full Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('Change merchant, custom category, or date', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      onAddRequested(existingTx: tx);
+                    },
+                  ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Text(tx['merchant'] ?? 'Transaction', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('₹${amt.toStringAsFixed(2)} • ${tx['category']}', style: TextStyle(color: type == 'INCOME' ? const Color(0xFF10B981) : Colors.white70, fontSize: 16, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 24),
-              const Text('Confirm or Reclassify with 1-Tap:', style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-              const SizedBox(height: 12),
-              
-              // 1. Confirm Option
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), shape: BoxShape.circle),
-                  child: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 20),
-                ),
-                title: Text(type == 'INCOME' ? 'Confirm as Income' : 'Confirm as Expense', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: Text('Keep ₹${amt.toStringAsFixed(0)} logged to ${tx['category']}', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11)),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  await database.update('transactions', {'needs_review': 0}, where: 'id = ?', whereArgs: [txId]);
-                  Navigator.pop(ctx);
-                  onTransactionChanged();
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // 2. Transfer / Move Option
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF3B82F6).withOpacity(0.15), shape: BoxShape.circle),
-                  child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF3B82F6), size: 20),
-                ),
-                title: const Text('Move / Transfer Between Accounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Reclassify as transfer without affecting spending budget', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  if (accId != null && type == 'INCOME') {
-                    final accs = await database.query('accounts', where: 'id = ?', whereArgs: [accId]);
-                    if (accs.isNotEmpty) {
-                      double bal = (accs.first['balance'] as num).toDouble();
-                      await database.update('accounts', {'balance': bal - amt}, where: 'id = ?', whereArgs: [accId]);
-                    }
-                  }
-                  await database.update('transactions', {
-                    'type': 'TRANSFER_OUT',
-                    'category': 'Transfer Out',
-                    'needs_review': 0,
-                  }, where: 'id = ?', whereArgs: [txId]);
-                  Navigator.pop(ctx);
-                  onTransactionChanged();
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // 3. Switch Direction (Expense <-> Income)
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withOpacity(0.15), shape: BoxShape.circle),
-                  child: Icon(type == 'INCOME' ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, color: const Color(0xFF8B5CF6), size: 20),
-                ),
-                title: Text(type == 'INCOME' ? 'Switch to Expense' : 'Switch to Income', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Correct transaction flow and account balance', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  String newType = type == 'INCOME' ? 'EXPENSE' : 'INCOME';
-                  String newCat = newType == 'INCOME' ? 'Salary' : 'Other';
-                  if (accId != null) {
-                    final accs = await database.query('accounts', where: 'id = ?', whereArgs: [accId]);
-                    if (accs.isNotEmpty) {
-                      double bal = (accs.first['balance'] as num).toDouble();
-                      double newBal = newType == 'INCOME' ? bal + (2 * amt) : bal - (2 * amt);
-                      await database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [accId]);
-                    }
-                  }
-                  await database.update('transactions', {
-                    'type': newType,
-                    'category': newCat,
-                    'needs_review': 0,
-                  }, where: 'id = ?', whereArgs: [txId]);
-                  Navigator.pop(ctx);
-                  onTransactionChanged();
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // 4. Edit full details
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.edit_rounded, color: Colors.white70, size: 20),
-                ),
-                title: const Text('Edit Full Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Change merchant, custom category, or account', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onAddRequested(existingTx: tx);
-                },
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -3387,14 +4221,11 @@ class DashboardScreen extends StatelessWidget {
               HorizontalCardCarousel(cards: stackCards),
               const SizedBox(height: 20),
 
-              // Formal 4-Action Fintech Dock
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF12141D),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
-                ),
+              // Formal 4-Action Fintech Dock (iOS 26 Liquid Water Glass)
+              WaterGlassCard(
+                borderRadius: 24,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                glowColor: const Color(0xFF06B6D4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
@@ -3434,26 +4265,34 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
 
-              // Feature Showcase Strip: Indian Bank SMS & Active Protection
-              Container(
+              // Feature Showcase Strip: Indian Bank SMS & Active Protection (iOS 26 Water Glass)
+              WaterGlassCard(
                 margin: const EdgeInsets.only(top: 14),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF131A29), Color(0xFF0F1420)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
+                borderRadius: 20,
+                glowColor: const Color(0xFF10B981),
+                customGradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF0F2622).withOpacity(0.70),
+                    const Color(0xFF07151B).withOpacity(0.85),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                customBorder: Border.all(color: const Color(0xFF10B981).withOpacity(0.3), width: 1.2),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        color: const Color(0xFF10B981).withOpacity(0.20),
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF10B981).withOpacity(0.35),
+                            blurRadius: 10,
+                          ),
+                        ],
                       ),
                       child: const Icon(Icons.sensors_rounded, color: Color(0xFF10B981), size: 18),
                     ),
@@ -3481,12 +4320,14 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                     InkWell(
+                      borderRadius: BorderRadius.circular(12),
                       onTap: onManageAccountsRequested,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.08),
+                          color: Colors.white.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.15)),
                         ),
                         child: const Text('BANKS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
@@ -3497,123 +4338,114 @@ class DashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 18),
 
-              // Formal Adaptive Daily Pacer & Budget Status Card
-              InkWell(
-                borderRadius: BorderRadius.circular(24),
+              // Formal Adaptive Daily Pacer & Budget Status Card (iOS 26 Water Glass)
+              WaterGlassCard(
+                borderRadius: 24,
+                padding: const EdgeInsets.all(22),
                 onTap: onSetTotalBudget,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF12141D),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))
-                    ]
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF6366F1).withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(Icons.speed_rounded, color: Color(0xFF818CF8), size: 20),
+                glowColor: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF6366F1).withOpacity(0.20),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              const SizedBox(width: 10),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Text(
-                                        'DAILY SAFE SPENDING PACER',
-                                        style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Icon(Icons.edit_rounded, color: const Color(0xFF818CF8).withOpacity(0.6), size: 12),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
-                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              if (activeInitialSpent > 0)
-                                Container(
-                                  margin: const EdgeInsets.only(right: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
-                                  ),
-                                  child: Text(
-                                    '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
-                                    style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w800),
-                                  ),
+                              child: const Icon(Icons.speed_rounded, color: Color(0xFF818CF8), size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text(
+                                      'DAILY SAFE SPENDING PACER',
+                                      style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.edit_rounded, color: const Color(0xFF818CF8).withOpacity(0.6), size: 12),
+                                  ],
                                 ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
+                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            if (activeInitialSpent > 0)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                margin: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.06),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: const Color(0xFFF59E0B).withOpacity(0.20),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
                                 ),
                                 child: Text(
-                                  '$daysRemaining d left',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                  '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
+                                  style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w800),
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
-                          backgroundColor: Colors.white.withOpacity(0.06),
-                          color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                          minHeight: 10,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
-                            style: TextStyle(
-                              color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                              ),
+                              child: Text(
+                                '$daysRemaining d left',
+                                style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                             ),
-                          ),
-                          Text(
-                            activeInitialSpent > 0
-                                ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
-                                : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
-                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w500),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
+                        backgroundColor: Colors.white.withOpacity(0.08),
+                        color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                        minHeight: 10,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
+                          style: TextStyle(
+                            color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          activeInitialSpent > 0
+                              ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
+                              : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
+                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
 
@@ -3653,7 +4485,14 @@ class DashboardScreen extends StatelessWidget {
                       return false;
                     }
                   },
-                  child: GestureDetector(
+                  child: WaterGlassCard(
+                    borderRadius: 20,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    glowColor: tx['needs_review'] == 1 ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6),
+                    customBorder: tx['needs_review'] == 1
+                        ? Border.all(color: const Color(0xFFF59E0B).withOpacity(0.45), width: 1.2)
+                        : null,
                     onTap: () {
                       if (tx['needs_review'] == 1) {
                         _showQuickReviewSheet(context, tx, accountMap);
@@ -3661,111 +4500,143 @@ class DashboardScreen extends StatelessWidget {
                         onAddRequested(existingTx: tx);
                       }
                     },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF12141D),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: tx['needs_review'] == 1 ? const Color(0xFFF59E0B).withOpacity(0.35) : Colors.white.withOpacity(0.04),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: getCategoryColor(tx['category']).withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(getCategoryIcon(tx['category']), color: getCategoryColor(tx['category']), size: 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: getCategoryColor(tx['category']).withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        tx['merchant'],
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                          child: Icon(getCategoryIcon(tx['category']), color: getCategoryColor(tx['category']), size: 20),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      tx['merchant'],
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    if (tx['needs_review'] == 1) ...[
-                                      GestureDetector(
-                                        onTap: () => _showQuickReviewSheet(context, tx, accountMap),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF59E0B).withOpacity(0.18),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5), width: 0.8),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B), size: 10),
-                                              SizedBox(width: 3),
-                                              Text(
-                                                'REVIEW',
-                                                style: TextStyle(
-                                                  color: Color(0xFFFBBF24),
-                                                  fontSize: 8.5,
-                                                  fontWeight: FontWeight.w900,
-                                                  letterSpacing: 0.5,
-                                                ),
+                                  ),
+                                  if (tx['needs_review'] == 1) ...[
+                                    GestureDetector(
+                                      onTap: () => _showQuickReviewSheet(context, tx, accountMap),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF59E0B).withOpacity(0.18),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5), width: 0.8),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B), size: 10),
+                                            SizedBox(width: 3),
+                                            Text(
+                                              'REVIEW',
+                                              style: TextStyle(
+                                                color: Color(0xFFFBBF24),
+                                                fontSize: 8.5,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.5,
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ],
-                                ),
-                                const SizedBox(height: 3),
-                                Row(
-                                  children: [
-                                    if (accountMap.containsKey(tx['account_id'])) ...[
-                                      Builder(builder: (context) {
-                                        final txAcc = accountMap[tx['account_id']]!;
-                                        BankInfo b = IndianBankDirectory.findBankByName(
-                                          txAcc['bank_code'] ?? txAcc['bank_name'] ?? (txAcc['type'] == 'CASH' ? 'cash' : ''),
-                                        );
-                                        return Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  if (accountMap.containsKey(tx['account_id'])) ...[
+                                    Builder(builder: (context) {
+                                      final txAcc = accountMap[tx['account_id']]!;
+                                      BankInfo b = IndianBankDirectory.findBankByName(
+                                        txAcc['bank_code'] ?? txAcc['bank_name'] ?? (txAcc['type'] == 'CASH' ? 'cash' : ''),
+                                      );
+                                      return GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          onSelectAccountRequested?.call(tx);
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                           margin: const EdgeInsets.only(right: 6),
                                           decoration: BoxDecoration(
                                             color: b.accentColor.withOpacity(0.18),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(7),
+                                            border: Border.all(color: b.accentColor.withOpacity(0.35), width: 0.8),
                                           ),
-                                          child: Text(
-                                            b.shortName,
-                                            style: TextStyle(color: b.accentColor, fontSize: 9, fontWeight: FontWeight.w900),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                b.shortName,
+                                                style: TextStyle(color: b.accentColor, fontSize: 9.5, fontWeight: FontWeight.w900),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Icon(Icons.keyboard_arrow_down_rounded, color: b.accentColor, size: 12),
+                                            ],
                                           ),
-                                        );
-                                      }),
-                                    ],
-                                    Text('${tx['category']} • $dateStr', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 12)),
+                                        ),
+                                      );
+                                    }),
+                                  ] else ...[
+                                    GestureDetector(
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        onSelectAccountRequested?.call(tx);
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        margin: const EdgeInsets.only(right: 6),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF06B6D4).withOpacity(0.18),
+                                          borderRadius: BorderRadius.circular(7),
+                                          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4), width: 0.8),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.account_balance_outlined, color: Color(0xFF06B6D4), size: 10),
+                                            SizedBox(width: 3),
+                                            Text(
+                                              'Choose Acc',
+                                              style: TextStyle(color: Color(0xFF06B6D4), fontSize: 9, fontWeight: FontWeight.w800),
+                                            ),
+                                            SizedBox(width: 2),
+                                            Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF06B6D4), size: 12),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ],
-                                ),
-                              ],
-                            ),
+                                  Text('${tx['category']} • $dateStr', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 12)),
+                                ],
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${tx['type'] == 'INCOME' ? '+' : '-'}₹${tx['amount']}',
-                            style: TextStyle(
-                              color: tx['type'] == 'INCOME' ? const Color(0xFF10B981) : Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${tx['type'] == 'INCOME' ? '+' : '-'}₹${tx['amount']}',
+                          style: TextStyle(
+                            color: tx['type'] == 'INCOME' ? const Color(0xFF10B981) : Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
