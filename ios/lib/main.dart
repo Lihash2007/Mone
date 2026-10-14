@@ -13,6 +13,7 @@ import 'package:app_links/app_links.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/services.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:home_widget/home_widget.dart';
@@ -387,135 +388,61 @@ class _LiquidWaterPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 1. Deep Oceanic Abyss Base
     final Rect rect = Offset.zero & size;
-    final double t = progress * 2 * math.pi;
-
-    // 1. Deep Oceanic Obsidian Abyss Base
     final baseGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFF0B101D), Color(0xFF060A13), Color(0xFF020408)],
-      stops: [0.0, 0.55, 1.0],
+      colors: [Color(0xFF0C101B), Color(0xFF07090F), Color(0xFF04060A)],
+      stops: [0.0, 0.5, 1.0],
     ).createShader(rect);
+
     canvas.drawRect(rect, Paint()..shader = baseGradient);
 
-    // 2. Harmonic Fluid Caustic Light Pools (4 Dynamic Nodes)
-    // Node A: Radiant Aqua & Cyan Refraction (Top-Left)
-    final double oxA = size.width * 0.22 + 42 * math.cos(t);
-    final double oyA = size.height * 0.18 + 35 * math.sin(t * 1.1);
+    // 2. Liquid Caustic Water Orbs with Sinusoidal Flow
+    final double t = progress * 2 * math.pi;
+
+    // Orb A: Cyan / Aqua Water Refraction (Top-Left)
+    final double oxA = size.width * 0.22 + 40 * math.cos(t);
+    final double oyA = size.height * 0.16 + 32 * math.sin(t);
     final paintA = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF06B6D4).withValues(alpha: 0.22),
-          const Color(0xFF0891B2).withValues(alpha: 0.08),
+          const Color(0xFF06B6D4).withOpacity(0.18),
+          const Color(0xFF0891B2).withOpacity(0.08),
           Colors.transparent,
         ],
         stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(oxA, oyA), radius: 300));
-    canvas.drawCircle(Offset(oxA, oyA), 300, paintA);
+      ).createShader(Rect.fromCircle(center: Offset(oxA, oyA), radius: 260));
+    canvas.drawCircle(Offset(oxA, oyA), 260, paintA);
 
-    // Node B: Royal Aquatic Indigo (Mid-Right)
-    final double oxB = size.width * 0.82 + 38 * math.sin(t * 0.85);
-    final double oyB = size.height * 0.40 + 40 * math.cos(t * 0.85);
+    // Orb B: Royal Aquatic Indigo (Mid-Right)
+    final double oxB = size.width * 0.82 + 35 * math.sin(t * 0.8);
+    final double oyB = size.height * 0.42 + 38 * math.cos(t * 0.8);
     final paintB = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF3B82F6).withValues(alpha: 0.18),
-          const Color(0xFF1D4ED8).withValues(alpha: 0.07),
+          const Color(0xFF3B82F6).withOpacity(0.16),
+          const Color(0xFF1D4ED8).withOpacity(0.06),
           Colors.transparent,
         ],
         stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(oxB, oyB), radius: 320));
-    canvas.drawCircle(Offset(oxB, oyB), 320, paintB);
+      ).createShader(Rect.fromCircle(center: Offset(oxB, oyB), radius: 290));
+    canvas.drawCircle(Offset(oxB, oyB), 290, paintB);
 
-    // Node C: Bioluminescent Emerald Seafoam (Bottom-Left)
-    final double oxC = size.width * 0.28 + 45 * math.sin(t * 1.15 + 1.2);
-    final double oyC = size.height * 0.72 + 38 * math.cos(t * 1.15);
+    // Orb C: Deep Amethyst / Bioluminescent Violet (Bottom-Left)
+    final double oxC = size.width * 0.38 + 42 * math.sin(t * 1.2);
+    final double oyC = size.height * 0.78 + 36 * math.cos(t * 1.2);
     final paintC = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF10B981).withValues(alpha: 0.16),
-          const Color(0xFF059669).withValues(alpha: 0.06),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(oxC, oyC), radius: 290));
-    canvas.drawCircle(Offset(oxC, oyC), 290, paintC);
-
-    // Node D: Celestial Radiant Violet (Mid-Bottom Right)
-    final double oxD = size.width * 0.75 + 40 * math.cos(t * 0.75 + 2.0);
-    final double oyD = size.height * 0.82 + 35 * math.sin(t * 0.75);
-    final paintD = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-          const Color(0xFF6366F1).withValues(alpha: 0.05),
+          const Color(0xFF8B5CF6).withOpacity(0.14),
+          const Color(0xFF6366F1).withOpacity(0.05),
           Colors.transparent,
         ],
         stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(oxD, oyD), radius: 310));
-    canvas.drawCircle(Offset(oxD, oyD), 310, paintD);
-
-    // 3. Fluid Caustic Wave Ribbons (Harmonic Undulation)
-    final wavePaint1 = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          const Color(0xFF06B6D4).withValues(alpha: 0.08),
-          const Color(0xFF3B82F6).withValues(alpha: 0.03),
-          Colors.transparent,
-        ],
-      ).createShader(rect)
-      ..style = PaintingStyle.fill;
-
-    final path1 = Path();
-    final double wY1 = size.height * 0.28 + 24 * math.sin(t);
-    final double wY2 = size.height * 0.35 + 28 * math.cos(t * 0.9);
-    path1.moveTo(0, size.height * 0.22);
-    path1.cubicTo(
-      size.width * 0.35, wY1,
-      size.width * 0.68, wY2,
-      size.width, size.height * 0.30,
-    );
-    path1.lineTo(size.width, size.height * 0.48);
-    path1.cubicTo(
-      size.width * 0.65, size.height * 0.42 + 20 * math.sin(t * 1.1),
-      size.width * 0.32, size.height * 0.46 + 22 * math.cos(t * 1.1),
-      0, size.height * 0.38,
-    );
-    path1.close();
-    canvas.drawPath(path1, wavePaint1);
-
-    final wavePaint2 = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.bottomLeft,
-        end: Alignment.topRight,
-        colors: [
-          const Color(0xFF10B981).withValues(alpha: 0.07),
-          const Color(0xFF8B5CF6).withValues(alpha: 0.03),
-          Colors.transparent,
-        ],
-      ).createShader(rect)
-      ..style = PaintingStyle.fill;
-
-    final path2 = Path();
-    final double w2Y1 = size.height * 0.62 + 26 * math.cos(t * 0.8);
-    final double w2Y2 = size.height * 0.68 + 30 * math.sin(t * 0.85);
-    path2.moveTo(0, size.height * 0.65);
-    path2.cubicTo(
-      size.width * 0.30, w2Y1,
-      size.width * 0.72, w2Y2,
-      size.width, size.height * 0.60,
-    );
-    path2.lineTo(size.width, size.height * 0.76);
-    path2.cubicTo(
-      size.width * 0.62, size.height * 0.78 + 22 * math.cos(t),
-      size.width * 0.28, size.height * 0.72 + 20 * math.sin(t),
-      0, size.height * 0.75,
-    );
-    path2.close();
-    canvas.drawPath(path2, wavePaint2);
+      ).createShader(Rect.fromCircle(center: Offset(oxC, oyC), radius: 270));
+    canvas.drawCircle(Offset(oxC, oyC), 270, paintC);
   }
 
   @override
@@ -541,7 +468,7 @@ class WaterGlassCard extends StatelessWidget {
     this.borderRadius = 24.0,
     this.onTap,
     this.glowColor,
-    this.blurSigma = 26.0,
+    this.blurSigma = 24.0,
     this.customBorder,
     this.customGradient,
   }) : super(key: key);
@@ -556,40 +483,17 @@ class WaterGlassCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF131D31).withValues(alpha: 0.75),
-            const Color(0xFF090E18).withValues(alpha: 0.88),
+            const Color(0xFF131E32).withOpacity(0.72),
+            const Color(0xFF0A0F1A).withOpacity(0.85),
           ],
           stops: const [0.0, 1.0],
         ),
         border: customBorder ?? Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
+          color: Colors.white.withOpacity(0.14),
           width: 1.2,
         ),
       ),
-      child: Stack(
-        children: [
-          // Subtle inner specular light rim across the top
-          Positioned(
-            top: 0,
-            left: 12,
-            right: 12,
-            height: 1.0,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.0),
-                    Colors.white.withValues(alpha: 0.28),
-                    Colors.white.withValues(alpha: 0.0),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
-          child,
-        ],
-      ),
+      child: child,
     );
 
     if (onTap != null) {
@@ -598,8 +502,8 @@ class WaterGlassCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(borderRadius),
           onTap: onTap,
-          splashColor: (glowColor ?? const Color(0xFF06B6D4)).withValues(alpha: 0.16),
-          highlightColor: Colors.white.withValues(alpha: 0.06),
+          splashColor: const Color(0xFF06B6D4).withOpacity(0.15),
+          highlightColor: Colors.white.withOpacity(0.05),
           child: content,
         ),
       );
@@ -611,14 +515,14 @@ class WaterGlassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: (glowColor ?? const Color(0xFF06B6D4)).withValues(alpha: 0.10),
-            blurRadius: 24,
+            color: (glowColor ?? const Color(0xFF06B6D4)).withOpacity(0.09),
+            blurRadius: 22,
             spreadRadius: -2,
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 20,
+            color: Colors.black.withOpacity(0.40),
+            blurRadius: 18,
             offset: const Offset(0, 8),
           ),
         ],
@@ -630,257 +534,6 @@ class WaterGlassCard extends StatelessWidget {
           child: content,
         ),
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------
-// iOS 26 LIQUID GLASS DRAG & SELECTION PICKER
-// ---------------------------------------------------------
-class LiquidGlassSegmentedPicker<T> extends StatefulWidget {
-  final List<T> items;
-  final T selectedItem;
-  final ValueChanged<T> onSelected;
-  final String Function(T) labelBuilder;
-  final IconData Function(T)? iconBuilder;
-  final Color glowColor;
-  final EdgeInsetsGeometry padding;
-
-  const LiquidGlassSegmentedPicker({
-    Key? key,
-    required this.items,
-    required this.selectedItem,
-    required this.onSelected,
-    required this.labelBuilder,
-    this.iconBuilder,
-    this.glowColor = const Color(0xFF00F2FE),
-    this.padding = const EdgeInsets.all(4),
-  }) : super(key: key);
-
-  @override
-  State<LiquidGlassSegmentedPicker<T>> createState() => _LiquidGlassSegmentedPickerState<T>();
-}
-
-class _LiquidGlassSegmentedPickerState<T> extends State<LiquidGlassSegmentedPicker<T>> with SingleTickerProviderStateMixin {
-  late int _selectedIndex;
-  double _dragOffset = 0.0;
-  bool _isDragging = false;
-  late AnimationController _animController;
-  late Animation<double> _animPosition;
-  double _animFrom = 0.0;
-  double _animTo = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedIndex = widget.items.indexOf(widget.selectedItem);
-    if (_selectedIndex < 0) _selectedIndex = 0;
-    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
-    _animPosition = CurvedAnimation(parent: _animController, curve: Curves.easeOutBack);
-    _animFrom = _selectedIndex.toDouble();
-    _animTo = _selectedIndex.toDouble();
-  }
-
-  @override
-  void didUpdateWidget(covariant LiquidGlassSegmentedPicker<T> oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final newIdx = widget.items.indexOf(widget.selectedItem);
-    if (newIdx >= 0 && newIdx != _selectedIndex && !_isDragging) {
-      _animateTo(newIdx);
-    }
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  void _animateTo(int targetIdx) {
-    _animFrom = _isDragging ? (_animFrom + _dragOffset) : _selectedIndex.toDouble();
-    _animTo = targetIdx.toDouble();
-    _selectedIndex = targetIdx;
-    _isDragging = false;
-    _dragOffset = 0.0;
-    _animController.forward(from: 0.0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final totalWidth = constraints.maxWidth;
-        final count = widget.items.length;
-        if (count == 0) return const SizedBox();
-        final itemWidth = (totalWidth - 8) / count;
-
-        return Container(
-          height: 46,
-          padding: widget.padding,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0C1322).withValues(alpha: 0.70),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: GestureDetector(
-            onHorizontalDragStart: (details) {
-              _isDragging = true;
-              _animController.stop();
-              _animFrom = _selectedIndex.toDouble();
-            },
-            onHorizontalDragUpdate: (details) {
-              setState(() {
-                _dragOffset += details.primaryDelta! / itemWidth;
-              });
-              final currentFloat = (_animFrom + _dragOffset).clamp(0.0, (count - 1).toDouble());
-              final tentativeIdx = currentFloat.round();
-              if (tentativeIdx != _selectedIndex) {
-                _selectedIndex = tentativeIdx;
-                HapticFeedback.selectionClick();
-                widget.onSelected(widget.items[tentativeIdx]);
-              }
-            },
-            onHorizontalDragEnd: (details) {
-              final finalFloat = (_animFrom + _dragOffset).clamp(0.0, (count - 1).toDouble());
-              final targetIdx = finalFloat.round();
-              _animateTo(targetIdx);
-              HapticFeedback.lightImpact();
-              widget.onSelected(widget.items[targetIdx]);
-            },
-            child: AnimatedBuilder(
-              animation: _animController,
-              builder: (context, child) {
-                double currentPosition = _isDragging
-                    ? (_animFrom + _dragOffset).clamp(0.0, (count - 1).toDouble())
-                    : (_animFrom + (_animTo - _animFrom) * _animPosition.value);
-
-                // Fluid elongation: pill stretches along motion axis
-                double stretch = _isDragging ? (_dragOffset.abs() * 8.0).clamp(0.0, 14.0) : 0.0;
-                double pillLeft = 4 + (currentPosition * itemWidth) - (stretch / 2);
-                double pillWidth = itemWidth + stretch;
-
-                return Stack(
-                  children: [
-                    // The Liquid Glass Frosted Sliding Pill
-                    Positioned(
-                      left: pillLeft.clamp(2.0, totalWidth - itemWidth - 2.0),
-                      top: 1,
-                      bottom: 1,
-                      width: pillWidth.clamp(itemWidth, totalWidth - 6.0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  widget.glowColor.withValues(alpha: 0.38),
-                                  const Color(0xFF3B82F6).withValues(alpha: 0.20),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: widget.glowColor.withValues(alpha: 0.55),
-                                width: 1.2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: widget.glowColor.withValues(alpha: 0.32),
-                                  blurRadius: 12,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              children: [
-                                // Top specular hairline
-                                Positioned(
-                                  top: 0,
-                                  left: 8,
-                                  right: 8,
-                                  height: 1.0,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.white.withValues(alpha: 0.0),
-                                          Colors.white.withValues(alpha: 0.50),
-                                          Colors.white.withValues(alpha: 0.0),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // Segment Labels & Icons
-                    Row(
-                      children: List.generate(count, (index) {
-                        final item = widget.items[index];
-                        final isSelected = index == _selectedIndex;
-                        final label = widget.labelBuilder(item);
-                        final icon = widget.iconBuilder != null ? widget.iconBuilder!(item) : null;
-
-                        return Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              if (_selectedIndex != index) {
-                                HapticFeedback.selectionClick();
-                                _animateTo(index);
-                                widget.onSelected(item);
-                              }
-                            },
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (icon != null) ...[
-                                    Icon(
-                                      icon,
-                                      size: 15,
-                                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.45),
-                                    ),
-                                    const SizedBox(width: 5),
-                                  ],
-                                  Text(
-                                    label,
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.50),
-                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                      fontSize: 12.5,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -1764,248 +1417,128 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0C1322).withValues(alpha: 0.94),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.65),
-              blurRadius: 32,
-              offset: const Offset(0, -8),
-            ),
-            BoxShadow(
-              color: const Color(0xFF00F2FE).withValues(alpha: 0.15),
-              blurRadius: 24,
-              offset: const Offset(0, -2),
-            ),
-          ],
+        decoration: const BoxDecoration(
+          color: Color(0xFF14151C),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20),
+              Row(
                 children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF00F2FE), Color(0xFF6366F1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF00F2FE).withValues(alpha: 0.40),
-                              blurRadius: 14,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
-                      ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Apple Shortcuts Hub',
-                              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              '1-Tap automated background SMS tracking',
-                              style: TextStyle(color: Colors.white54, fontSize: 12.5),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // 1-Tap Primary Action Button
-                  GestureDetector(
-                    onTap: () async {
-                      HapticFeedback.mediumImpact();
-                      await Clipboard.setData(const ClipboardData(text: 'debited, spent, credited, UPI, INR, Rs'));
-                      try {
-                        await _nativeChannel.invokeMethod('openUrl', {'url': 'shortcuts://'});
-                      } catch (_) {}
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('⚡ Opening Shortcuts App! Trigger keywords copied to clipboard!'),
-                            backgroundColor: Color(0xFF10B981),
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF00F2FE), Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF00F2FE).withValues(alpha: 0.45),
-                            blurRadius: 18,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.2),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.flash_on_rounded, color: Colors.white, size: 22),
-                          SizedBox(width: 10),
-                          Text(
-                            '⚡ 1-Tap Open Shortcuts App',
-                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.3),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Quick Action Grid: Keywords & Test Banner
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () async {
-                            HapticFeedback.lightImpact();
-                            await Clipboard.setData(const ClipboardData(text: 'debited, spent, credited, UPI, INR, Rs'));
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Keywords copied: "debited, spent, credited, UPI, INR, Rs"'),
-                                  backgroundColor: Color(0xFF6366F1),
-                                ),
-                              );
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.copy_rounded, color: Color(0xFF67E8F9), size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Copy Keywords',
-                                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () async {
-                            HapticFeedback.lightImpact();
-                            try {
-                              await _nativeChannel.invokeMethod('testNotification');
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Banner fired! Long-press to test [✓ Confirm] / [⇄ Transfer]!'),
-                                    backgroundColor: Color(0xFF10B981),
-                                  ),
-                                );
-                              }
-                            } catch (_) {}
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.notifications_active_rounded, color: Color(0xFF34D399), size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Test Banner',
-                                  style: TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  // Silent Execution Highlights
                   Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.28)),
-                    ),
-                    child: const Row(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: const Color(0xFF818CF8).withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
+                    child: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 20),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            '100% SILENT BACKGROUND TRACKING: mone logs transactions in ~50ms without opening the app and presents an interactive Lock Screen banner.',
-                            style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w700, height: 1.35),
-                          ),
-                        ),
+                        Text('iOS Apple Shortcuts Sync', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('Automate SMS logging seamlessly on iPhone', style: TextStyle(color: Colors.white54, fontSize: 13)),
                       ],
                     ),
                   ),
-
-                  const SizedBox(height: 18),
-                  const Text('Quick 3-Step Setup in Shortcuts App:', style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  _buildShortcutStep('1', 'In Shortcuts, tap Automation (+) -> Message -> When message contains "debited", "spent", "UPI", "Rs".'),
-                  _buildShortcutStep('2', 'Select "Run Immediately" (turn OFF "Notify When Run").'),
-                  _buildShortcutStep('3', 'Select action: "Log Bank SMS in mone" with "Shortcut Input" -> Tap Done!'),
-                  const SizedBox(height: 10),
                 ],
               ),
-            ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(16)),
+                child: const Text(
+                  'Apple restricts iOS apps from directly reading the Messages inbox. '
+                  'Using native Apple Shortcuts Personal Automation, you can automatically route incoming bank SMS alerts directly into mone!',
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '100% SILENT BACKGROUND SYNC: mone logs transactions in ~50ms without opening the app and delivers an interactive Lock Screen confirmation banner.',
+                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text('1-Minute Setup Guide (Never Opens App):', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              _buildShortcutStep('1', 'Open the native Shortcuts app on your iPhone.'),
+              _buildShortcutStep('2', 'Tap Automation at the bottom -> tap + (New Automation).'),
+              _buildShortcutStep('3', 'Select "Message" -> When I receive message containing: "debited", "spent", "credited", "UPI", "INR", "Rs".'),
+              _buildShortcutStep('4', 'Select "Run Immediately" (Turn OFF "Notify When Run").'),
+              _buildShortcutStep('5', 'Tap "New Blank Automation" -> tap "Add Action".'),
+              _buildShortcutStep('6', 'Search "mone" -> Tap the native action "Log Bank SMS in mone".'),
+              _buildShortcutStep('7', 'Tap the blue "SMS Body" field -> select "Shortcut Input" (or Message).'),
+              _buildShortcutStep('8', 'Tap Done in top right corner. You are completely all set!'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF818CF8).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.2)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('How Lock Screen Confirmation Works:', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 6),
+                    Text(
+                      '• When SMS arrives, mone fires an interactive notification banner.\n'
+                      '• Long-press or pull down the banner from Lock Screen.\n'
+                      '• Tap [✓ Confirm] to verify, [⇄ Transfer] for self-transfers, or [+ Income] for salary/deposits.\n'
+                      '• You never need to launch the app to confirm!',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  try {
+                    await _nativeChannel.invokeMethod('testNotification');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Test notification banner fired! Long press it to test [✓ Confirm] / [⇄ Transfer]!'),
+                          backgroundColor: Color(0xFF10B981),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    await _handleIncomingUri(Uri.parse('mone://import-sms?text=HDFC%20Bank%3A%20Rs%20450.00%20debited%20from%20a%2Fc%20**4321%20at%20Swiggy%20UPI.%20Avl%20Bal%3A%20INR%2034500.00'));
+                  }
+                },
+                icon: const Icon(Icons.notifications_active_rounded, size: 20, color: Colors.white),
+                label: const Text('Test Interactive Lock Screen Banner', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
           ),
         ),
       ),
@@ -2473,73 +2006,41 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(builder: (context, setModalState) {
-          Color typeColor = _selectedType == 'EXPENSE'
-              ? const Color(0xFFF43F5E)
-              : (_selectedType == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFF3B82F6));
-
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300), curve: Curves.easeOutExpo,
             padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 32),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0C1322).withValues(alpha: 0.94),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.60),
-                  blurRadius: 30,
-                  offset: const Offset(0, -6),
-                ),
-                BoxShadow(
-                  color: typeColor.withValues(alpha: 0.15),
-                  blurRadius: 24,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+            decoration: BoxDecoration(color: const Color(0xFF18181B), borderRadius: const BorderRadius.vertical(top: Radius.circular(40)), border: Border.all(color: Colors.white.withOpacity(0.1))),
+            child: Column(
+              mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)))),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Center(child: Container(width: 44, height: 5, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(10)))),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(existingTx == null ? 'Track Record' : 'Edit Record', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                        if (existingTx == null)
-                          TextButton.icon(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _showPasteSmsModal();
-                            },
-                            icon: const Icon(Icons.paste_rounded, size: 16, color: Color(0xFF00F2FE)),
-                            label: const Text('From SMS', style: TextStyle(color: Color(0xFF00F2FE), fontSize: 13, fontWeight: FontWeight.bold)),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // iOS 26 Liquid Drag Selection Picker
-                    LiquidGlassSegmentedPicker<String>(
-                      items: const ['EXPENSE', 'INCOME', 'TRANSFER'],
-                      selectedItem: _selectedType,
-                      glowColor: typeColor,
-                      labelBuilder: (type) {
-                        if (type == 'EXPENSE') return 'Expense';
-                        if (type == 'INCOME') return 'Income';
-                        return 'Transfer';
-                      },
-                      iconBuilder: (type) {
-                        if (type == 'EXPENSE') return Icons.arrow_upward_rounded;
-                        if (type == 'INCOME') return Icons.arrow_downward_rounded;
-                        return Icons.sync_alt_rounded;
-                      },
-                      onSelected: (val) => setModalState(() => _selectedType = val),
-                    ),
+                    Text(existingTx == null ? 'Track Record' : 'Edit Record', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    if (existingTx == null)
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showPasteSmsModal();
+                        },
+                        icon: const Icon(Icons.paste_rounded, size: 16, color: Color(0xFF818CF8)),
+                        label: const Text('From SMS', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                Row(
+                  children: [
+                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'EXPENSE'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Expense', style: TextStyle(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E) : Colors.white, fontWeight: FontWeight.bold))))),
+                    const SizedBox(width: 8),
+                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'INCOME'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'INCOME' ? const Color(0xFF10B981).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'INCOME' ? const Color(0xFF10B981) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Income', style: TextStyle(color: _selectedType == 'INCOME' ? const Color(0xFF10B981) : Colors.white, fontWeight: FontWeight.bold))))),
+                    const SizedBox(width: 8),
+                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'TRANSFER'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Move Funds', style: TextStyle(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6) : Colors.white, fontWeight: FontWeight.bold))))),
+                  ],
+                ),
                 
                 const SizedBox(height: 24),
                 TextField(controller: _amountCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), decoration: InputDecoration(prefixText: '₹ ', prefixStyle: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), labelText: 'Amount', labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)), filled: true, fillColor: Colors.white.withOpacity(0.03), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: Color(0xFF6366F1))))),
@@ -2709,13 +2210,11 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
                 const SizedBox(height: 32),
               ],
             ),
-          ),
-        ),
-      );
-    });
+          );
+        });
+      }
+    );
   }
-);
-}
 
   void _showSetTotalBudgetModal() async {
     final settings = await _database.query('settings');
@@ -3929,103 +3428,60 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
 
   Widget _buildFloatingBottomNav() {
     return Container(
-      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 22),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(40),
+        borderRadius: BorderRadius.circular(36),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 34.0, sigmaY: 34.0),
+          filter: ImageFilter.blur(sigmaX: 32.0, sigmaY: 32.0),
           child: Container(
-            height: 74,
+            height: 72,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF131E33).withValues(alpha: 0.78),
-                  const Color(0xFF090E18).withValues(alpha: 0.88),
+                  Colors.white.withOpacity(0.12),
+                  Colors.white.withOpacity(0.04),
                 ],
               ),
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
+              borderRadius: BorderRadius.circular(36),
+              border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.2),
               boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF06B6D4).withValues(alpha: 0.18),
-                  blurRadius: 30,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.60),
-                  blurRadius: 26,
-                  offset: const Offset(0, 10),
-                ),
+                BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.16), blurRadius: 28, spreadRadius: -2, offset: const Offset(0, 8)),
+                BoxShadow(color: Colors.black.withOpacity(0.55), blurRadius: 24, offset: const Offset(0, 10)),
               ],
             ),
-            child: Stack(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // Inner top specular hairline
-                Positioned(
-                  top: 0,
-                  left: 24,
-                  right: 24,
-                  height: 1.0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0.0),
-                          Colors.white.withValues(alpha: 0.35),
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                      ),
+                _buildNavItem(Icons.account_balance_wallet_rounded, 0),
+                _buildNavItem(Icons.pie_chart_rounded, 1),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF6366F1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.45), blurRadius: 18, offset: const Offset(0, 4)),
+                    ],
+                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      _showAddTransactionModal();
+                    },
                   ),
                 ),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildNavItem(Icons.account_balance_wallet_rounded, 0),
-                    _buildNavItem(Icons.pie_chart_rounded, 1),
-
-                    // Central Radiant Water Droplet Action Button
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        _showAddTransactionModal();
-                      },
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF06B6D4).withValues(alpha: 0.50),
-                              blurRadius: 20,
-                              spreadRadius: 1,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.4),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.add_rounded, color: Colors.white, size: 30),
-                        ),
-                      ),
-                    ),
-
-                    _buildNavItem(Icons.bar_chart_rounded, 2),
-                    _buildNavItem(Icons.settings_rounded, 3),
-                  ],
-                ),
+                _buildNavItem(Icons.bar_chart_rounded, 2),
+                _buildNavItem(Icons.settings_rounded, 3),
               ],
             ),
           ),
@@ -4041,49 +3497,19 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         HapticFeedback.selectionClick();
         setState(() => _selectedIndex = index);
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF06B6D4).withValues(alpha: 0.18) : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-              border: isSelected ? Border.all(color: const Color(0xFF06B6D4).withValues(alpha: 0.40), width: 1.0) : null,
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF06B6D4).withValues(alpha: 0.25),
-                        blurRadius: 12,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Icon(
-              icon,
-              color: isSelected ? const Color(0xFF67E8F9) : Colors.white.withValues(alpha: 0.38),
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: 3),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: isSelected ? 5 : 0,
-            height: isSelected ? 5 : 0,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFF67E8F9),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0xFF06B6D4),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF06B6D4).withOpacity(0.16) : Colors.transparent,
+          shape: BoxShape.circle,
+          border: isSelected ? Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4), width: 1.0) : null,
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? const Color(0xFF67E8F9) : Colors.white.withOpacity(0.35),
+          size: 26,
+        ),
       ),
     );
   }
@@ -4151,7 +3577,7 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 226,
+          height: 220,
           child: PageView.builder(
             controller: _pageController,
             itemCount: widget.cards.length,
@@ -4161,220 +3587,176 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
             },
             itemBuilder: (context, index) {
               final info = widget.cards[index];
-              Widget cardContent = Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: LinearGradient(
-                    colors: [info.startColor, info.endColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.50),
-                      blurRadius: 26,
-                      offset: const Offset(0, 12),
-                    ),
-                    BoxShadow(
-                      color: info.startColor.withValues(alpha: 0.22),
-                      blurRadius: 24,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: Stack(
-                    children: [
-                      // 1. Diagonal Specular Glass Light Sheen
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: const Alignment(-1.0, -1.0),
-                              end: const Alignment(1.0, 1.0),
-                              colors: [
-                                Colors.white.withValues(alpha: 0.16),
-                                Colors.white.withValues(alpha: 0.04),
-                                Colors.transparent,
-                                Colors.white.withValues(alpha: 0.06),
-                              ],
-                              stops: const [0.0, 0.35, 0.65, 1.0],
-                            ),
-                          ),
-                        ),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                child: GestureDetector(
+                  onTap: info.onTap,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [info.startColor, info.endColor],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-
-                      // 2. Specular Top Rim Hairline
-                      Positioned(
-                        top: 0,
-                        left: 20,
-                        right: 20,
-                        height: 1.2,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withValues(alpha: 0.0),
-                                Colors.white.withValues(alpha: 0.40),
-                                Colors.white.withValues(alpha: 0.0),
-                              ],
-                              stops: const [0.0, 0.5, 1.0],
-                            ),
-                          ),
+                      borderRadius: BorderRadius.circular(26),
+                      border: Border.all(color: Colors.white.withOpacity(0.14), width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.45),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
                         ),
-                      ),
-
-                      // 3. Card Content
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        BoxShadow(
+                          color: info.startColor.withOpacity(0.18),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Top Row: EMV Gold Chip, Contactless Waves & Network Badge
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Top Row: EMV Gold Chip, Contactless Waves & Network Badge
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: [
-                                    // Metallic Micro-Circuit EMV Chip
-                                    Container(
-                                      width: 38,
-                                      height: 28,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(7),
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFFE8CA82), Color(0xFFC79E47), Color(0xFFF3E0A3)],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        border: Border.all(color: const Color(0xFF947325), width: 0.8),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.25),
-                                            blurRadius: 5,
-                                            offset: const Offset(0, 1),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Center(
-                                        child: Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: const Color(0xFF7A5C14), width: 0.8),
-                                          ),
-                                        ),
-                                      ),
+                                // Realistic Metallic EMV Chip
+                                Container(
+                                  width: 36,
+                                  height: 26,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(6),
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFE2C275), Color(0xFFC59F4E), Color(0xFFE8D390)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                    const SizedBox(width: 10),
-                                    Icon(Icons.contactless_rounded, color: Colors.white.withValues(alpha: 0.70), size: 20),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    if (info.bankBadge != null) ...[
-                                      info.bankBadge!,
-                                      const SizedBox(width: 8),
+                                    border: Border.all(color: const Color(0xFF997A2E), width: 0.8),
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 1))
                                     ],
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 14,
+                                      height: 14,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.8),
-                                      ),
-                                      child: Text(
-                                        info.network,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 1.2,
-                                        ),
+                                        border: Border.all(color: const Color(0xFF7D6018), width: 0.8),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
+                                const SizedBox(width: 10),
+                                Icon(Icons.contactless_rounded, color: Colors.white.withOpacity(0.65), size: 20),
                               ],
                             ),
-
-                            const Spacer(),
-
-                            // Title & Balance
-                            Text(
-                              info.title.toUpperCase(),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.70),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              info.amount,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 34,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.6,
-                              ),
-                            ),
-
-                            const Spacer(),
-
-                            // Bottom Row: Account Number & Cardholder
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      info.subtitle,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.90),
-                                        fontSize: 13,
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 2.0,
-                                      ),
+                                if (info.bankBadge != null) ...[
+                                  info.bankBadge!,
+                                  const SizedBox(width: 8),
+                                ],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white.withOpacity(0.15), width: 0.8),
+                                  ),
+                                  child: Text(
+                                    info.network,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.2,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      info.cardHolder,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.65),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                                const SizedBox(),
                               ],
                             ),
                           ],
                         ),
-                      ),
-                    ],
+
+                        const Spacer(),
+
+                        // Title & Balance
+                        Text(
+                          info.title.toUpperCase(),
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.65),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          info.amount,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+
+                        const Spacer(),
+
+                        // Bottom Row: Account Number & Cardholder
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  info.subtitle,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.85),
+                                    fontSize: 13,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 2.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  info.cardHolder,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.6),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  'MANAGE',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withOpacity(0.4), size: 10),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              );
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                child: info.onTap != null
-                    ? GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: info.onTap,
-                        child: cardContent,
-                      )
-                    : cardContent,
               );
             },
           ),
@@ -4386,28 +3768,13 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
             children: List.generate(widget.cards.length, (i) {
               bool isActive = i == _currentIndex;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 250),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: isActive ? 24 : 7,
+                width: isActive ? 22 : 6,
                 height: 5,
                 decoration: BoxDecoration(
-                  gradient: isActive
-                      ? const LinearGradient(
-                          colors: [Color(0xFF06B6D4), Color(0xFF6366F1)],
-                        )
-                      : null,
-                  color: isActive ? null : Colors.white.withValues(alpha: 0.22),
+                  color: isActive ? const Color(0xFF818CF8) : Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
-                  boxShadow: isActive
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFF06B6D4).withValues(alpha: 0.5),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
                 ),
               );
             }),
@@ -4770,7 +4137,7 @@ class DashboardScreen extends StatelessWidget {
           icon: Icons.shield_rounded,
           cardHolder: userName.isNotEmpty ? userName.toUpperCase() : 'USER',
           bankBadge: const Icon(Icons.all_inclusive_rounded, color: Colors.white70, size: 20),
-          onTap: null,
+          onTap: onManageAccountsRequested,
         ));
         
         // Card 2+: Authentic Indian Bank Cards
@@ -4796,7 +4163,7 @@ class DashboardScreen extends StatelessWidget {
             icon: isCash ? Icons.payments_rounded : Icons.account_balance_rounded,
             cardHolder: userName.isNotEmpty ? userName.toUpperCase() : 'USER',
             bankBadge: bank.buildBadge(size: 26, showBorder: false),
-            onTap: null,
+            onTap: onManageAccountsRequested,
           ));
         }
 
@@ -4812,163 +4179,51 @@ class DashboardScreen extends StatelessWidget {
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // iOS 26 Liquid Floating Glass Capsule Header
-              Container(
-                margin: const EdgeInsets.only(bottom: 20),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF131D31).withValues(alpha: 0.65),
-                      const Color(0xFF090E18).withValues(alpha: 0.82),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              // Formal Executive Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_getGreeting(), style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 2),
+                      Text('$userName 👋', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                    ]
                   ),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF06B6D4).withValues(alpha: 0.08),
-                      blurRadius: 20,
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        // User Avatar Droplet with Glowing Gradient Ring
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF06B6D4).withValues(alpha: 0.40),
-                                blurRadius: 12,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(2.0),
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFF0C101B),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
-                                  style: const TextStyle(
-                                    color: Color(0xFF67E8F9),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
                         ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              _getGreeting(),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.55),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              '$userName 👋',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
+                            Icon(Icons.circle, color: Color(0xFF10B981), size: 7),
+                            SizedBox(width: 6),
+                            Text('LIVE SYNC', style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
                           ],
                         ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        // Live Sync Liquid Capsule Pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1.0),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.circle, color: Color(0xFF10B981), size: 6.5),
-                              SizedBox(width: 5),
-                              Text(
-                                'LIVE SYNC',
-                                style: TextStyle(
-                                  color: Color(0xFF34D399),
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Mone Glass Logo Badge
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: Image.asset('assets/mone_logo.png', width: 36, height: 36),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      const SizedBox(width: 10),
+                      Image.asset('assets/mone_logo.png', width: 40, height: 40),
+                    ],
+                  ),
+                ]
               ),
+              const SizedBox(height: 18),
 
               // Executive Card Carousel
               HorizontalCardCarousel(cards: stackCards),
               const SizedBox(height: 20),
 
-              // Formal 4-Action Fintech Dock (iOS 26 Liquid Water Droplets)
+              // Formal 4-Action Fintech Dock (iOS 26 Liquid Water Glass)
               WaterGlassCard(
-                borderRadius: 26,
+                borderRadius: 24,
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                 glowColor: const Color(0xFF06B6D4),
                 child: Row(
@@ -4977,7 +4232,6 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.add_circle_outline_rounded,
                       label: 'Record',
-                      dropletColor: const Color(0xFF06B6D4),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onAddRequested();
@@ -4986,7 +4240,6 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.sync_alt_rounded,
                       label: 'Transfer',
-                      dropletColor: const Color(0xFF3B82F6),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onAddRequested(existingTx: {'type': 'TRANSFER'});
@@ -4995,7 +4248,6 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.account_balance_wallet_outlined,
                       label: 'Accounts',
-                      dropletColor: const Color(0xFF8B5CF6),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onManageAccountsRequested();
@@ -5004,7 +4256,6 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickAction(
                       icon: Icons.insights_rounded,
                       label: 'Analytics',
-                      dropletColor: const Color(0xFF10B981),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         onNavigateTab(1);
@@ -5022,23 +4273,23 @@ class DashboardScreen extends StatelessWidget {
                 glowColor: const Color(0xFF10B981),
                 customGradient: LinearGradient(
                   colors: [
-                    const Color(0xFF0F2622).withValues(alpha: 0.70),
-                    const Color(0xFF07151B).withValues(alpha: 0.85),
+                    const Color(0xFF0F2622).withOpacity(0.70),
+                    const Color(0xFF07151B).withOpacity(0.85),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                customBorder: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3), width: 1.2),
+                customBorder: Border.all(color: const Color(0xFF10B981).withOpacity(0.3), width: 1.2),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.20),
+                        color: const Color(0xFF10B981).withOpacity(0.20),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                            color: const Color(0xFF10B981).withOpacity(0.35),
                             blurRadius: 10,
                           ),
                         ],
@@ -5063,7 +4314,7 @@ class DashboardScreen extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             'Active for SBI, HDFC, ICICI, Axis & 25+ Indian Banks',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11),
+                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
                           ),
                         ],
                       ),
@@ -5074,9 +4325,9 @@ class DashboardScreen extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
+                          color: Colors.white.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                          border: Border.all(color: Colors.white.withOpacity(0.15)),
                         ),
                         child: const Text('BANKS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
@@ -5087,12 +4338,12 @@ class DashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 18),
 
-              // iOS 26 Crystalline Liquid Reservoir Gauge (Safe Spending Pacer)
+              // Formal Adaptive Daily Pacer & Budget Status Card (iOS 26 Water Glass)
               WaterGlassCard(
-                borderRadius: 26,
+                borderRadius: 24,
                 padding: const EdgeInsets.all(22),
                 onTap: onSetTotalBudget,
-                glowColor: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF06B6D4),
+                glowColor: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -5102,20 +4353,14 @@ class DashboardScreen extends StatelessWidget {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(9),
+                              padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    const Color(0xFF06B6D4).withValues(alpha: 0.30),
-                                    const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFF06B6D4).withValues(alpha: 0.4)),
+                                color: const Color(0xFF6366F1).withOpacity(0.20),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(Icons.water_drop_rounded, color: Color(0xFF67E8F9), size: 20),
+                              child: const Icon(Icons.speed_rounded, color: Color(0xFF818CF8), size: 20),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -5123,16 +4368,16 @@ class DashboardScreen extends StatelessWidget {
                                   children: [
                                     const Text(
                                       'DAILY SAFE SPENDING PACER',
-                                      style: TextStyle(color: Color(0xFF67E8F9), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                                      style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
                                     ),
-                                    const SizedBox(width: 5),
-                                    Icon(Icons.edit_rounded, color: const Color(0xFF67E8F9).withValues(alpha: 0.6), size: 11),
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.edit_rounded, color: const Color(0xFF818CF8).withOpacity(0.6), size: 12),
                                   ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
-                                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.4),
+                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
                                 ),
                               ],
                             ),
@@ -5145,21 +4390,21 @@ class DashboardScreen extends StatelessWidget {
                                 margin: const EdgeInsets.only(right: 6),
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
+                                  color: const Color(0xFFF59E0B).withOpacity(0.20),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
                                 ),
                                 child: Text(
                                   '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
-                                  style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.w800),
+                                  style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w800),
                                 ),
                               ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.08),
+                                color: Colors.white.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                                border: Border.all(color: Colors.white.withOpacity(0.12)),
                               ),
                               child: Text(
                                 '$daysRemaining d left',
@@ -5171,71 +4416,15 @@ class DashboardScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 18),
-
-                    // Liquid Reservoir Cylinder Fill
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final double pct = (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0);
-                        final Color barColor = unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981);
-                        final Color barEndColor = unspentBudget < 0 ? const Color(0xFFF43F5E) : const Color(0xFF06B6D4);
-
-                        return Container(
-                          height: 14,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Stack(
-                              children: [
-                                FractionallySizedBox(
-                                  widthFactor: pct,
-                                  alignment: Alignment.centerLeft,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [barColor, barEndColor],
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: barColor.withValues(alpha: 0.5),
-                                          blurRadius: 10,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                // Specular hairline on top of reservoir
-                                Positioned(
-                                  top: 1,
-                                  left: 6,
-                                  right: 6,
-                                  height: 1.5,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.white.withValues(alpha: 0.0),
-                                          Colors.white.withValues(alpha: 0.45),
-                                          Colors.white.withValues(alpha: 0.0),
-                                        ],
-                                        stops: const [0.0, 0.5, 1.0],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
+                        backgroundColor: Colors.white.withOpacity(0.08),
+                        color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                        minHeight: 10,
+                      ),
                     ),
-
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -5243,8 +4432,8 @@ class DashboardScreen extends StatelessWidget {
                         Text(
                           unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
                           style: TextStyle(
-                            color: unspentBudget < 0 ? const Color(0xFFF87171) : const Color(0xFF34D399),
-                            fontWeight: FontWeight.w800,
+                            color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                            fontWeight: FontWeight.w700,
                             fontSize: 12,
                           ),
                         ),
@@ -5252,7 +4441,7 @@ class DashboardScreen extends StatelessWidget {
                           activeInitialSpent > 0
                               ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
                               : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.60), fontSize: 12, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -5463,52 +4652,29 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildQuickAction({
     required IconData icon,
     required String label,
-    required Color dropletColor,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
+      onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 52,
-            height: 52,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  dropletColor.withValues(alpha: 0.28),
-                  dropletColor.withValues(alpha: 0.08),
-                ],
-              ),
-              border: Border.all(color: dropletColor.withValues(alpha: 0.40), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: dropletColor.withValues(alpha: 0.30),
-                  blurRadius: 14,
-                  spreadRadius: -1,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
-            child: Center(
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
+            child: Icon(icon, color: Colors.white, size: 22),
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 6),
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.82),
+              color: Colors.white.withOpacity(0.7),
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -5520,417 +4686,7 @@ class DashboardScreen extends StatelessWidget {
 // ---------------------------------------------------------
 // ANALYTICS & BUDGETS
 // ---------------------------------------------------------
-// ---------------------------------------------------------
-// SPATIAL MONTH DRILLDOWN SCREEN (NO SQUARE BOXES)
-// ---------------------------------------------------------
-class SpatialMonthBreakdownScreen extends StatefulWidget {
-  final Database database;
-  final String month; // e.g. '2026-10'
-  final String monthName; // e.g. 'October 2026'
-  final Function({Map<String, dynamic>? existingTx}) onAddRequested;
-  final VoidCallback onTransactionChanged;
-
-  const SpatialMonthBreakdownScreen({
-    Key? key,
-    required this.database,
-    required this.month,
-    required this.monthName,
-    required this.onAddRequested,
-    required this.onTransactionChanged,
-  }) : super(key: key);
-
-  @override
-  State<SpatialMonthBreakdownScreen> createState() => _SpatialMonthBreakdownScreenState();
-}
-
-class _SpatialMonthBreakdownScreenState extends State<SpatialMonthBreakdownScreen> with SingleTickerProviderStateMixin {
-  late final AnimationController _ambientController;
-
-  @override
-  void initState() {
-    super.initState();
-    _ambientController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 14),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ambientController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    List<String> parts = widget.month.split('-');
-    int y = int.parse(parts[0]);
-    int m = int.parse(parts[1]);
-    DateTime start = DateTime(y, m, 1);
-    DateTime end = DateTime(y, m + 1, 1);
-    final range = [start.toIso8601String(), end.toIso8601String()];
-    int daysInMonth = DateTime(y, m + 1, 0).day;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF020409),
-      body: Stack(
-        children: [
-          // Live Liquid Mesh Background
-          Positioned.fill(
-            child: LiquidWaterMeshBackground(animation: _ambientController),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                // Frosted Top Navigation Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.10),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-                          ),
-                          child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-                        ),
-                      ),
-                      Text(
-                        widget.monthName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      const SizedBox(width: 42),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  child: FutureBuilder<List<dynamic>>(
-                    future: Future.wait([
-                      widget.database.query('transactions', where: 'type = ? AND date >= ? AND date < ?', whereArgs: ['EXPENSE', range[0], range[1]]),
-                      widget.database.query('transactions', where: 'date >= ? AND date < ?', whereArgs: [range[0], range[1]], orderBy: 'date DESC'),
-                    ]),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator(color: Color(0xFF00F2FE)));
-                      }
-
-                      final expenses = snapshot.data![0];
-                      final ledger = snapshot.data![1];
-
-                      double totalExpense = 0;
-                      Map<String, double> catSpent = {};
-                      for (var t in expenses) {
-                        double amt = (t['amount'] as num).toDouble();
-                        totalExpense += amt;
-                        catSpent[t['category']] = (catSpent[t['category']] ?? 0) + amt;
-                      }
-
-                      var sortedCats = catSpent.keys.toList()..sort((a, b) => catSpent[b]!.compareTo(catSpent[a]!));
-                      double dailyAvg = daysInMonth > 0 ? (totalExpense / daysInMonth) : 0;
-
-                      return SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Hero Total Spend Card
-                            WaterGlassCard(
-                              borderRadius: 28,
-                              glowColor: const Color(0xFF00F2FE),
-                              padding: const EdgeInsets.all(22),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'TOTAL EXPENSES',
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.65),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF00F2FE).withValues(alpha: 0.18),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: const Color(0xFF00F2FE).withValues(alpha: 0.35)),
-                                        ),
-                                        child: Text(
-                                          '${ledger.length} ENTRIES',
-                                          style: const TextStyle(
-                                            color: Color(0xFF67E8F9),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 0.6,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    '₹ ${totalExpense.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 38,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.8,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.08),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.speed_rounded, color: Color(0xFF34D399), size: 14),
-                                            const SizedBox(width: 5),
-                                            Text(
-                                              'Daily Avg: ₹ ${dailyAvg.toStringAsFixed(0)}/day',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(alpha: 0.85),
-                                                fontSize: 11.5,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            // Category Breakdown Section
-                            if (sortedCats.isNotEmpty) ...[
-                              Text(
-                                'CATEGORY DISTRIBUTION',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.65),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              WaterGlassCard(
-                                borderRadius: 24,
-                                padding: const EdgeInsets.all(18),
-                                glowColor: const Color(0xFF8B5CF6),
-                                child: Column(
-                                  children: sortedCats.map((cat) {
-                                    double spent = catSpent[cat] ?? 0;
-                                    double pct = totalExpense > 0 ? (spent / totalExpense) : 0;
-                                    Color catColor = getCategoryColor(cat);
-
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      child: Column(
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    width: 10,
-                                                    height: 10,
-                                                    decoration: BoxDecoration(
-                                                      color: catColor,
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    cat,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              Text(
-                                                '₹ ${spent.toStringAsFixed(0)} (${(pct * 100).toInt()}%)',
-                                                style: TextStyle(
-                                                  color: catColor,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: LinearProgressIndicator(
-                                              value: pct,
-                                              backgroundColor: Colors.white.withValues(alpha: 0.08),
-                                              color: catColor,
-                                              minHeight: 8,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-
-                            // Monthly Ledger
-                            Text(
-                              'MONTHLY LEDGER (${ledger.length})',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.65),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (ledger.isEmpty)
-                              Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(32),
-                                  child: Text('No transactions for this month.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
-                                ),
-                              ),
-                            ...ledger.map((tx) {
-                              DateTime d = DateTime.parse(tx['date']);
-                              String dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-                              bool isIncome = tx['type'] == 'INCOME';
-
-                              return Dismissible(
-                                key: Key(tx['id'].toString()),
-                                background: Container(
-                                  alignment: Alignment.centerLeft,
-                                  padding: const EdgeInsets.only(left: 20),
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.5),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Icon(Icons.delete_rounded, color: Colors.white),
-                                ),
-                                secondaryBackground: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.only(right: 20),
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.5),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Icon(Icons.edit_rounded, color: Colors.white),
-                                ),
-                                confirmDismiss: (dir) async {
-                                  if (dir == DismissDirection.startToEnd) {
-                                    HapticFeedback.heavyImpact();
-                                    await widget.database.delete('transactions', where: 'id = ?', whereArgs: [tx['id']]);
-                                    widget.onTransactionChanged();
-                                    return true;
-                                  } else {
-                                    HapticFeedback.lightImpact();
-                                    widget.onAddRequested(existingTx: tx);
-                                    return false;
-                                  }
-                                },
-                                child: WaterGlassCard(
-                                  borderRadius: 20,
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.all(14),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(9),
-                                        decoration: BoxDecoration(
-                                          color: (isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E)).withValues(alpha: 0.15),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                                          color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
-                                          size: 18,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              tx['merchant'],
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                                            ),
-                                            const SizedBox(height: 3),
-                                            Text(
-                                              '${tx['category']} • $dateStr',
-                                              style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 11.5),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Text(
-                                        '${isIncome ? '+' : '-'}₹${tx['amount']}',
-                                        style: TextStyle(
-                                          color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                            const SizedBox(height: 40),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Backward compatibility alias
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   final Database database;
   final String timePeriod;
   final Function(double, bool) onResolveRollover;
@@ -5938,25 +4694,216 @@ class AnalyticsScreen extends StatelessWidget {
   final VoidCallback onTransactionChanged;
   final String? overrideMonth;
 
-  const AnalyticsScreen({
-    Key? key,
-    required this.database,
-    required this.timePeriod,
-    required this.onResolveRollover,
-    required this.onAddRequested,
-    required this.onTransactionChanged,
-    this.overrideMonth,
-  }) : super(key: key);
+  const AnalyticsScreen({Key? key, required this.database, required this.timePeriod, required this.onResolveRollover, required this.onAddRequested, required this.onTransactionChanged, this.overrideMonth}) : super(key: key);
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  bool _showLastMonth = false;
 
   @override
   Widget build(BuildContext context) {
-    String m = overrideMonth ?? '2026-10';
-    return SpatialMonthBreakdownScreen(
-      database: database,
-      month: m,
-      monthName: m,
-      onAddRequested: onAddRequested,
-      onTransactionChanged: onTransactionChanged,
+    List<String> range = getDateRange(widget.timePeriod);
+    if (widget.overrideMonth != null) {
+      List<String> parts = widget.overrideMonth!.split('-');
+      int y = int.parse(parts[0]);
+      int m = int.parse(parts[1]);
+      DateTime start = DateTime(y, m, 1);
+      DateTime end = DateTime(y, m + 1, 1);
+      range = [start.toIso8601String(), end.toIso8601String()];
+    } else if (widget.timePeriod == 'Monthly' && _showLastMonth) {
+      DateTime now = DateTime.now();
+      DateTime lastMonthStart = DateTime(now.year, now.month - 1, 1);
+      DateTime lastMonthEnd = DateTime(now.year, now.month, 1);
+      range = [lastMonthStart.toIso8601String(), lastMonthEnd.toIso8601String()];
+    }
+    
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        widget.database.query('transactions', where: 'type = ? AND date >= ? AND date < ?', whereArgs: ['EXPENSE', range[0], range[1]]),
+        widget.database.query('settings'),
+        widget.database.query('budgets'),
+        widget.database.query('transactions', where: 'date >= ? AND date < ?', whereArgs: [range[0], range[1]], orderBy: 'date DESC')
+      ]),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        
+        final expenses = snapshot.data![0];
+        final settings = snapshot.data![1];
+        final budgets = snapshot.data![2];
+        final ledger = snapshot.data![3];
+        
+        double totalExpense = 0;
+        Map<String, double> catSpent = {};
+        for (var t in expenses) { 
+          totalExpense += t['amount']; 
+          catSpent[t['category']] = (catSpent[t['category']] ?? 0) + (t['amount'] as double); 
+        }
+        
+        Map<String, double> limits = {};
+        for (var b in budgets) { limits[b['category']] = b['limit_amount']; }
+        
+        Set<String> allCats = {...catSpent.keys, ...limits.keys};
+        var sortedCats = allCats.toList()..sort((a, b) => (catSpent[b] ?? 0).compareTo(catSpent[a] ?? 0));
+        
+        double baseBudget = 0; bool isResolved = false;
+        for (var s in settings) { 
+          if (s['key'] == 'total_budget') baseBudget = s['value'] as double; 
+          if (s['key'] == 'resolved_') isResolved = (s['value'] as double) > 0;
+        }
+        double unspent = baseBudget - totalExpense;
+        
+        List<PieChartSectionData> pieSections = [];
+        for (var cat in sortedCats) {
+          if ((catSpent[cat] ?? 0) > 0) {
+            int pct = ((catSpent[cat]! / totalExpense) * 100).toInt();
+            pieSections.add(PieChartSectionData(
+              color: getCategoryColor(cat),
+              value: catSpent[cat]!,
+              title: '$pct%',
+              showTitle: pct >= 5,
+              radius: 50,
+              titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            ));
+          }
+        }
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(widget.overrideMonth != null ? ' ${widget.overrideMonth}' : (_showLastMonth && widget.timePeriod == 'Monthly' ? ' Last Month' : ' Analytics'), style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                  if (widget.timePeriod == 'Monthly' && widget.overrideMonth == null)
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(24)),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => setState(() => _showLastMonth = false),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
+                              decoration: BoxDecoration(color: !_showLastMonth ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(20)), 
+                              child: Text('Current', style: TextStyle(color: !_showLastMonth ? Colors.black : Colors.white54, fontWeight: FontWeight.bold))
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setState(() => _showLastMonth = true),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
+                              decoration: BoxDecoration(color: _showLastMonth ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(20)), 
+                              child: Text('Last', style: TextStyle(color: _showLastMonth ? Colors.black : Colors.white54, fontWeight: FontWeight.bold))
+                            ),
+                          ),
+                        ]
+                      )
+                    )
+                ]
+              ),
+              const SizedBox(height: 32),
+
+
+              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(32)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Total Spent', style: TextStyle(color: Colors.white70)), const SizedBox(height: 8), Text('₹ ${totalExpense.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900))])),
+              const SizedBox(height: 32),
+              
+              if (pieSections.isNotEmpty) ...[
+                const Text('Spending Breakdown', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 32),
+                SizedBox(
+                  height: 220,
+                  child: Stack(
+                    children: [
+                      PieChart(
+                        PieChartData(
+                          sectionsSpace: 4,
+                          centerSpaceRadius: 60,
+                          sections: pieSections,
+                          pieTouchData: PieTouchData(enabled: false),
+                        ),
+                      ),
+                      Center(child: Text('₹${totalExpense.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
+              
+              const Text('Category Limits', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              if (sortedCats.isEmpty) Text('No category data yet.', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              ...sortedCats.map((cat) {
+                double spent = catSpent[cat] ?? 0;
+                double? limit = limits[cat];
+                double pct = 0;
+                Color barColor = getCategoryColor(cat);
+                String limitText = '';
+                
+                if (limit != null && limit > 0) {
+                  pct = (spent / limit).clamp(0.0, 1.0);
+                  limitText = 'Spent: ₹$spent / Limit: ₹$limit';
+                } else {
+                  pct = totalExpense == 0 ? 0 : (spent / totalExpense).clamp(0.0, 1.0);
+                  limitText = 'Unbudgeted (Spent: ₹$spent)';
+                }
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 20), 
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                        children: [
+                          Text(cat, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), 
+                          Text(limit != null ? '${(pct * 100).toInt()}%' : '₹$spent', style: TextStyle(color: barColor, fontWeight: FontWeight.bold))
+                        ]
+                      ), 
+                      const SizedBox(height: 8), 
+                      ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: pct, backgroundColor: Colors.white.withOpacity(0.05), color: barColor, minHeight: 12)),
+                      const SizedBox(height: 8),
+                      Text(limitText, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12))
+                    ]
+                  )
+                );
+              }).toList(),
+              
+              const SizedBox(height: 32),
+              const Text('Detailed Ledger', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              if (ledger.isEmpty) Text('No transactions yet.', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              ...ledger.map((tx) {
+                DateTime d = DateTime.parse(tx['date']);
+                String dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+                bool isIncome = tx['type'] == 'INCOME';
+                return Dismissible(
+                  key: Key(tx['id'].toString()),
+                  background: Container(alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.red.withOpacity(0.5), borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.delete, color: Colors.white)),
+                  secondaryBackground: Container(alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.green.withOpacity(0.5), borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.edit, color: Colors.white)),
+                  confirmDismiss: (dir) async { if (dir == DismissDirection.startToEnd) { HapticFeedback.heavyImpact(); await widget.database.delete('transactions', where: 'id = ?', whereArgs: [tx['id']]); widget.onTransactionChanged(); return true; } else { HapticFeedback.lightImpact(); widget.onAddRequested(existingTx: tx); return false; } },
+                  child: Container(
+                  margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.1))),
+                  child: Row(children: [
+                    Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: (isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E)).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isIncome ? Icons.download : Icons.upload, color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E), size: 20)),
+                    const SizedBox(width: 16),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(tx['merchant'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), const SizedBox(height: 4), Text('${tx['category']} • $dateStr', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12))])),
+                    Text('${isIncome ? '+' : '-'}₹${tx['amount']}', style: TextStyle(color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E), fontWeight: FontWeight.bold, fontSize: 16)),
+                  ]),
+                )
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -6090,350 +5037,118 @@ class ProfileScreen extends StatelessWidget {
         final goals = snapshot.data ?? [];
 
         return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 120),
+          physics: const BouncingScrollPhysics(), padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Executive User Header (iOS 26 Liquid Water Glass)
-              WaterGlassCard(
-                borderRadius: 28,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                glowColor: const Color(0xFF8B5CF6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF8B5CF6), Color(0xFF3B82F6), Color(0xFF06B6D4)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.40),
-                            blurRadius: 14,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2.5),
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF0C101B),
-                          ),
-                          child: Center(
-                            child: Text(
-                              userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
-                              style: const TextStyle(
-                                color: Color(0xFFA78BFA),
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            userName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'mone iOS Edition • Offline & Private',
-                            style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_rounded, color: Colors.white70),
-                      onPressed: onEditProfile,
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 64, height: 64, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF6366F1).withOpacity(0.2), border: Border.all(color: const Color(0xFF6366F1), width: 2)),
+                    child: Center(child: Text(userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 28, fontWeight: FontWeight.bold))),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(userName, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    const Text('Money OS User', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                  ])),
+                  IconButton(icon: const Icon(Icons.edit, color: Colors.grey), onPressed: onEditProfile),
+                ],
               ),
-
-              const SizedBox(height: 28),
-              const Text('System Setup', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 14),
-
-              WaterGlassCard(
-                borderRadius: 24,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 20),
-                      ),
-                      title: const Text('View Analytics As', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      trailing: DropdownButton<String>(
-                        dropdownColor: const Color(0xFF131A2A),
-                        value: currentPeriod,
-                        style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold),
-                        underline: const SizedBox(),
-                        items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                        onChanged: (val) => onPeriodChanged(val!),
-                      ),
-                    ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                    ListTile(
-                      onTap: onSetTotalBudget,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.speed_rounded, color: Color(0xFF34D399), size: 20),
-                      ),
-                      title: const Text('Monthly Budget & Starting Spend', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Set monthly limit & mid-month already spent offset', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      trailing: const Icon(Icons.edit_rounded, color: Colors.white54, size: 18),
-                    ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                    ListTile(
-                      onTap: onAddBudget,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.track_changes_rounded, color: Color(0xFF818CF8), size: 20),
-                      ),
-                      title: const Text('Set Category Limits', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      trailing: const Icon(Icons.add_rounded, color: Color(0xFF818CF8)),
-                    ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                    ListTile(
-                      onTap: onManageCategories,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.category_rounded, color: Color(0xFFFBBF24), size: 20),
-                      ),
-                      title: const Text('Manage Categories', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
-                    ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                    ListTile(
-                      onTap: onManageAccounts,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF06B6D4).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.account_balance_rounded, color: Color(0xFF22D3EE), size: 20),
-                      ),
-                      title: const Text('Manage Accounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
-                    ),
-                  ],
-                ),
-              ),
-
+              const SizedBox(height: 32),
+              const Text('System Setup', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
-              const Text('Tools & Automation', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 14),
-
-              WaterGlassCard(
-                borderRadius: 24,
-                padding: const EdgeInsets.symmetric(vertical: 6),
+              Material(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(24),
                 child: Column(
                   children: [
+                    ListTile(leading: const Icon(Icons.calendar_month, color: Color(0xFF8B5CF6)), title: const Text('View Analytics As', style: TextStyle(color: Colors.white)), trailing: DropdownButton<String>(dropdownColor: const Color(0xFF18181B), value: currentPeriod, style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold), underline: const SizedBox(), items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (val) => onPeriodChanged(val!))),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                    ListTile(onTap: onSetTotalBudget, leading: const Icon(Icons.account_balance, color: Color(0xFF10B981)), title: const Text('Overall Monthly Budget & Starting Spend', style: TextStyle(color: Colors.white)), subtitle: const Text('Set monthly limit & mid-month already spent offset', style: TextStyle(color: Colors.grey, fontSize: 12)), trailing: const Icon(Icons.edit, color: Colors.grey)),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                    ListTile(onTap: onAddBudget, leading: const Icon(Icons.track_changes, color: Color(0xFF6366F1)), title: const Text('Set Category Limits', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.add, color: Color(0xFF6366F1))),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                    ListTile(onTap: onManageCategories, leading: const Icon(Icons.category, color: Color(0xFFF59E0B)), title: const Text('Manage Categories', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                    ListTile(onTap: onManageAccounts, leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)), title: const Text('Manage Accounts', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
+            const SizedBox(height: 12),
+            const Text('Tools & Automation', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            const SizedBox(height: 12),
                     ListTile(
                       onTap: onOpenShortcutsGuide,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF818CF8).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 20),
-                      ),
-                      title: const Text('Apple Shortcuts SMS Sync', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Setup instant background SMS capture via iOS Shortcuts', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                      leading: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8)),
+                      title: const Text('Apple Shortcuts SMS Sync', style: TextStyle(color: Colors.white)),
+                      subtitle: const Text('Setup instant background SMS capture via iOS Shortcuts', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                     ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
                     SwitchListTile(
                       value: isClipboardSyncEnabled,
                       onChanged: onToggleClipboardSync,
-                      secondary: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.content_paste_rounded, color: Color(0xFF34D399), size: 20),
-                      ),
-                      title: const Text('Clipboard Auto-Detection', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Scans copied bank SMS transaction alerts on app launch', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      activeThumbColor: const Color(0xFF10B981),
+                      secondary: const Icon(Icons.content_paste_rounded, color: Colors.greenAccent),
+                      title: const Text('Clipboard Auto-Detection', style: TextStyle(color: Colors.white)),
+                      subtitle: const Text('Scans copied bank SMS transaction alerts on app launch', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      activeColor: Colors.greenAccent,
                     ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
                     ListTile(
                       onTap: onPasteSms,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.mark_email_read_rounded, color: Color(0xFFFBBF24), size: 20),
-                      ),
-                      title: const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Quick paste & parse any financial SMS message', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                      leading: const Icon(Icons.mark_email_read_rounded, color: Color(0xFFF59E0B)),
+                      title: const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white)),
+                      subtitle: const Text('Quick paste & parse any financial SMS message', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                     ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
                     SwitchListTile(
                       value: isBiometricEnabled,
                       onChanged: onToggleBiometric,
-                      secondary: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF06B6D4).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.fingerprint_rounded, color: Color(0xFF22D3EE), size: 20),
-                      ),
-                      title: const Text('Biometric App Lock (Face ID)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      activeThumbColor: const Color(0xFF06B6D4),
+                      secondary: const Icon(Icons.fingerprint, color: Colors.cyanAccent),
+                      title: const Text('Biometric App Lock (Face ID)', style: TextStyle(color: Colors.white)),
+                      activeColor: Colors.cyanAccent,
                     ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                    ListTile(
-                      onTap: () => _exportToCsv(context),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFA855F7).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.file_download_rounded, color: Color(0xFFC084FC), size: 20),
-                      ),
-                      title: const Text('Export Data to CSV', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Share your transactions as a spreadsheet', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
-                    ),
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                    ListTile(
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3B82F6).withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.help_outline_rounded, color: Color(0xFF60A5FA), size: 20),
-                      ),
-                      title: const Text('How to Use?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
-                    ),
+                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                  ListTile(onTap: () => _exportToCsv(context), leading: const Icon(Icons.file_download, color: Colors.purpleAccent), title: const Text('Export Data to CSV', style: TextStyle(color: Colors.white)), subtitle: const Text('Share your transactions as a spreadsheet', style: TextStyle(color: Colors.grey, fontSize: 12)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
+                  Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                  ListTile(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())), leading: const Icon(Icons.help_outline, color: Colors.blueAccent), title: const Text('How to Use?', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('My Goals', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_rounded, color: Color(0xFF6366F1), size: 28),
-                    onPressed: onAddGoal,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 40),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('My Goals', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.add_circle, color: Color(0xFF6366F1), size: 30), onPressed: onAddGoal)]),
+              const SizedBox(height: 16),
               ...goals.map((g) {
-                double target = g['target'];
-                double saved = g['saved'];
-                double pct = (saved / target).clamp(0.0, 1.0);
-                return WaterGlassCard(
-                  borderRadius: 22,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(20),
-                  glowColor: const Color(0xFF6366F1),
+                double target = g['target']; double saved = g['saved']; double pct = (saved / target).clamp(0.0, 1.0);
+                return GestureDetector(
                   onTap: () => onGoalEdit(g),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(g['title'], style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                          Text('${(pct * 100).toInt()}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.w900)),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: pct,
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          color: const Color(0xFF818CF8),
-                          minHeight: 10,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Saved: ₹${saved.toStringAsFixed(0)} / Target: ₹${target.toStringAsFixed(0)}',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
-                      ),
-                    ],
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(32)),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(g['title'], style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text('${(pct * 100).toInt()}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold))]),
+                      const SizedBox(height: 16),
+                      ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: pct, backgroundColor: Colors.white.withOpacity(0.05), color: const Color(0xFF818CF8), minHeight: 12)),
+                      const SizedBox(height: 12), Text('Saved: ₹${saved.toStringAsFixed(0)} / Target: ₹${target.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                    ]),
                   ),
                 );
               }).toList(),
             ],
           ),
         );
-      },
+      }
     );
   }
 }
 
 // ---------------------------------------------------------
-// TRENDS SCREEN (CLEAN LINEAR HISTORICAL LEDGER)
+// TRENDS SCREEN
 // ---------------------------------------------------------
 class TrendsScreen extends StatelessWidget {
   final Database database;
   final Function({Map<String, dynamic>? existingTx}) onAddRequested;
   final VoidCallback onTransactionChanged;
 
-  const TrendsScreen({
-    Key? key,
-    required this.database,
-    required this.onAddRequested,
-    required this.onTransactionChanged,
-  }) : super(key: key);
+  const TrendsScreen({Key? key, required this.database, required this.onAddRequested, required this.onTransactionChanged}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -6446,38 +5161,24 @@ class TrendsScreen extends StatelessWidget {
         ORDER BY month DESC
       '''),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF8B5CF6)));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final data = snapshot.data!;
-
+        
         double maxTotal = 0;
         for (var row in data) {
           double total = (row['total'] as num).toDouble();
           if (total > maxTotal) maxTotal = total;
         }
-
+        
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Historical Trends',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (data.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Text('No historical data yet.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
-                  ),
-                ),
+              const Text(' Historical Trends', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 32),
+              if (data.isEmpty) const Text('No data yet.', style: TextStyle(color: Colors.white54)),
               ...data.map((row) {
                 String raw = row['month'] as String;
                 double total = (row['total'] as num).toDouble();
@@ -6486,81 +5187,42 @@ class TrendsScreen extends StatelessWidget {
                 int m = int.parse(parts[1]);
                 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                 String name = '${monthNames[m - 1]} ${parts[0]}';
-
+                
                 double pct = maxTotal > 0 ? (total / maxTotal) : 0;
-
-                return WaterGlassCard(
-                  borderRadius: 22,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(18),
-                  glowColor: const Color(0xFF8B5CF6),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (ctx) => SpatialMonthBreakdownScreen(
-                          database: database,
-                          month: raw,
-                          monthName: name,
-                          onAddRequested: onAddRequested,
-                          onTransactionChanged: onTransactionChanged,
-                        ),
-                      ),
-                    );
-                  },
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 28),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (ctx) => Scaffold(
+                        backgroundColor: const Color(0xFF09090B),
+                        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, title: const Text(''), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(ctx))),
+                        body: AnalyticsScreen(database: database, timePeriod: 'Monthly', onResolveRollover: (a,b){}, onAddRequested: onAddRequested, onTransactionChanged: onTransactionChanged, overrideMonth: raw)
+                      )));
+                    },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.20),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
-                                ),
-                                child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 18),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '₹ ${total.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              color: Color(0xFFF43F5E),
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
+                          Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text('₹${total.toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 18, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10), 
                         child: LinearProgressIndicator(
-                          value: pct,
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          color: const Color(0xFF8B5CF6),
-                          minHeight: 10,
-                        ),
+                          value: pct, 
+                          backgroundColor: Colors.white.withOpacity(0.05), 
+                          color: const Color(0xFF8B5CF6), 
+                          minHeight: 12
+                        )
                       ),
-                    ],
-                  ),
-                );
+                    ]
+                  )
+                ));
               }).toList(),
             ],
           ),
@@ -6570,8 +5232,6 @@ class TrendsScreen extends StatelessWidget {
   }
 }
 
-// Backward compatibility alias for Tab 2
-typedef SpatialHistoricalTrendsScreen = TrendsScreen;
 
 class HowToUseScreen extends StatelessWidget {
   const HowToUseScreen({Key? key}) : super(key: key);
@@ -6649,62 +5309,47 @@ class HowToUseScreen extends StatelessWidget {
   }
 
   Widget _buildFeatureCard(IconData icon, String title, String desc, {String? badge}) {
-    return WaterGlassCard(
-      borderRadius: 24,
-      margin: const EdgeInsets.only(bottom: 16),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
-      glowColor: const Color(0xFF6366F1),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white.withOpacity(0.1))),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                    if (badge != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF06B6D4).withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF06B6D4).withValues(alpha: 0.45)),
-                        ),
-                        child: Text(badge, style: const TextStyle(color: Color(0xFF67E8F9), fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(desc, style: TextStyle(color: Colors.white.withValues(alpha: 0.70), fontSize: 13, height: 1.4)),
-              ],
-            ),
-          ),
-        ],
-      ),
+           Container(
+             padding: const EdgeInsets.all(12),
+             decoration: BoxDecoration(color: const Color(0xFF818CF8).withOpacity(0.2), shape: BoxShape.circle),
+             child: Icon(icon, color: const Color(0xFF818CF8), size: 28)
+           ),
+           const SizedBox(width: 16),
+           Expanded(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Row(
+                   children: [
+                     Expanded(
+                       child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                     ),
+                     if (badge != null)
+                       Container(
+                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                         decoration: BoxDecoration(
+                           color: const Color(0xFF818CF8).withOpacity(0.2),
+                           borderRadius: BorderRadius.circular(10),
+                           border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.4)),
+                         ),
+                         child: Text(badge, style: const TextStyle(color: Color(0xFF818CF8), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                       ),
+                   ],
+                 ),
+                 const SizedBox(height: 8),
+                 Text(desc, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
+               ]
+             )
+           )
+        ]
+      )
     );
   }
 }
