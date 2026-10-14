@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:sqflite/sqflite.dart';
 import '../services/analytics_service.dart';
+import '../main.dart';
 
 class ModernAnalyticsScreen extends StatefulWidget {
   final Database database;
@@ -222,55 +223,17 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
 
   Widget _buildTimeHorizonSelector() {
     final horizons = ['This Month', 'Last 30D', 'YTD'];
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
-      child: Row(
-        children: horizons.map((h) {
-          final isSelected = _timeHorizon == h && _customMonth == null;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  _timeHorizon = h;
-                  _customMonth = null;
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF6366F1) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Color(0xFF6366F1).withOpacity(0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          )
-                        ]
-                      : [],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  h,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return LiquidGlassSegmentedPicker<String>(
+      items: horizons,
+      selectedItem: _timeHorizon,
+      glowColor: const Color(0xFF6366F1),
+      labelBuilder: (h) => h,
+      onSelected: (h) {
+        setState(() {
+          _timeHorizon = h;
+          _customMonth = null;
+        });
+      },
     );
   }
 
@@ -286,17 +249,17 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Color(0xFF6366F1).withOpacity(0.12),
-            const Color(0xFF18181B),
+            const Color(0xFF6366F1).withValues(alpha: 0.16),
+            const Color(0xFF0D1527).withValues(alpha: 0.70),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Color(0xFF6366F1).withOpacity(0.25), width: 1.2),
+        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.35), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFF6366F1).withOpacity(0.15),
+            color: const Color(0xFF6366F1).withValues(alpha: 0.18),
             blurRadius: 28,
             offset: const Offset(0, 8),
           )
@@ -493,13 +456,13 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: const Color(0xFF0D1527).withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 16,
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 18,
             offset: const Offset(0, 6),
           )
         ],
@@ -587,14 +550,14 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFFF43F5E).withOpacity(0.15),
-                  const Color(0xFF18181B),
+                  const Color(0xFFF43F5E).withValues(alpha: 0.18),
+                  const Color(0xFF0D1527).withValues(alpha: 0.72),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFF43F5E).withOpacity(0.35), width: 1.2),
+              border: Border.all(color: const Color(0xFFF43F5E).withValues(alpha: 0.35), width: 1.2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,14 +596,14 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF10B981).withOpacity(0.12),
-                const Color(0xFF18181B),
+                const Color(0xFF10B981).withValues(alpha: 0.16),
+                const Color(0xFF0D1527).withValues(alpha: 0.72),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3), width: 1.2),
+            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1.2),
           ),
           child: Row(
             children: [
@@ -717,7 +680,7 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF18181B),
+            backgroundColor: const Color(0xFF0F172A),
             title: const Text('Sweep Spare Change', style: TextStyle(color: Colors.white)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -730,7 +693,7 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   value: selectedGoalId,
-                  dropdownColor: const Color(0xFF18181B),
+                  dropdownColor: const Color(0xFF0F172A),
                   style: const TextStyle(color: Colors.white),
                   items: goals.map((g) => DropdownMenuItem(value: g['id'] as int, child: Text(g['title'].toString()))).toList(),
                   onChanged: (val) => setDialogState(() => selectedGoalId = val!),
@@ -774,9 +737,16 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: const Color(0xFF0D1527).withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _getCategoryColor(catName).withOpacity(0.4), width: 1.5),
+        border: Border.all(color: _getCategoryColor(catName).withValues(alpha: 0.45), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,9 +842,16 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: const Color(0xFF0D1527).withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1044,9 +1021,16 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: const Color(0xFF0D1527).withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1251,9 +1235,16 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: const Color(0xFF0D1527).withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1331,9 +1322,16 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: const Color(0xFF0D1527).withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1409,9 +1407,16 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: const Color(0xFF0D1527).withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1491,7 +1496,7 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF18181B),
+            backgroundColor: const Color(0xFF0F172A),
             title: const Text('Simulate Purchase Impact', style: TextStyle(color: Colors.white)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1558,7 +1563,7 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF18181B),
+        backgroundColor: const Color(0xFF0F172A),
         title: const Text('Adjust Monthly Budget Ceiling', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: ctrl,

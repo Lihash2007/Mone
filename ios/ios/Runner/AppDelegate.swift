@@ -104,6 +104,14 @@ import WidgetKit
             }
         }
         result(true)
+      } else if call.method == "openUrl" {
+        if let args = call.arguments as? [String: Any], let urlStr = args["url"] as? String, let url = URL(string: urlStr) {
+          UIApplication.shared.open(url, options: [:]) { success in
+            result(success)
+          }
+        } else {
+          result(false)
+        }
       } else {
         result(FlutterMethodNotImplemented)
       }

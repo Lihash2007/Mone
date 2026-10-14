@@ -634,6 +634,257 @@ class WaterGlassCard extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------
+// iOS 26 LIQUID GLASS DRAG & SELECTION PICKER
+// ---------------------------------------------------------
+class LiquidGlassSegmentedPicker<T> extends StatefulWidget {
+  final List<T> items;
+  final T selectedItem;
+  final ValueChanged<T> onSelected;
+  final String Function(T) labelBuilder;
+  final IconData Function(T)? iconBuilder;
+  final Color glowColor;
+  final EdgeInsetsGeometry padding;
+
+  const LiquidGlassSegmentedPicker({
+    Key? key,
+    required this.items,
+    required this.selectedItem,
+    required this.onSelected,
+    required this.labelBuilder,
+    this.iconBuilder,
+    this.glowColor = const Color(0xFF00F2FE),
+    this.padding = const EdgeInsets.all(4),
+  }) : super(key: key);
+
+  @override
+  State<LiquidGlassSegmentedPicker<T>> createState() => _LiquidGlassSegmentedPickerState<T>();
+}
+
+class _LiquidGlassSegmentedPickerState<T> extends State<LiquidGlassSegmentedPicker<T>> with SingleTickerProviderStateMixin {
+  late int _selectedIndex;
+  double _dragOffset = 0.0;
+  bool _isDragging = false;
+  late AnimationController _animController;
+  late Animation<double> _animPosition;
+  double _animFrom = 0.0;
+  double _animTo = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.items.indexOf(widget.selectedItem);
+    if (_selectedIndex < 0) _selectedIndex = 0;
+    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+    _animPosition = CurvedAnimation(parent: _animController, curve: Curves.easeOutBack);
+    _animFrom = _selectedIndex.toDouble();
+    _animTo = _selectedIndex.toDouble();
+  }
+
+  @override
+  void didUpdateWidget(covariant LiquidGlassSegmentedPicker<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newIdx = widget.items.indexOf(widget.selectedItem);
+    if (newIdx >= 0 && newIdx != _selectedIndex && !_isDragging) {
+      _animateTo(newIdx);
+    }
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  void _animateTo(int targetIdx) {
+    _animFrom = _isDragging ? (_animFrom + _dragOffset) : _selectedIndex.toDouble();
+    _animTo = targetIdx.toDouble();
+    _selectedIndex = targetIdx;
+    _isDragging = false;
+    _dragOffset = 0.0;
+    _animController.forward(from: 0.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        final count = widget.items.length;
+        if (count == 0) return const SizedBox();
+        final itemWidth = (totalWidth - 8) / count;
+
+        return Container(
+          height: 46,
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0C1322).withValues(alpha: 0.70),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: GestureDetector(
+            onHorizontalDragStart: (details) {
+              _isDragging = true;
+              _animController.stop();
+              _animFrom = _selectedIndex.toDouble();
+            },
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _dragOffset += details.primaryDelta! / itemWidth;
+              });
+              final currentFloat = (_animFrom + _dragOffset).clamp(0.0, (count - 1).toDouble());
+              final tentativeIdx = currentFloat.round();
+              if (tentativeIdx != _selectedIndex) {
+                _selectedIndex = tentativeIdx;
+                HapticFeedback.selectionClick();
+                widget.onSelected(widget.items[tentativeIdx]);
+              }
+            },
+            onHorizontalDragEnd: (details) {
+              final finalFloat = (_animFrom + _dragOffset).clamp(0.0, (count - 1).toDouble());
+              final targetIdx = finalFloat.round();
+              _animateTo(targetIdx);
+              HapticFeedback.lightImpact();
+              widget.onSelected(widget.items[targetIdx]);
+            },
+            child: AnimatedBuilder(
+              animation: _animController,
+              builder: (context, child) {
+                double currentPosition = _isDragging
+                    ? (_animFrom + _dragOffset).clamp(0.0, (count - 1).toDouble())
+                    : (_animFrom + (_animTo - _animFrom) * _animPosition.value);
+
+                // Fluid elongation: pill stretches along motion axis
+                double stretch = _isDragging ? (_dragOffset.abs() * 8.0).clamp(0.0, 14.0) : 0.0;
+                double pillLeft = 4 + (currentPosition * itemWidth) - (stretch / 2);
+                double pillWidth = itemWidth + stretch;
+
+                return Stack(
+                  children: [
+                    // The Liquid Glass Frosted Sliding Pill
+                    Positioned(
+                      left: pillLeft.clamp(2.0, totalWidth - itemWidth - 2.0),
+                      top: 1,
+                      bottom: 1,
+                      width: pillWidth.clamp(itemWidth, totalWidth - 6.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  widget.glowColor.withValues(alpha: 0.38),
+                                  const Color(0xFF3B82F6).withValues(alpha: 0.20),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: widget.glowColor.withValues(alpha: 0.55),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: widget.glowColor.withValues(alpha: 0.32),
+                                  blurRadius: 12,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                // Top specular hairline
+                                Positioned(
+                                  top: 0,
+                                  left: 8,
+                                  right: 8,
+                                  height: 1.0,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.white.withValues(alpha: 0.0),
+                                          Colors.white.withValues(alpha: 0.50),
+                                          Colors.white.withValues(alpha: 0.0),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Segment Labels & Icons
+                    Row(
+                      children: List.generate(count, (index) {
+                        final item = widget.items[index];
+                        final isSelected = index == _selectedIndex;
+                        final label = widget.labelBuilder(item);
+                        final icon = widget.iconBuilder != null ? widget.iconBuilder!(item) : null;
+
+                        return Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              if (_selectedIndex != index) {
+                                HapticFeedback.selectionClick();
+                                _animateTo(index);
+                                widget.onSelected(item);
+                              }
+                            },
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (icon != null) ...[
+                                    Icon(
+                                      icon,
+                                      size: 15,
+                                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.45),
+                                    ),
+                                    const SizedBox(width: 5),
+                                  ],
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.50),
+                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                      fontSize: 12.5,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class PersonalMoneyOS extends StatelessWidget {
   const PersonalMoneyOS({Key? key}) : super(key: key);
 
@@ -1513,128 +1764,248 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Color(0xFF14151C),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0C1322).withValues(alpha: 0.94),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.65),
+              blurRadius: 32,
+              offset: const Offset(0, -8),
+            ),
+            BoxShadow(
+              color: const Color(0xFF00F2FE).withValues(alpha: 0.15),
+              blurRadius: 24,
+              offset: const Offset(0, -2),
+            ),
+          ],
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 20),
-              Row(
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: const Color(0xFF818CF8).withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
-                    child: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 28),
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00F2FE), Color(0xFF6366F1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00F2FE).withValues(alpha: 0.40),
+                              blurRadius: 14,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Apple Shortcuts Hub',
+                              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              '1-Tap automated background SMS tracking',
+                              style: TextStyle(color: Colors.white54, fontSize: 12.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 1-Tap Primary Action Button
+                  GestureDetector(
+                    onTap: () async {
+                      HapticFeedback.mediumImpact();
+                      await Clipboard.setData(const ClipboardData(text: 'debited, spent, credited, UPI, INR, Rs'));
+                      try {
+                        await _nativeChannel.invokeMethod('openUrl', {'url': 'shortcuts://'});
+                      } catch (_) {}
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('⚡ Opening Shortcuts App! Trigger keywords copied to clipboard!'),
+                            backgroundColor: Color(0xFF10B981),
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00F2FE), Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00F2FE).withValues(alpha: 0.45),
+                            blurRadius: 18,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.2),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.flash_on_rounded, color: Colors.white, size: 22),
+                          SizedBox(width: 10),
+                          Text(
+                            '⚡ 1-Tap Open Shortcuts App',
+                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Quick Action Grid: Keywords & Test Banner
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () async {
+                            HapticFeedback.lightImpact();
+                            await Clipboard.setData(const ClipboardData(text: 'debited, spent, credited, UPI, INR, Rs'));
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Keywords copied: "debited, spent, credited, UPI, INR, Rs"'),
+                                  backgroundColor: Color(0xFF6366F1),
+                                ),
+                              );
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.copy_rounded, color: Color(0xFF67E8F9), size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Copy Keywords',
+                                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () async {
+                            HapticFeedback.lightImpact();
+                            try {
+                              await _nativeChannel.invokeMethod('testNotification');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Banner fired! Long-press to test [✓ Confirm] / [⇄ Transfer]!'),
+                                    backgroundColor: Color(0xFF10B981),
+                                  ),
+                                );
+                              }
+                            } catch (_) {}
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.notifications_active_rounded, color: Color(0xFF34D399), size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Test Banner',
+                                  style: TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Silent Execution Highlights
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.28)),
+                    ),
+                    child: const Row(
                       children: [
-                        Text('iOS Apple Shortcuts Sync', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text('Automate SMS logging seamlessly on iPhone', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                        Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '100% SILENT BACKGROUND TRACKING: mone logs transactions in ~50ms without opening the app and presents an interactive Lock Screen banner.',
+                            style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w700, height: 1.35),
+                          ),
+                        ),
                       ],
                     ),
                   ),
+
+                  const SizedBox(height: 18),
+                  const Text('Quick 3-Step Setup in Shortcuts App:', style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  _buildShortcutStep('1', 'In Shortcuts, tap Automation (+) -> Message -> When message contains "debited", "spent", "UPI", "Rs".'),
+                  _buildShortcutStep('2', 'Select "Run Immediately" (turn OFF "Notify When Run").'),
+                  _buildShortcutStep('3', 'Select action: "Log Bank SMS in mone" with "Shortcut Input" -> Tap Done!'),
+                  const SizedBox(height: 10),
                 ],
               ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(16)),
-                child: const Text(
-                  'Apple restricts iOS apps from directly reading the Messages inbox. '
-                  'Using native Apple Shortcuts Personal Automation, you can automatically route incoming bank SMS alerts directly into mone!',
-                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '100% SILENT BACKGROUND SYNC: mone logs transactions in ~50ms without opening the app and delivers an interactive Lock Screen confirmation banner.',
-                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text('1-Minute Setup Guide (Never Opens App):', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              _buildShortcutStep('1', 'Open the native Shortcuts app on your iPhone.'),
-              _buildShortcutStep('2', 'Tap Automation at the bottom -> tap + (New Automation).'),
-              _buildShortcutStep('3', 'Select "Message" -> When I receive message containing: "debited", "spent", "credited", "UPI", "INR", "Rs".'),
-              _buildShortcutStep('4', 'Select "Run Immediately" (Turn OFF "Notify When Run").'),
-              _buildShortcutStep('5', 'Tap "New Blank Automation" -> tap "Add Action".'),
-              _buildShortcutStep('6', 'Search "mone" -> Tap the native action "Log Bank SMS in mone".'),
-              _buildShortcutStep('7', 'Tap the blue "SMS Body" field -> select "Shortcut Input" (or Message).'),
-              _buildShortcutStep('8', 'Tap Done in top right corner. You are completely all set!'),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF818CF8).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.2)),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('How Lock Screen Confirmation Works:', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 6),
-                    Text(
-                      '• When SMS arrives, mone fires an interactive notification banner.\n'
-                      '• Long-press or pull down the banner from Lock Screen.\n'
-                      '• Tap [✓ Confirm] to verify, [⇄ Transfer] for self-transfers, or [+ Income] for salary/deposits.\n'
-                      '• You never need to launch the app to confirm!',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  try {
-                    await _nativeChannel.invokeMethod('testNotification');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Test notification banner fired! Long press it to test [✓ Confirm] / [⇄ Transfer]!'),
-                          backgroundColor: Color(0xFF10B981),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    await _handleIncomingUri(Uri.parse('mone://import-sms?text=HDFC%20Bank%3A%20Rs%20450.00%20debited%20from%20a%2Fc%20**4321%20at%20Swiggy%20UPI.%20Avl%20Bal%3A%20INR%2034500.00'));
-                  }
-                },
-                icon: const Icon(Icons.notifications_active_rounded, size: 20, color: Colors.white),
-                label: const Text('Test Interactive Lock Screen Banner', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
+            ),
           ),
         ),
       ),
@@ -2102,41 +2473,73 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(builder: (context, setModalState) {
+          Color typeColor = _selectedType == 'EXPENSE'
+              ? const Color(0xFFF43F5E)
+              : (_selectedType == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFF3B82F6));
+
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300), curve: Curves.easeOutExpo,
             padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 32),
-            decoration: BoxDecoration(color: const Color(0xFF18181B), borderRadius: const BorderRadius.vertical(top: Radius.circular(40)), border: Border.all(color: Colors.white.withOpacity(0.1))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)))),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(existingTx == null ? 'Track Record' : 'Edit Record', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                    if (existingTx == null)
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _showPasteSmsModal();
-                        },
-                        icon: const Icon(Icons.paste_rounded, size: 16, color: Color(0xFF818CF8)),
-                        label: const Text('From SMS', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
-                      ),
-                  ],
+            decoration: BoxDecoration(
+              color: const Color(0xFF0C1322).withValues(alpha: 0.94),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.60),
+                  blurRadius: 30,
+                  offset: const Offset(0, -6),
                 ),
-                const SizedBox(height: 24),
-                
-                Row(
-                  children: [
-                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'EXPENSE'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Expense', style: TextStyle(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E) : Colors.white, fontWeight: FontWeight.bold))))),
-                    const SizedBox(width: 8),
-                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'INCOME'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'INCOME' ? const Color(0xFF10B981).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'INCOME' ? const Color(0xFF10B981) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Income', style: TextStyle(color: _selectedType == 'INCOME' ? const Color(0xFF10B981) : Colors.white, fontWeight: FontWeight.bold))))),
-                    const SizedBox(width: 8),
-                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'TRANSFER'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Move Funds', style: TextStyle(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6) : Colors.white, fontWeight: FontWeight.bold))))),
-                  ],
+                BoxShadow(
+                  color: typeColor.withValues(alpha: 0.15),
+                  blurRadius: 24,
+                  offset: const Offset(0, -2),
                 ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(child: Container(width: 44, height: 5, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(10)))),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(existingTx == null ? 'Track Record' : 'Edit Record', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                        if (existingTx == null)
+                          TextButton.icon(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _showPasteSmsModal();
+                            },
+                            icon: const Icon(Icons.paste_rounded, size: 16, color: Color(0xFF00F2FE)),
+                            label: const Text('From SMS', style: TextStyle(color: Color(0xFF00F2FE), fontSize: 13, fontWeight: FontWeight.bold)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // iOS 26 Liquid Drag Selection Picker
+                    LiquidGlassSegmentedPicker<String>(
+                      items: const ['EXPENSE', 'INCOME', 'TRANSFER'],
+                      selectedItem: _selectedType,
+                      glowColor: typeColor,
+                      labelBuilder: (type) {
+                        if (type == 'EXPENSE') return 'Expense';
+                        if (type == 'INCOME') return 'Income';
+                        return 'Transfer';
+                      },
+                      iconBuilder: (type) {
+                        if (type == 'EXPENSE') return Icons.arrow_upward_rounded;
+                        if (type == 'INCOME') return Icons.arrow_downward_rounded;
+                        return Icons.sync_alt_rounded;
+                      },
+                      onSelected: (val) => setModalState(() => _selectedType = val),
+                    ),
                 
                 const SizedBox(height: 24),
                 TextField(controller: _amountCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), decoration: InputDecoration(prefixText: '₹ ', prefixStyle: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), labelText: 'Amount', labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)), filled: true, fillColor: Colors.white.withOpacity(0.03), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: Color(0xFF6366F1))))),
@@ -2306,11 +2709,13 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
                 const SizedBox(height: 32),
               ],
             ),
-          );
-        });
-      }
-    );
+          ),
+        ),
+      );
+    });
   }
+);
+}
 
   void _showSetTotalBudgetModal() async {
     final settings = await _database.query('settings');
@@ -4022,6 +4427,566 @@ class _HorizontalCardCarouselState extends State<HorizontalCardCarousel> {
   }
 }
 
+// ---------------------------------------------------------
+// FACETED 3D LIQUID GLASS DECK (CONCEPT A)
+// ---------------------------------------------------------
+class Faceted3DCardDeck extends StatefulWidget {
+  final List<CardInfo> cards;
+  final ValueChanged<int>? onCardSelected;
+
+  const Faceted3DCardDeck({Key? key, required this.cards, this.onCardSelected}) : super(key: key);
+
+  @override
+  State<Faceted3DCardDeck> createState() => _Faceted3DCardDeckState();
+}
+
+class _Faceted3DCardDeckState extends State<Faceted3DCardDeck> with SingleTickerProviderStateMixin {
+  int _activeIndex = 0;
+  bool _isFanned = false;
+  late AnimationController _animController;
+  late Animation<double> _fanAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _fanAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  void _toggleFan() {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isFanned = !_isFanned;
+      if (_isFanned) {
+        _animController.forward();
+      } else {
+        _animController.reverse();
+      }
+    });
+  }
+
+  void _selectCard(int index) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _activeIndex = index;
+      if (_isFanned) {
+        _isFanned = false;
+        _animController.reverse();
+      }
+    });
+    widget.onCardSelected?.call(index);
+    widget.cards[index].onTap?.call();
+  }
+
+  void _nextCard() {
+    if (widget.cards.isEmpty) return;
+    int next = (_activeIndex + 1) % widget.cards.length;
+    _selectCard(next);
+  }
+
+  void _prevCard() {
+    if (widget.cards.isEmpty) return;
+    int prev = (_activeIndex - 1 + widget.cards.length) % widget.cards.length;
+    _selectCard(prev);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.cards.isEmpty) return const SizedBox();
+
+    final count = widget.cards.length;
+    final activeCard = widget.cards[_activeIndex.clamp(0, count - 1)];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Deck Header Control Bar
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF00F2FE),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFF00F2FE),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'CARDS & WALLETS ($count)',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.65),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+              if (count > 1)
+                GestureDetector(
+                  onTap: _toggleFan,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _isFanned
+                          ? const Color(0xFF00F2FE).withValues(alpha: 0.18)
+                          : Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _isFanned
+                            ? const Color(0xFF00F2FE).withValues(alpha: 0.45)
+                            : Colors.white.withValues(alpha: 0.14),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isFanned ? Icons.layers_clear_rounded : Icons.filter_none_rounded,
+                          color: _isFanned ? const Color(0xFF67E8F9) : Colors.white70,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _isFanned ? 'Collapse' : 'Fan Deck (3D)',
+                          style: TextStyle(
+                            color: _isFanned ? const Color(0xFF67E8F9) : Colors.white70,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // Animated Deck Stage
+        AnimatedBuilder(
+          animation: _fanAnim,
+          builder: (context, child) {
+            double fanProgress = _fanAnim.value;
+            double stageHeight = _isFanned
+                ? 218.0 + (count - 1) * (64.0 * fanProgress)
+                : 228.0;
+
+            return SizedBox(
+              height: stageHeight,
+              child: GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (!_isFanned) {
+                    if (details.primaryVelocity != null && details.primaryVelocity! < -100) {
+                      _nextCard();
+                    } else if (details.primaryVelocity != null && details.primaryVelocity! > 100) {
+                      _prevCard();
+                    }
+                  }
+                },
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    if (!_isFanned) ...[
+                      // Stack Layer 2 (Back Card)
+                      if (count > 2)
+                        Positioned(
+                          top: 0,
+                          left: 18,
+                          right: 18,
+                          child: Transform.scale(
+                            scale: 0.88,
+                            alignment: Alignment.topCenter,
+                            child: Opacity(
+                              opacity: 0.50,
+                              child: _buildCardView(widget.cards[(_activeIndex + 2) % count], isStacked: true),
+                            ),
+                          ),
+                        ),
+
+                      // Stack Layer 1 (Mid Card)
+                      if (count > 1)
+                        Positioned(
+                          top: 10,
+                          left: 9,
+                          right: 9,
+                          child: Transform.scale(
+                            scale: 0.94,
+                            alignment: Alignment.topCenter,
+                            child: Opacity(
+                              opacity: 0.80,
+                              child: _buildCardView(widget.cards[(_activeIndex + 1) % count], isStacked: true),
+                            ),
+                          ),
+                        ),
+
+                      // Stack Layer 0 (Hero Active Card)
+                      Positioned(
+                        top: 20,
+                        left: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            if (count > 1) {
+                              _toggleFan();
+                            } else {
+                              activeCard.onTap?.call();
+                            }
+                          },
+                          child: _buildCardView(activeCard, isStacked: false),
+                        ),
+                      ),
+                    ] else ...[
+                      // Fanned Out 3D Vertical Cascade
+                      ...List.generate(count, (index) {
+                        final card = widget.cards[index];
+                        final isHero = index == _activeIndex;
+                        final topOffset = index * (64.0 * fanProgress);
+
+                        return Positioned(
+                          top: topOffset,
+                          left: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () => _selectCard(index),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(26),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                  if (isHero)
+                                    BoxShadow(
+                                      color: const Color(0xFF00F2FE).withValues(alpha: 0.30),
+                                      blurRadius: 20,
+                                      spreadRadius: 1,
+                                    ),
+                                ],
+                              ),
+                              child: _buildCardView(card, isStacked: false, isFanned: true, isHero: isHero),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+
+        // Mini Liquid Account Selector Pills
+        if (count > 1) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 38,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: count,
+              itemBuilder: (context, i) {
+                final c = widget.cards[i];
+                final isSelected = i == _activeIndex;
+                return GestureDetector(
+                  onTap: () => _selectCard(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF00F2FE).withValues(alpha: 0.20)
+                          : Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFF00F2FE).withValues(alpha: 0.60)
+                            : Colors.white.withValues(alpha: 0.12),
+                        width: 1.0,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF00F2FE).withValues(alpha: 0.25),
+                                blurRadius: 10,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (c.bankBadge != null) ...[
+                          c.bankBadge!,
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          c.title,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.60),
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCardView(CardInfo info, {bool isStacked = false, bool isFanned = false, bool isHero = false}) {
+    return Container(
+      width: double.infinity,
+      height: 206,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: LinearGradient(
+          colors: [info.startColor, info.endColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: isHero
+              ? const Color(0xFF00F2FE).withValues(alpha: 0.65)
+              : Colors.white.withValues(alpha: 0.18),
+          width: isHero ? 1.6 : 1.1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.50),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: info.startColor.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Stack(
+          children: [
+            // Diagonal Specular Glass Light Sheen
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: const Alignment(-1.0, -1.0),
+                    end: const Alignment(1.0, 1.0),
+                    colors: [
+                      Colors.white.withValues(alpha: 0.18),
+                      Colors.white.withValues(alpha: 0.04),
+                      Colors.transparent,
+                      Colors.white.withValues(alpha: 0.08),
+                    ],
+                    stops: const [0.0, 0.32, 0.65, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
+            // Specular Top Rim Hairline
+            Positioned(
+              top: 0,
+              left: 20,
+              right: 20,
+              height: 1.2,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.0),
+                      Colors.white.withValues(alpha: 0.45),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
+            // Card Content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Row: EMV Chip & Network / Bank Badge
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          // Metallic Gold EMV Chip
+                          Container(
+                            width: 36,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFE8CA82), Color(0xFFC79E47), Color(0xFFF3E0A3)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              border: Border.all(color: const Color(0xFF947325), width: 0.8),
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: const Color(0xFF7A5C14), width: 0.7),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.contactless_rounded, color: Colors.white.withValues(alpha: 0.75), size: 18),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          if (info.bankBadge != null) ...[
+                            info.bankBadge!,
+                            const SizedBox(width: 8),
+                          ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.20), width: 0.8),
+                            ),
+                            child: Text(
+                              info.network,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  const Spacer(),
+
+                  // Title & Balance
+                  Text(
+                    info.title.toUpperCase(),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    info.amount,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.6,
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // Bottom Row: Account Mask & Card Holder
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            info.subtitle,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.90),
+                              fontSize: 12.5,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
+                          Text(
+                            info.cardHolder,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            'MANAGE',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.60),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.50), size: 9),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // Backward compatibility alias
 class InteractiveCardStack extends StatelessWidget {
   final List<CardInfo> cards;
@@ -4029,7 +4994,7 @@ class InteractiveCardStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return HorizontalCardCarousel(cards: cards);
+    return Faceted3DCardDeck(cards: cards);
   }
 }
 
@@ -4566,8 +5531,8 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
 
-              // Executive Card Carousel
-              HorizontalCardCarousel(cards: stackCards),
+              // Faceted 3D Liquid Glass Deck (Concept A)
+              Faceted3DCardDeck(cards: stackCards),
               const SizedBox(height: 20),
 
               // Formal 4-Action Fintech Dock (iOS 26 Liquid Water Droplets)
@@ -5124,7 +6089,417 @@ class DashboardScreen extends StatelessWidget {
 // ---------------------------------------------------------
 // ANALYTICS & BUDGETS
 // ---------------------------------------------------------
-class AnalyticsScreen extends StatefulWidget {
+// ---------------------------------------------------------
+// SPATIAL MONTH DRILLDOWN SCREEN (NO SQUARE BOXES)
+// ---------------------------------------------------------
+class SpatialMonthBreakdownScreen extends StatefulWidget {
+  final Database database;
+  final String month; // e.g. '2026-10'
+  final String monthName; // e.g. 'October 2026'
+  final Function({Map<String, dynamic>? existingTx}) onAddRequested;
+  final VoidCallback onTransactionChanged;
+
+  const SpatialMonthBreakdownScreen({
+    Key? key,
+    required this.database,
+    required this.month,
+    required this.monthName,
+    required this.onAddRequested,
+    required this.onTransactionChanged,
+  }) : super(key: key);
+
+  @override
+  State<SpatialMonthBreakdownScreen> createState() => _SpatialMonthBreakdownScreenState();
+}
+
+class _SpatialMonthBreakdownScreenState extends State<SpatialMonthBreakdownScreen> with SingleTickerProviderStateMixin {
+  late final AnimationController _ambientController;
+
+  @override
+  void initState() {
+    super.initState();
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ambientController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    List<String> parts = widget.month.split('-');
+    int y = int.parse(parts[0]);
+    int m = int.parse(parts[1]);
+    DateTime start = DateTime(y, m, 1);
+    DateTime end = DateTime(y, m + 1, 1);
+    final range = [start.toIso8601String(), end.toIso8601String()];
+    int daysInMonth = DateTime(y, m + 1, 0).day;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF020409),
+      body: Stack(
+        children: [
+          // Live Liquid Mesh Background
+          Positioned.fill(
+            child: LiquidWaterMeshBackground(animation: _ambientController),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                // Frosted Top Navigation Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.10),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                          ),
+                          child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                      Text(
+                        widget.monthName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(width: 42),
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  child: FutureBuilder<List<dynamic>>(
+                    future: Future.wait([
+                      widget.database.query('transactions', where: 'type = ? AND date >= ? AND date < ?', whereArgs: ['EXPENSE', range[0], range[1]]),
+                      widget.database.query('transactions', where: 'date >= ? AND date < ?', whereArgs: [range[0], range[1]], orderBy: 'date DESC'),
+                    ]),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator(color: Color(0xFF00F2FE)));
+                      }
+
+                      final expenses = snapshot.data![0];
+                      final ledger = snapshot.data![1];
+
+                      double totalExpense = 0;
+                      Map<String, double> catSpent = {};
+                      for (var t in expenses) {
+                        double amt = (t['amount'] as num).toDouble();
+                        totalExpense += amt;
+                        catSpent[t['category']] = (catSpent[t['category']] ?? 0) + amt;
+                      }
+
+                      var sortedCats = catSpent.keys.toList()..sort((a, b) => catSpent[b]!.compareTo(catSpent[a]!));
+                      double dailyAvg = daysInMonth > 0 ? (totalExpense / daysInMonth) : 0;
+
+                      return SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Hero Total Spend Card
+                            WaterGlassCard(
+                              borderRadius: 28,
+                              glowColor: const Color(0xFF00F2FE),
+                              padding: const EdgeInsets.all(22),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'TOTAL EXPENSES',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.65),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF00F2FE).withValues(alpha: 0.18),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: const Color(0xFF00F2FE).withValues(alpha: 0.35)),
+                                        ),
+                                        child: Text(
+                                          '${ledger.length} ENTRIES',
+                                          style: const TextStyle(
+                                            color: Color(0xFF67E8F9),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.6,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    '₹ ${totalExpense.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 38,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.8,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.speed_rounded, color: Color(0xFF34D399), size: 14),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              'Daily Avg: ₹ ${dailyAvg.toStringAsFixed(0)}/day',
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(alpha: 0.85),
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Category Breakdown Section
+                            if (sortedCats.isNotEmpty) ...[
+                              Text(
+                                'CATEGORY DISTRIBUTION',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.65),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              WaterGlassCard(
+                                borderRadius: 24,
+                                padding: const EdgeInsets.all(18),
+                                glowColor: const Color(0xFF8B5CF6),
+                                child: Column(
+                                  children: sortedCats.map((cat) {
+                                    double spent = catSpent[cat] ?? 0;
+                                    double pct = totalExpense > 0 ? (spent / totalExpense) : 0;
+                                    Color catColor = getCategoryColor(cat);
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      child: Column(
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    width: 10,
+                                                    height: 10,
+                                                    decoration: BoxDecoration(
+                                                      color: catColor,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    cat,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              Text(
+                                                '₹ ${spent.toStringAsFixed(0)} (${(pct * 100).toInt()}%)',
+                                                style: TextStyle(
+                                                  color: catColor,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: LinearProgressIndicator(
+                                              value: pct,
+                                              backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                              color: catColor,
+                                              minHeight: 8,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+
+                            // Monthly Ledger
+                            Text(
+                              'MONTHLY LEDGER (${ledger.length})',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (ledger.isEmpty)
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(32),
+                                  child: Text('No transactions for this month.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                                ),
+                              ),
+                            ...ledger.map((tx) {
+                              DateTime d = DateTime.parse(tx['date']);
+                              String dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+                              bool isIncome = tx['type'] == 'INCOME';
+
+                              return Dismissible(
+                                key: Key(tx['id'].toString()),
+                                background: Container(
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.only(left: 20),
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Icon(Icons.delete_rounded, color: Colors.white),
+                                ),
+                                secondaryBackground: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Icon(Icons.edit_rounded, color: Colors.white),
+                                ),
+                                confirmDismiss: (dir) async {
+                                  if (dir == DismissDirection.startToEnd) {
+                                    HapticFeedback.heavyImpact();
+                                    await widget.database.delete('transactions', where: 'id = ?', whereArgs: [tx['id']]);
+                                    widget.onTransactionChanged();
+                                    return true;
+                                  } else {
+                                    HapticFeedback.lightImpact();
+                                    widget.onAddRequested(existingTx: tx);
+                                    return false;
+                                  }
+                                },
+                                child: WaterGlassCard(
+                                  borderRadius: 20,
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(9),
+                                        decoration: BoxDecoration(
+                                          color: (isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E)).withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                                          color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              tx['merchant'],
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              '${tx['category']} • $dateStr',
+                                              style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 11.5),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Text(
+                                        '${isIncome ? '+' : '-'}₹${tx['amount']}',
+                                        style: TextStyle(
+                                          color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Backward compatibility alias
+class AnalyticsScreen extends StatelessWidget {
   final Database database;
   final String timePeriod;
   final Function(double, bool) onResolveRollover;
@@ -5132,216 +6507,25 @@ class AnalyticsScreen extends StatefulWidget {
   final VoidCallback onTransactionChanged;
   final String? overrideMonth;
 
-  const AnalyticsScreen({Key? key, required this.database, required this.timePeriod, required this.onResolveRollover, required this.onAddRequested, required this.onTransactionChanged, this.overrideMonth}) : super(key: key);
-
-  @override
-  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
-}
-
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  bool _showLastMonth = false;
+  const AnalyticsScreen({
+    Key? key,
+    required this.database,
+    required this.timePeriod,
+    required this.onResolveRollover,
+    required this.onAddRequested,
+    required this.onTransactionChanged,
+    this.overrideMonth,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    List<String> range = getDateRange(widget.timePeriod);
-    if (widget.overrideMonth != null) {
-      List<String> parts = widget.overrideMonth!.split('-');
-      int y = int.parse(parts[0]);
-      int m = int.parse(parts[1]);
-      DateTime start = DateTime(y, m, 1);
-      DateTime end = DateTime(y, m + 1, 1);
-      range = [start.toIso8601String(), end.toIso8601String()];
-    } else if (widget.timePeriod == 'Monthly' && _showLastMonth) {
-      DateTime now = DateTime.now();
-      DateTime lastMonthStart = DateTime(now.year, now.month - 1, 1);
-      DateTime lastMonthEnd = DateTime(now.year, now.month, 1);
-      range = [lastMonthStart.toIso8601String(), lastMonthEnd.toIso8601String()];
-    }
-    
-    return FutureBuilder<List<dynamic>>(
-      future: Future.wait([
-        widget.database.query('transactions', where: 'type = ? AND date >= ? AND date < ?', whereArgs: ['EXPENSE', range[0], range[1]]),
-        widget.database.query('settings'),
-        widget.database.query('budgets'),
-        widget.database.query('transactions', where: 'date >= ? AND date < ?', whereArgs: [range[0], range[1]], orderBy: 'date DESC')
-      ]),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
-        final expenses = snapshot.data![0];
-        final settings = snapshot.data![1];
-        final budgets = snapshot.data![2];
-        final ledger = snapshot.data![3];
-        
-        double totalExpense = 0;
-        Map<String, double> catSpent = {};
-        for (var t in expenses) { 
-          totalExpense += t['amount']; 
-          catSpent[t['category']] = (catSpent[t['category']] ?? 0) + (t['amount'] as double); 
-        }
-        
-        Map<String, double> limits = {};
-        for (var b in budgets) { limits[b['category']] = b['limit_amount']; }
-        
-        Set<String> allCats = {...catSpent.keys, ...limits.keys};
-        var sortedCats = allCats.toList()..sort((a, b) => (catSpent[b] ?? 0).compareTo(catSpent[a] ?? 0));
-        
-        double baseBudget = 0; bool isResolved = false;
-        for (var s in settings) { 
-          if (s['key'] == 'total_budget') baseBudget = s['value'] as double; 
-          if (s['key'] == 'resolved_') isResolved = (s['value'] as double) > 0;
-        }
-        double unspent = baseBudget - totalExpense;
-        
-        List<PieChartSectionData> pieSections = [];
-        for (var cat in sortedCats) {
-          if ((catSpent[cat] ?? 0) > 0) {
-            int pct = ((catSpent[cat]! / totalExpense) * 100).toInt();
-            pieSections.add(PieChartSectionData(
-              color: getCategoryColor(cat),
-              value: catSpent[cat]!,
-              title: '$pct%',
-              showTitle: pct >= 5,
-              radius: 50,
-              titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-            ));
-          }
-        }
-
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(widget.overrideMonth != null ? ' ${widget.overrideMonth}' : (_showLastMonth && widget.timePeriod == 'Monthly' ? ' Last Month' : ' Analytics'), style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                  if (widget.timePeriod == 'Monthly' && widget.overrideMonth == null)
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(24)),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () => setState(() => _showLastMonth = false),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
-                              decoration: BoxDecoration(color: !_showLastMonth ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(20)), 
-                              child: Text('Current', style: TextStyle(color: !_showLastMonth ? Colors.black : Colors.white54, fontWeight: FontWeight.bold))
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => setState(() => _showLastMonth = true),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
-                              decoration: BoxDecoration(color: _showLastMonth ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(20)), 
-                              child: Text('Last', style: TextStyle(color: _showLastMonth ? Colors.black : Colors.white54, fontWeight: FontWeight.bold))
-                            ),
-                          ),
-                        ]
-                      )
-                    )
-                ]
-              ),
-              const SizedBox(height: 32),
-
-
-              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(32)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Total Spent', style: TextStyle(color: Colors.white70)), const SizedBox(height: 8), Text('₹ ${totalExpense.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900))])),
-              const SizedBox(height: 32),
-              
-              if (pieSections.isNotEmpty) ...[
-                const Text('Spending Breakdown', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 32),
-                SizedBox(
-                  height: 220,
-                  child: Stack(
-                    children: [
-                      PieChart(
-                        PieChartData(
-                          sectionsSpace: 4,
-                          centerSpaceRadius: 60,
-                          sections: pieSections,
-                          pieTouchData: PieTouchData(enabled: false),
-                        ),
-                      ),
-                      Center(child: Text('₹${totalExpense.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-              ],
-              
-              const Text('Category Limits', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              if (sortedCats.isEmpty) Text('No category data yet.', style: TextStyle(color: Colors.white.withOpacity(0.5))),
-              ...sortedCats.map((cat) {
-                double spent = catSpent[cat] ?? 0;
-                double? limit = limits[cat];
-                double pct = 0;
-                Color barColor = getCategoryColor(cat);
-                String limitText = '';
-                
-                if (limit != null && limit > 0) {
-                  pct = (spent / limit).clamp(0.0, 1.0);
-                  limitText = 'Spent: ₹$spent / Limit: ₹$limit';
-                } else {
-                  pct = totalExpense == 0 ? 0 : (spent / totalExpense).clamp(0.0, 1.0);
-                  limitText = 'Unbudgeted (Spent: ₹$spent)';
-                }
-                
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 20), 
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start, 
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-                        children: [
-                          Text(cat, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), 
-                          Text(limit != null ? '${(pct * 100).toInt()}%' : '₹$spent', style: TextStyle(color: barColor, fontWeight: FontWeight.bold))
-                        ]
-                      ), 
-                      const SizedBox(height: 8), 
-                      ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: pct, backgroundColor: Colors.white.withOpacity(0.05), color: barColor, minHeight: 12)),
-                      const SizedBox(height: 8),
-                      Text(limitText, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12))
-                    ]
-                  )
-                );
-              }).toList(),
-              
-              const SizedBox(height: 32),
-              const Text('Detailed Ledger', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              if (ledger.isEmpty) Text('No transactions yet.', style: TextStyle(color: Colors.white.withOpacity(0.5))),
-              ...ledger.map((tx) {
-                DateTime d = DateTime.parse(tx['date']);
-                String dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-                bool isIncome = tx['type'] == 'INCOME';
-                return Dismissible(
-                  key: Key(tx['id'].toString()),
-                  background: Container(alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.red.withOpacity(0.5), borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.delete, color: Colors.white)),
-                  secondaryBackground: Container(alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.green.withOpacity(0.5), borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.edit, color: Colors.white)),
-                  confirmDismiss: (dir) async { if (dir == DismissDirection.startToEnd) { HapticFeedback.heavyImpact(); await widget.database.delete('transactions', where: 'id = ?', whereArgs: [tx['id']]); widget.onTransactionChanged(); return true; } else { HapticFeedback.lightImpact(); widget.onAddRequested(existingTx: tx); return false; } },
-                  child: Container(
-                  margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.1))),
-                  child: Row(children: [
-                    Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: (isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E)).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isIncome ? Icons.download : Icons.upload, color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E), size: 20)),
-                    const SizedBox(width: 16),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(tx['merchant'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), const SizedBox(height: 4), Text('${tx['category']} • $dateStr', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12))])),
-                    Text('${isIncome ? '+' : '-'}₹${tx['amount']}', style: TextStyle(color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E), fontWeight: FontWeight.bold, fontSize: 16)),
-                  ]),
-                )
-                );
-              }).toList(),
-            ],
-          ),
-        );
-      },
+    String m = overrideMonth ?? '2026-10';
+    return SpatialMonthBreakdownScreen(
+      database: database,
+      month: m,
+      monthName: m,
+      onAddRequested: onAddRequested,
+      onTransactionChanged: onTransactionChanged,
     );
   }
 }
@@ -5806,66 +6990,352 @@ class ProfileScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// TRENDS SCREEN
+// SPATIAL HISTORICAL TRENDS SCREEN (iOS 26 FLUID CANVAS)
 // ---------------------------------------------------------
-class TrendsScreen extends StatelessWidget {
+class SpatialHistoricalTrendsScreen extends StatelessWidget {
   final Database database;
   final Function({Map<String, dynamic>? existingTx}) onAddRequested;
   final VoidCallback onTransactionChanged;
 
-  const TrendsScreen({Key? key, required this.database, required this.onAddRequested, required this.onTransactionChanged}) : super(key: key);
+  const SpatialHistoricalTrendsScreen({
+    Key? key,
+    required this.database,
+    required this.onAddRequested,
+    required this.onTransactionChanged,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: database.rawQuery('''
-        SELECT strftime('%Y-%m', date) as month, SUM(amount) as total
+        SELECT strftime('%Y-%m', date) as month, SUM(amount) as total, COUNT(*) as tx_count
         FROM transactions
         WHERE type = 'EXPENSE'
         GROUP BY month
         ORDER BY month DESC
       '''),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF00F2FE)));
+        }
         final data = snapshot.data!;
-        
+
         double maxTotal = 0;
         for (var row in data) {
           double total = (row['total'] as num).toDouble();
           if (total > maxTotal) maxTotal = total;
         }
-        
+
+        // Chronological data for Waveform
+        final chronoData = List<Map<String, dynamic>>.from(data.reversed);
+        List<FlSpot> spots = [];
+        for (int i = 0; i < chronoData.length; i++) {
+          double t = (chronoData[i]['total'] as num).toDouble();
+          spots.add(FlSpot(i.toDouble(), t));
+        }
+
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Historical Trends', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+              // Header Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF8B5CF6),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0xFF8B5CF6),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'HISTORICAL VELOCITY',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.55),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Spending Cycles',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
+                    ),
+                    child: Text(
+                      '${data.length} CYCLES',
+                      style: const TextStyle(
+                        color: Color(0xFFA78BFA),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
               const SizedBox(height: 20),
-              if (data.isEmpty) const Text('No data yet.', style: TextStyle(color: Colors.white54)),
-              ...data.map((row) {
+
+              // Interactive Spending Velocity Waveform Hero
+              if (spots.length >= 2) ...[
+                WaterGlassCard(
+                  borderRadius: 26,
+                  padding: const EdgeInsets.all(20),
+                  glowColor: const Color(0xFF00F2FE),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'MONTHLY BURN TRAJECTORY',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          Text(
+                            'Peak: ₹ ${maxTotal.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Color(0xFF67E8F9),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        height: 160,
+                        child: LineChart(
+                          LineChartData(
+                            minX: 0,
+                            maxX: (spots.length - 1).toDouble(),
+                            minY: 0,
+                            maxY: maxTotal * 1.15,
+                            gridData: FlGridData(
+                              show: true,
+                              drawVerticalLine: false,
+                              horizontalInterval: maxTotal > 0 ? maxTotal / 3 : 1000,
+                              getDrawingHorizontalLine: (val) => FlLine(
+                                color: Colors.white.withValues(alpha: 0.05),
+                                strokeWidth: 1,
+                              ),
+                            ),
+                            titlesData: FlTitlesData(
+                              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 22,
+                                  interval: 1,
+                                  getTitlesWidget: (value, meta) {
+                                    int idx = value.toInt();
+                                    if (idx >= 0 && idx < chronoData.length) {
+                                      List<String> p = (chronoData[idx]['month'] as String).split('-');
+                                      if (p.length == 2) {
+                                        int mIdx = int.tryParse(p[1]) ?? 1;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(top: 6),
+                                          child: Text(
+                                            monthNames[(mIdx - 1).clamp(0, 11)],
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(alpha: 0.45),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                    return const SizedBox();
+                                  },
+                                ),
+                              ),
+                            ),
+                            borderData: FlBorderData(show: false),
+                            lineBarsData: [
+                              LineChartBarData(
+                                isCurved: true,
+                                curveSmoothness: 0.35,
+                                color: const Color(0xFF00F2FE),
+                                barWidth: 3.5,
+                                isStrokeCapRound: true,
+                                dotData: FlDotData(
+                                  show: true,
+                                  getDotPainter: (spot, pct, bar, idx) => FlDotCirclePainter(
+                                    radius: 5,
+                                    color: const Color(0xFF00F2FE),
+                                    strokeWidth: 2,
+                                    strokeColor: Colors.white,
+                                  ),
+                                ),
+                                belowBarData: BarAreaData(
+                                  show: true,
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      const Color(0xFF00F2FE).withValues(alpha: 0.35),
+                                      const Color(0xFF8B5CF6).withValues(alpha: 0.0),
+                                    ],
+                                  ),
+                                ),
+                                spots: spots,
+                              ),
+                            ],
+                            lineTouchData: LineTouchData(
+                              touchTooltipData: LineTouchTooltipData(
+                                getTooltipColor: (spot) => const Color(0xFF0B1424).withValues(alpha: 0.90),
+                                tooltipBorder: BorderSide(color: const Color(0xFF00F2FE).withValues(alpha: 0.4), width: 1),
+                                getTooltipItems: (touchedSpots) {
+                                  return touchedSpots.map((spot) {
+                                    int idx = spot.x.toInt();
+                                    String mLabel = '';
+                                    if (idx >= 0 && idx < chronoData.length) {
+                                      mLabel = chronoData[idx]['month'];
+                                    }
+                                    return LineTooltipItem(
+                                      '$mLabel\n₹ ${spot.y.toStringAsFixed(0)}',
+                                      const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                                    );
+                                  }).toList();
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Section Title
+              Text(
+                'MONTH-OVER-MONTH VELOCITY',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.60),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              if (data.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Text('No historical transaction data yet.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                  ),
+                ),
+
+              // Month Cards with Real Month-over-Month Delta
+              ...List.generate(data.length, (index) {
+                final row = data[index];
                 String raw = row['month'] as String;
                 double total = (row['total'] as num).toDouble();
+                int txCount = (row['tx_count'] as num?)?.toInt() ?? 0;
                 List<String> parts = raw.split('-');
                 if (parts.length != 2) return const SizedBox();
                 int m = int.parse(parts[1]);
-                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                String name = '${monthNames[m - 1]} ${parts[0]}';
-                
+                int y = int.parse(parts[0]);
+                String name = '${monthNames[(m - 1).clamp(0, 11)]} $y';
+                int daysInMonth = DateTime(y, m + 1, 0).day;
+                double dailyAvg = daysInMonth > 0 ? (total / daysInMonth) : 0;
                 double pct = maxTotal > 0 ? (total / maxTotal) : 0;
-                
+
+                // Calculate Delta vs previous chronological month (next index in descending list)
+                String deltaText = '';
+                Color deltaColor = const Color(0xFF00F5A0);
+                IconData deltaIcon = Icons.arrow_downward_rounded;
+
+                if (index < data.length - 1) {
+                  double prevTotal = (data[index + 1]['total'] as num).toDouble();
+                  if (prevTotal > 0) {
+                    double delta = ((total - prevTotal) / prevTotal) * 100;
+                    if (delta < 0) {
+                      deltaText = '↓ ${delta.abs().toStringAsFixed(0)}% vs ${monthNames[(data[index + 1]['month'].toString().split('-')[1] == '01' ? 12 : int.parse(data[index + 1]['month'].toString().split('-')[1]) - 1) - 1]} (Saved ₹${(prevTotal - total).toStringAsFixed(0)})';
+                      deltaColor = const Color(0xFF00F5A0);
+                      deltaIcon = Icons.arrow_downward_rounded;
+                    } else if (delta > 0) {
+                      deltaText = '↑ ${delta.toStringAsFixed(0)}% vs ${monthNames[(data[index + 1]['month'].toString().split('-')[1] == '01' ? 12 : int.parse(data[index + 1]['month'].toString().split('-')[1]) - 1) - 1]} (+₹${(total - prevTotal).toStringAsFixed(0)})';
+                      deltaColor = const Color(0xFFFF3366);
+                      deltaIcon = Icons.arrow_upward_rounded;
+                    } else {
+                      deltaText = '• Same as previous month';
+                      deltaColor = const Color(0xFF00D2FF);
+                      deltaIcon = Icons.remove_rounded;
+                    }
+                  }
+                } else {
+                  deltaText = '★ Baseline Tracked Month';
+                  deltaColor = const Color(0xFF8B5CF6);
+                  deltaIcon = Icons.star_rounded;
+                }
+
                 return WaterGlassCard(
                   borderRadius: 22,
                   margin: const EdgeInsets.only(bottom: 14),
                   padding: const EdgeInsets.all(18),
                   glowColor: const Color(0xFF8B5CF6),
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => Scaffold(
-                      backgroundColor: const Color(0xFF04060A),
-                      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(ctx))),
-                      body: AnalyticsScreen(database: database, timePeriod: 'Monthly', onResolveRollover: (a,b){}, onAddRequested: onAddRequested, onTransactionChanged: onTransactionChanged, overrideMonth: raw)
-                    )));
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (ctx) => SpatialMonthBreakdownScreen(
+                          database: database,
+                          month: raw,
+                          monthName: name,
+                          onAddRequested: onAddRequested,
+                          onTransactionChanged: onTransactionChanged,
+                        ),
+                      ),
+                    );
                   },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -5876,38 +7346,135 @@ class TrendsScreen extends StatelessWidget {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(7),
+                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF8B5CF6).withValues(alpha: 0.20),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
                                 ),
-                                child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 16),
+                                child: const Icon(Icons.calendar_month_rounded, color: Color(0xFFA78BFA), size: 17),
                               ),
-                              const SizedBox(width: 10),
-                              Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 12),
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
-                          Text('₹ ${total.toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 16, fontWeight: FontWeight.w900)),
+                          Text(
+                            '₹ ${total.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+
+                      // Real Delta Pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: deltaColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: deltaColor.withValues(alpha: 0.30)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(deltaIcon, color: deltaColor, size: 13),
+                            const SizedBox(width: 4),
+                            Text(
+                              deltaText,
+                              style: TextStyle(
+                                color: deltaColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Metrics & Progress bar
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Avg ₹ ${dailyAvg.toStringAsFixed(0)}/day • $txCount txs',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.50),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Text(
+                                'VIEW LEDGER',
+                                style: TextStyle(
+                                  color: const Color(0xFF00F2FE).withValues(alpha: 0.8),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(Icons.arrow_forward_ios_rounded, color: const Color(0xFF00F2FE).withValues(alpha: 0.7), size: 9),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(10), 
+                        borderRadius: BorderRadius.circular(8),
                         child: LinearProgressIndicator(
-                          value: pct, 
-                          backgroundColor: Colors.white.withValues(alpha: 0.08), 
-                          color: const Color(0xFF8B5CF6), 
-                          minHeight: 10,
+                          value: pct,
+                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                          color: const Color(0xFF8B5CF6),
+                          minHeight: 8,
                         ),
                       ),
                     ],
                   ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+// Backward compatibility alias for Tab 2
+class TrendsScreen extends StatelessWidget {
+  final Database database;
+  final Function({Map<String, dynamic>? existingTx}) onAddRequested;
+  final VoidCallback onTransactionChanged;
+
+  const TrendsScreen({
+    Key? key,
+    required this.database,
+    required this.onAddRequested,
+    required this.onTransactionChanged,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SpatialHistoricalTrendsScreen(
+      database: database,
+      onAddRequested: onAddRequested,
+      onTransactionChanged: onTransactionChanged,
     );
   }
 }
