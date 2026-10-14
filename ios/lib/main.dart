@@ -957,7 +957,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkClipboardForSms();
+      _checkClipboardForSms(userInitiated: false);
       _syncPendingBackgroundTransactions();
     }
   }
@@ -980,43 +980,152 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   Future<void> _handleIncomingUri(Uri uri) async {
     debugPrint("Handling incoming URI: $uri");
     if (uri.scheme == 'mone') {
-      if (uri.host == 'import-sms' || uri.path.contains('import-sms') || uri.host == 'sms') {
-        String? text = uri.queryParameters['text'] ?? uri.queryParameters['body'] ?? uri.queryParameters['sms'];
-        String? sender = uri.queryParameters['sender'] ?? uri.queryParameters['address'];
-        if (text != null && text.isNotEmpty) {
+      // 1. Ensure DB is fully ready before proceeding
+      int waitCount = 0;
+      while (!_isDbReady && waitCount < 20) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        waitCount++;
+      }
+
+      if (uri.host == 'import-sms' || uri.path.contains('import-sms') || uri.host == 'sms' || uri.host == 'log') {
+        String? text = uri.queryParameters['text'] ?? 
+                       uri.queryParameters['body'] ?? 
+                       uri.queryParameters['sms'] ?? 
+                       uri.queryParameters['msg'] ?? 
+                       uri.queryParameters['message'] ?? 
+                       uri.queryParameters['data'] ?? 
+                       uri.queryParameters['content'] ?? 
+                       uri.queryParameters['alert'];
+
+        // Handle base64 encoded text: mone://import-sms?b64=...
+        if (text == null && uri.queryParameters['b64'] != null) {
+          try {
+            text = utf8.decode(base64Decode(uri.queryParameters['b64']!));
+          } catch (_) {}
+        }
+
+        // Support direct payload in query if not using key=val (e.g. mone://import-sms?raw%20text)
+        if (text == null && uri.query.isNotEmpty && !uri.query.contains('=')) {
+          try {
+            text = Uri.decodeComponent(uri.query);
+          } catch (_) {
+            text = uri.query;
+          }
+        }
+
+        if (text != null && text.trim().isNotEmpty) {
+          // Decode URL component if encoded
+          try {
+            text = Uri.decodeComponent(text);
+          } catch (_) {}
+
+          String? sender = uri.queryParameters['sender'] ?? uri.queryParameters['address'] ?? uri.queryParameters['from'];
           final tx = await processIncomingSmsString(rawBody: text, senderAddress: sender);
           if (tx != null) {
             await _updateWidget();
+            _cachedAccounts = await _database.query('accounts');
             if (mounted) {
               _triggerIsland(tx);
+              setState(() {}); // Instant dashboard UI refresh!
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '⚡ Logged ${tx['type'] == 'INCOME' ? '+' : '-'}₹${(tx['amount'] as num).toDouble().toStringAsFixed(0)} at ${tx['merchant']}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF101420),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              );
             }
+          } else if (mounted) {
+            // If parser did not automatically recognize it, open review modal with prefilled text so user can verify
+            _showPasteSmsModal(initialText: text);
           }
         }
-      } else if (uri.queryParameters['action'] == 'add') {
+      } else if (uri.queryParameters['action'] == 'add' || uri.host == 'add') {
         String? category = uri.queryParameters['category'];
-        if (category != null) {
-          _showAddTransactionModal(existingTx: {'category': category, 'type': 'EXPENSE'});
-        }
+        String? type = uri.queryParameters['type'];
+        _showAddTransactionModal(existingTx: {
+          if (category != null) 'category': category,
+          'type': type ?? 'EXPENSE',
+        });
       }
     }
   }
 
-  Future<void> _checkClipboardForSms() async {
-    if (!_isClipboardSyncEnabled) return;
+  Future<void> _checkClipboardForSms({bool userInitiated = false}) async {
+    if (!_isClipboardSyncEnabled && !userInitiated) return;
+    
+    // Ensure DB is initialized
+    if (!_isDbReady) {
+      int waitCount = 0;
+      while (!_isDbReady && waitCount < 15) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        waitCount++;
+      }
+    }
+
     try {
+      if (!userInitiated) {
+        // Wait 350ms so iOS UIKit window finishes settling on resume
+        await Future.delayed(const Duration(milliseconds: 350));
+      }
+
       ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text?.trim();
-      if (text == null || text.length < 15 || text == _lastProcessedClipboardText) return;
+
+      if (text == null || text.length < 15) {
+        if (userInitiated && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 18),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('No text found on clipboard. Paste or type below:')),
+                ],
+              ),
+              backgroundColor: const Color(0xFF161A26),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          );
+          _showPasteSmsModal();
+        }
+        return;
+      }
+
+      if (!userInitiated && text == _lastProcessedClipboardText) return;
 
       final parsed = SmsTransactionParser.parse(body: text);
-      if (!parsed.isValid) return;
+      if (!parsed.isValid) {
+        if (userInitiated && mounted) {
+          _showPasteSmsModal(initialText: text);
+        }
+        return;
+      }
 
       _lastProcessedClipboardText = text;
 
       if (mounted) {
         _showClipboardDetectedSheet(text, parsed);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("Clipboard check error: $e");
+      if (userInitiated && mounted) {
+        _showPasteSmsModal();
+      }
+    }
   }
   
   @override
@@ -1479,40 +1588,137 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('1-Minute Setup Guide (Never Opens App):', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+              const Text('Setup Options in Apple Shortcuts:', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              _buildShortcutStep('1', 'Open the native Shortcuts app on your iPhone.'),
-              _buildShortcutStep('2', 'Tap Automation at the bottom -> tap + (New Automation).'),
-              _buildShortcutStep('3', 'Select "Message" -> When I receive message containing: "debited", "spent", "credited", "UPI", "INR", "Rs".'),
-              _buildShortcutStep('4', 'Select "Run Immediately" (Turn OFF "Notify When Run").'),
-              _buildShortcutStep('5', 'Tap "New Blank Automation" -> tap "Add Action".'),
-              _buildShortcutStep('6', 'Search "mone" -> Tap the native action "Log Bank SMS in mone".'),
-              _buildShortcutStep('7', 'Tap the blue "SMS Body" field -> select "Shortcut Input" (or Message).'),
-              _buildShortcutStep('8', 'Tap Done in top right corner. You are completely all set!'),
-              const SizedBox(height: 16),
+              
+              // Option A: URL Scheme (Universal & 100% Reliable across all iOS versions)
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF818CF8).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF06B6D4).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.25)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.link_rounded, color: Color(0xFF06B6D4), size: 18),
+                        SizedBox(width: 8),
+                        Text('Method 1: URL Scheme Automation (Most Reliable)', style: TextStyle(color: Color(0xFF06B6D4), fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '1. In Shortcuts app -> Automation -> + New Automation\n'
+                      '2. Select "Message" -> When message contains: "debited", "spent", "credited", "UPI", "INR", "Rs"\n'
+                      '3. Set to "Run Immediately" (Turn OFF "Notify When Run")\n'
+                      '4. Add Action -> "Open URL"\n'
+                      '5. Set URL to: mone://import-sms?text=[Shortcut Input]',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Clipboard.setData(const ClipboardData(text: 'mone://import-sms?text=[Shortcut Input]'));
+                        HapticFeedback.mediumImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                SizedBox(width: 8),
+                                Expanded(child: Text('Copied URL Scheme! Paste it into "Open URL" in Shortcuts.')),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF161A26),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
+                      label: const Text('Copy URL Scheme (mone://import-sms...)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF06B6D4),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Option B: Native Action (Silent background)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF818CF8).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 18),
+                        SizedBox(width: 8),
+                        Text('Method 2: Silent Native Action (iOS 16+)', style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Search action "Log Bank SMS in mone" and link "SMS Body" to "Shortcut Input". Runs silently in ~50ms without opening the app.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('How Lock Screen Confirmation Works:', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text('Lock Screen Actionable Banner:', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                     SizedBox(height: 6),
                     Text(
-                      '• When SMS arrives, mone fires an interactive notification banner.\n'
-                      '• Long-press or pull down the banner from Lock Screen.\n'
+                      '• Press & hold or swipe down the notification banner.\n'
                       '• Tap [✓ Confirm] to verify, [⇄ Transfer] for self-transfers, or [+ Income] for salary/deposits.\n'
-                      '• You never need to launch the app to confirm!',
+                      '• Balances and SQLite are updated automatically without opening mone.',
                       style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
+              
+              // Live Simulation Button
+              OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await _handleIncomingUri(Uri.parse('mone://import-sms?text=HDFC%20Bank%3A%20Rs%20450.00%20debited%20from%20a%2Fc%20**4321%20at%20Swiggy%20UPI.%20Avl%20Bal%3A%20INR%2034500.00'));
+                },
+                icon: const Icon(Icons.play_circle_fill_rounded, size: 20, color: Color(0xFF10B981)),
+                label: const Text('Simulate Incoming SMS Now', style: TextStyle(color: Color(0xFF10B981), fontSize: 14, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF10B981)),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+              const SizedBox(height: 10),
+
               ElevatedButton.icon(
                 onPressed: () async {
                   try {
@@ -1533,7 +1739,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                 label: const Text('Test Interactive Lock Screen Banner', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
-                  minimumSize: const Size.fromHeight(50),
+                  minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
               ),
@@ -1746,7 +1952,28 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                               final tx = await processIncomingSmsString(rawBody: text, targetAccountId: selectedAccountId);
                               if (tx != null && mounted) {
                                 await _updateWidget();
+                                _cachedAccounts = await _database.query('accounts');
                                 _triggerIsland(tx);
+                                setState(() {});
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Imported ${tx['type'] == 'INCOME' ? '+' : '-'}₹${(tx['amount'] as num).toDouble().toStringAsFixed(0)} at ${tx['merchant']}!',
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: const Color(0xFF161A26),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                );
                               }
                             },
                             style: ElevatedButton.styleFrom(
@@ -1769,11 +1996,18 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     );
   }
 
-  void _showPasteSmsModal() async {
+  void _showPasteSmsModal({String? initialText}) async {
     final accounts = await _database.query('accounts');
     int? selectedAccountId = accounts.isNotEmpty ? accounts.first['id'] as int : null;
-    final TextEditingController controller = TextEditingController();
-    ParsedSmsResult? previewParsed;
+    final TextEditingController controller = TextEditingController(text: initialText ?? '');
+    ParsedSmsResult? previewParsed = (initialText != null && initialText.trim().isNotEmpty)
+        ? SmsTransactionParser.parse(body: initialText)
+        : null;
+
+    if (previewParsed != null && previewParsed.isValid) {
+      final autoMatched = IndianBankDirectory.matchAccountFromSms(senderAddress: null, messageBody: initialText!, accounts: accounts);
+      if (autoMatched != null) selectedAccountId = autoMatched;
+    }
 
     if (!mounted) return;
 
@@ -1956,7 +2190,28 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                             final tx = await processIncomingSmsString(rawBody: text, targetAccountId: selectedAccountId);
                             if (tx != null && mounted) {
                               await _updateWidget();
+                              _cachedAccounts = await _database.query('accounts');
                               _triggerIsland(tx);
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Saved ${tx['type'] == 'INCOME' ? '+' : '-'}₹${(tx['amount'] as num).toDouble().toStringAsFixed(0)} at ${tx['merchant']}!',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFF161A26),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              );
                             } else if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Could not detect transaction in pasted text'), backgroundColor: Colors.redAccent),
@@ -3293,6 +3548,8 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         onRefreshRequested: _manualSyncSms,
         onSetTotalBudget: _showSetTotalBudgetModal,
         onSelectAccountRequested: _showSelectAccountModal,
+        onPasteSmsRequested: () => _checkClipboardForSms(userInitiated: true),
+        onShortcutsGuideRequested: _showAppleShortcutsGuideModal,
       ),
       ModernAnalyticsScreen(database: _database, initialTimePeriod: _timePeriod, onAddRequested: _showAddTransactionModal),
       TrendsScreen(database: _database, onAddRequested: _showAddTransactionModal, onTransactionChanged: () => setState(() {})),
@@ -3807,6 +4064,8 @@ class DashboardScreen extends StatelessWidget {
   final Future<void> Function() onRefreshRequested;
   final VoidCallback onSetTotalBudget;
   final Function(Map<String, dynamic> tx)? onSelectAccountRequested;
+  final VoidCallback onPasteSmsRequested;
+  final VoidCallback onShortcutsGuideRequested;
 
   const DashboardScreen({
     Key? key,
@@ -3820,6 +4079,8 @@ class DashboardScreen extends StatelessWidget {
     required this.onRefreshRequested,
     required this.onSetTotalBudget,
     this.onSelectAccountRequested,
+    required this.onPasteSmsRequested,
+    required this.onShortcutsGuideRequested,
   }) : super(key: key);
 
   String _getGreeting() {
@@ -4238,6 +4499,14 @@ class DashboardScreen extends StatelessWidget {
                       },
                     ),
                     _buildQuickAction(
+                      icon: Icons.content_paste_rounded,
+                      label: 'Paste SMS',
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        onPasteSmsRequested();
+                      },
+                    ),
+                    _buildQuickAction(
                       icon: Icons.sync_alt_rounded,
                       label: 'Transfer',
                       onTap: () {
@@ -4253,19 +4522,11 @@ class DashboardScreen extends StatelessWidget {
                         onManageAccountsRequested();
                       },
                     ),
-                    _buildQuickAction(
-                      icon: Icons.insights_rounded,
-                      label: 'Analytics',
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        onNavigateTab(1);
-                      },
-                    ),
                   ],
                 ),
               ),
 
-              // Feature Showcase Strip: Indian Bank SMS & Active Protection (iOS 26 Water Glass)
+              // Feature Showcase Strip: Indian Bank SMS & Shortcuts Sync
               WaterGlassCard(
                 margin: const EdgeInsets.only(top: 14),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -4294,7 +4555,7 @@ class DashboardScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.sensors_rounded, color: Color(0xFF10B981), size: 18),
+                      child: const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 18),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -4304,7 +4565,7 @@ class DashboardScreen extends StatelessWidget {
                           const Row(
                             children: [
                               Text(
-                                'AUTO-READING BANK SMS',
+                                'AUTO BANK SMS SYNC',
                                 style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8),
                               ),
                               SizedBox(width: 6),
@@ -4313,7 +4574,7 @@ class DashboardScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Active for SBI, HDFC, ICICI, Axis & 25+ Indian Banks',
+                            'Active for SBI, HDFC, ICICI, Axis & 25+ Banks',
                             style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
                           ),
                         ],
@@ -4321,15 +4582,43 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: onManageAccountsRequested,
+                      onTap: onPasteSmsRequested,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
+                          color: const Color(0xFF10B981).withOpacity(0.25),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.15)),
+                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5)),
                         ),
-                        child: const Text('BANKS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.content_paste_rounded, color: Color(0xFF10B981), size: 12),
+                            SizedBox(width: 4),
+                            Text('PASTE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: onShortcutsGuideRequested,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF818CF8).withOpacity(0.20),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.4)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 12),
+                            SizedBox(width: 4),
+                            Text('SETUP', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
                     ),
                   ],
