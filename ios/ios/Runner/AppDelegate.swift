@@ -80,7 +80,7 @@ import WidgetKit
         registerMoneNotificationCategories()
         let center = UNUserNotificationCenter.current()
         let notifContent = UNMutableNotificationContent()
-        notifContent.title = parsed.isDebit ? "⚡ ₹\(String(format: "%.0f", parsed.amount)) Spent" : "⚡ ₹\(String(format: "%.0f", parsed.amount)) Received"
+        notifContent.title = parsed.isDebit ? "₹\(String(format: "%.0f", parsed.amount)) Spent" : "₹\(String(format: "%.0f", parsed.amount)) Received"
         var bodyStr = "\(parsed.merchant) • \(parsed.bankName)"
         if let bal = parsed.availableBalance {
             bodyStr += " • Avl: ₹\(String(format: "%.0f", bal))"

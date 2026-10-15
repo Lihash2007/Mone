@@ -206,15 +206,15 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
           actions: <DarwinNotificationAction>[
             DarwinNotificationAction.plain(
               'confirm_ok',
-              '✓ Confirm',
+              'Confirm',
             ),
             DarwinNotificationAction.plain(
               'change_transfer',
-              '⇄ Transfer',
+              'Transfer',
             ),
             DarwinNotificationAction.plain(
               'change_income',
-              '+ Income',
+              'Income',
             ),
           ],
         ),
@@ -256,19 +256,19 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
         actions: <AndroidNotificationAction>[
           const AndroidNotificationAction(
             'confirm_ok',
-            '✓ Confirm',
+            'Confirm',
             showsUserInterface: false,
             cancelNotification: true,
           ),
           const AndroidNotificationAction(
             'change_transfer',
-            '⇄ Transfer',
+            'Transfer',
             showsUserInterface: false,
             cancelNotification: true,
           ),
           const AndroidNotificationAction(
             'change_income',
-            '+ Income',
+            'Income',
             showsUserInterface: false,
             cancelNotification: true,
           ),
@@ -285,7 +285,7 @@ Future<Map<String, dynamic>?> processIncomingSmsString({
         iOS: darwinPlatformChannelSpecifics,
       );
       
-      String title = isIncome ? '⚡ ₹${amount.toStringAsFixed(0)} Received' : '⚡ ₹${amount.toStringAsFixed(0)} Spent';
+      String title = isIncome ? '₹${amount.toStringAsFixed(0)} Received' : '₹${amount.toStringAsFixed(0)} Spent';
       String body = isIncome 
           ? 'mone securely added +₹${amount.toStringAsFixed(0)} to $accName ($merchant)'
           : 'mone automatically logged -₹${amount.toStringAsFixed(0)} from $accName ($merchant)';
@@ -576,8 +576,6 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   
   bool _isBiometricEnabled = false;
   bool _isAutoSmsEnabled = true;
-  bool _isClipboardSyncEnabled = true;
-  String _lastProcessedClipboardText = '';
   bool _isAuthenticated = false;
   final LocalAuthentication auth = LocalAuthentication();
   
@@ -957,7 +955,6 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkClipboardForSms(userInitiated: false);
       _syncPendingBackgroundTransactions();
     }
   }
@@ -985,6 +982,13 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       while (!_isDbReady && waitCount < 20) {
         await Future.delayed(const Duration(milliseconds: 100));
         waitCount++;
+      }
+
+      // Direct Interactive Shortcut logging: mone://log?type=...&amount=...&category=...&account=...&merchant=...
+      final amountParam = uri.queryParameters['amount'] ?? uri.queryParameters['amt'] ?? uri.queryParameters['value'];
+      if ((uri.host == 'log' || uri.host == 'quick-log' || uri.host == 'add' || uri.path.contains('log')) && amountParam != null) {
+        await _handleDirectShortcutLog(uri);
+        return;
       }
 
       if (uri.host == 'import-sms' || uri.path.contains('import-sms') || uri.host == 'sms' || uri.host == 'log') {
@@ -1020,7 +1024,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
           } catch (_) {}
 
           String? sender = uri.queryParameters['sender'] ?? uri.queryParameters['address'] ?? uri.queryParameters['from'];
-          final tx = await processIncomingSmsString(rawBody: text, senderAddress: sender);
+          final tx = await processIncomingSmsString(rawBody: text!, senderAddress: sender);
           if (tx != null) {
             await _updateWidget();
             _cachedAccounts = await _database.query('accounts');
@@ -1031,11 +1035,11 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                 SnackBar(
                   content: Row(
                     children: [
-                      const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 20),
+                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '⚡ Logged ${tx['type'] == 'INCOME' ? '+' : '-'}₹${(tx['amount'] as num).toDouble().toStringAsFixed(0)} at ${tx['merchant']}',
+                          'Logged ${tx['type'] == 'INCOME' ? '+' : '-'}₹${(tx['amount'] as num).toDouble().toStringAsFixed(0)} at ${tx['merchant']}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1047,9 +1051,6 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                 ),
               );
             }
-          } else if (mounted) {
-            // If parser did not automatically recognize it, open review modal with prefilled text so user can verify
-            _showPasteSmsModal(initialText: text);
           }
         }
       } else if (uri.queryParameters['action'] == 'add' || uri.host == 'add') {
@@ -1063,68 +1064,155 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     }
   }
 
-  Future<void> _checkClipboardForSms({bool userInitiated = false}) async {
-    if (!_isClipboardSyncEnabled && !userInitiated) return;
-    
-    // Ensure DB is initialized
-    if (!_isDbReady) {
-      int waitCount = 0;
-      while (!_isDbReady && waitCount < 15) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        waitCount++;
-      }
-    }
-
+  Future<void> _handleDirectShortcutLog(Uri uri) async {
     try {
-      if (!userInitiated) {
-        // Wait 350ms so iOS UIKit window finishes settling on resume
-        await Future.delayed(const Duration(milliseconds: 350));
-      }
-
-      ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
-      final text = data?.text?.trim();
-
-      if (text == null || text.length < 15) {
-        if (userInitiated && mounted) {
+      final rawAmount = uri.queryParameters['amount'] ?? uri.queryParameters['amt'] ?? uri.queryParameters['value'];
+      if (rawAmount == null) return;
+      final cleanAmountStr = rawAmount.replaceAll(RegExp(r'[^\d.]'), '');
+      final double? amount = double.tryParse(cleanAmountStr);
+      if (amount == null || amount <= 0) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 18),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('No text found on clipboard. Paste or type below:')),
-                ],
-              ),
-              backgroundColor: const Color(0xFF161A26),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SnackBar(
+              content: Text('Invalid amount received from Shortcut'),
+              backgroundColor: Color(0xFFEF4444),
             ),
           );
-          _showPasteSmsModal();
         }
         return;
       }
 
-      if (!userInitiated && text == _lastProcessedClipboardText) return;
-
-      final parsed = SmsTransactionParser.parse(body: text);
-      if (!parsed.isValid) {
-        if (userInitiated && mounted) {
-          _showPasteSmsModal(initialText: text);
-        }
-        return;
+      final rawType = (uri.queryParameters['type'] ?? 'EXPENSE').trim().toUpperCase();
+      String type = 'EXPENSE';
+      if (rawType.contains('INC') || rawType.contains('CREDIT') || rawType.contains('DEP') || rawType == 'SALARY') {
+        type = 'INCOME';
+      } else if (rawType.contains('TRANS') || rawType.contains('MOVE')) {
+        type = 'TRANSFER';
       }
 
-      _lastProcessedClipboardText = text;
+      String? category = uri.queryParameters['category'] ?? uri.queryParameters['cat'];
+      if (category != null) {
+        try {
+          category = Uri.decodeComponent(category);
+        } catch (_) {}
+      }
+      if (category == null || category.trim().isEmpty) {
+        category = type == 'INCOME' ? 'Salary' : 'Food & Dining';
+      } else {
+        category = category.trim();
+      }
+
+      String? merchant = uri.queryParameters['merchant'] ?? uri.queryParameters['note'] ?? uri.queryParameters['title'] ?? uri.queryParameters['name'];
+      if (merchant != null) {
+        try {
+          merchant = Uri.decodeComponent(merchant);
+        } catch (_) {}
+      }
+      if (merchant == null || merchant.trim().isEmpty) {
+        merchant = category;
+      } else {
+        merchant = merchant.trim();
+      }
+
+      final accounts = await _database.query('accounts');
+      int? matchedAccountId;
+      String matchedAccountName = 'Account';
+
+      final rawAccount = uri.queryParameters['account'] ?? uri.queryParameters['bank'] ?? uri.queryParameters['account_id'];
+      if (rawAccount != null && rawAccount.trim().isNotEmpty) {
+        final queryAcc = Uri.decodeComponent(rawAccount).trim().toLowerCase();
+        final parsedId = int.tryParse(queryAcc);
+        if (parsedId != null) {
+          for (var a in accounts) {
+            if (a['id'] == parsedId) {
+              matchedAccountId = parsedId;
+              matchedAccountName = a['name']?.toString() ?? 'Account';
+              break;
+            }
+          }
+        }
+        if (matchedAccountId == null) {
+          for (var a in accounts) {
+            final accName = (a['name'] ?? '').toString().toLowerCase();
+            final bankName = (a['bank_name'] ?? '').toString().toLowerCase();
+            final bankCode = (a['bank_code'] ?? '').toString().toLowerCase();
+            if (accName.contains(queryAcc) || queryAcc.contains(accName) ||
+                bankName.contains(queryAcc) || queryAcc.contains(bankName) ||
+                bankCode.contains(queryAcc) || queryAcc.contains(bankCode)) {
+              matchedAccountId = a['id'] as int;
+              matchedAccountName = a['name']?.toString() ?? 'Account';
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchedAccountId == null && accounts.isNotEmpty) {
+        matchedAccountId = accounts.first['id'] as int;
+        matchedAccountName = accounts.first['name']?.toString() ?? 'Account';
+      }
+
+      final nowIso = DateTime.now().toIso8601String();
+      final newTxId = await _database.insert('transactions', {
+        'merchant': merchant,
+        'category': category,
+        'amount': amount,
+        'type': type,
+        'date': nowIso,
+        'account_id': matchedAccountId,
+        'needs_review': 0,
+      });
+
+      if (matchedAccountId != null) {
+        final accMatches = accounts.where((a) => a['id'] == matchedAccountId);
+        if (accMatches.isNotEmpty) {
+          final accRow = accMatches.first;
+          final double currentBal = (accRow['balance'] as num?)?.toDouble() ?? 0.0;
+          final double newBal = type == 'INCOME' ? currentBal + amount : currentBal - amount;
+          await _database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [matchedAccountId]);
+        }
+      }
+
+      await _updateWidget();
+      _cachedAccounts = await _database.query('accounts');
+
+      final createdRows = await _database.query('transactions', where: 'id = ?', whereArgs: [newTxId]);
+      final tx = createdRows.isNotEmpty ? createdRows.first : {
+        'id': newTxId,
+        'merchant': merchant,
+        'category': category,
+        'amount': amount,
+        'type': type,
+        'date': nowIso,
+        'account_id': matchedAccountId,
+      };
 
       if (mounted) {
-        _showClipboardDetectedSheet(text, parsed);
+        _triggerIsland(tx);
+        setState(() {}); // Instant UI refresh!
+        HapticFeedback.mediumImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Logged ${type == 'INCOME' ? '+' : '-'}₹${amount.toStringAsFixed(0)} · $category · $matchedAccountName',
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF101420),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+        );
       }
     } catch (e) {
-      debugPrint("Clipboard check error: $e");
-      if (userInitiated && mounted) {
-        _showPasteSmsModal();
-      }
+      debugPrint("Shortcut direct log error: $e");
     }
   }
   
@@ -1148,15 +1236,15 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
           actions: <DarwinNotificationAction>[
             DarwinNotificationAction.plain(
               'confirm_ok',
-              '✓ Confirm',
+              'Confirm',
             ),
             DarwinNotificationAction.plain(
               'change_transfer',
-              '⇄ Transfer',
+              'Transfer',
             ),
             DarwinNotificationAction.plain(
               'change_income',
-              '+ Income',
+              'Income',
             ),
           ],
         ),
@@ -1297,13 +1385,14 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
 
   Future<void> _manualSyncSms() async {
     try {
-      await _checkClipboardForSms();
+      await _syncPendingBackgroundTransactions();
       await _updateWidget();
+      _cachedAccounts = await _database.query('accounts');
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Balances updated • Scanned clipboard for bank alerts'),
+            content: Text('Balances and widgets updated'),
             duration: Duration(seconds: 2),
             backgroundColor: Color(0xFF1E1E24),
           ),
@@ -1316,7 +1405,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
 
   Future<void> _silentCatchUpSync() async {
     await Future.delayed(const Duration(seconds: 1));
-    _checkClipboardForSms();
+    await _syncPendingBackgroundTransactions();
   }
 
   void _setupQuickActions() {
@@ -1542,15 +1631,15 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(color: const Color(0xFF818CF8).withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
-                    child: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 28),
+                    child: const Icon(Icons.flash_on_rounded, color: Color(0xFF818CF8), size: 28),
                   ),
                   const SizedBox(width: 14),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('iOS Apple Shortcuts Sync', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text('Automate SMS logging seamlessly on iPhone', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                        Text('Apple Shortcuts Quick Logger', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('Interactive prompt flow for 1-tap logging', style: TextStyle(color: Colors.white54, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -1561,189 +1650,73 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(16)),
                 child: const Text(
-                  'Apple restricts iOS apps from directly reading the Messages inbox. '
-                  'Using native Apple Shortcuts Personal Automation, you can automatically route incoming bank SMS alerts directly into mone!',
+                  'Set up a custom Apple Shortcut that prompts for Expense/Income, Amount, Category, Account, and Note. When completed, it logs instantly into mone and updates your balance in real time.',
                   style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
                 ),
               ),
               const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '100% SILENT BACKGROUND SYNC: mone logs transactions in ~50ms without opening the app and delivers an interactive Lock Screen confirmation banner.',
-                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text('Setup Options in Apple Shortcuts:', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              const Text('Interactive 5-Step Shortcut Recipe:', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               
-              // Option A: URL Scheme (Universal & 100% Reliable across all iOS versions)
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF06B6D4).withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.25)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.link_rounded, color: Color(0xFF06B6D4), size: 18),
-                        SizedBox(width: 8),
-                        Text('Method 1: URL Scheme Automation (Most Reliable)', style: TextStyle(color: Color(0xFF06B6D4), fontWeight: FontWeight.bold, fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '1. In Shortcuts app -> Automation -> + New Automation\n'
-                      '2. Select "Message" -> When message contains: "debited", "spent", "credited", "UPI", "INR", "Rs"\n'
-                      '3. Set to "Run Immediately" (Turn OFF "Notify When Run")\n'
-                      '4. Add Action -> "Open URL"\n'
-                      '5. Set URL to: mone://import-sms?text=[Shortcut Input]',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Clipboard.setData(const ClipboardData(text: 'mone://import-sms?text=[Shortcut Input]'));
-                        HapticFeedback.mediumImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-                                SizedBox(width: 8),
-                                Expanded(child: Text('Copied URL Scheme! Paste it into "Open URL" in Shortcuts.')),
-                              ],
-                            ),
-                            backgroundColor: const Color(0xFF161A26),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
-                      label: const Text('Copy URL Scheme (mone://import-sms...)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF06B6D4),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Option B: Native Action (Silent background)
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF818CF8).withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 18),
-                        SizedBox(width: 8),
-                        Text('Method 2: Silent Native Action (iOS 16+)', style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Search action "Log Bank SMS in mone" and link "SMS Body" to "Shortcut Input". Runs silently in ~50ms without opening the app.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
+              _buildShortcutStep('1', 'Choose from Menu: "Expense" or "Income"'),
+              _buildShortcutStep('2', 'Ask for Input: Number ("Enter Amount")'),
+              _buildShortcutStep('3', 'Choose from List: "Food & Dining", "Shopping", "Bills", "Transport", "Investment", "Salary"'),
+              _buildShortcutStep('4', 'Choose from List: Your bank accounts ("HDFC", "SBI", "Cash", etc.)'),
+              _buildShortcutStep('5', 'Ask for Input: Text ("Merchant or Note")'),
+              _buildShortcutStep('6', 'Open URL: mone://log?type=[Type]&amount=[Amount]&category=[Category]&account=[Account]&merchant=[Merchant]'),
 
               const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Lock Screen Actionable Banner:', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 6),
-                    Text(
-                      '• Press & hold or swipe down the notification banner.\n'
-                      '• Tap [✓ Confirm] to verify, [⇄ Transfer] for self-transfers, or [+ Income] for salary/deposits.\n'
-                      '• Balances and SQLite are updated automatically without opening mone.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // Live Simulation Button
-              OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await _handleIncomingUri(Uri.parse('mone://import-sms?text=HDFC%20Bank%3A%20Rs%20450.00%20debited%20from%20a%2Fc%20**4321%20at%20Swiggy%20UPI.%20Avl%20Bal%3A%20INR%2034500.00'));
-                },
-                icon: const Icon(Icons.play_circle_fill_rounded, size: 20, color: Color(0xFF10B981)),
-                label: const Text('Simulate Incoming SMS Now', style: TextStyle(color: Color(0xFF10B981), fontSize: 14, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF10B981)),
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
-              const SizedBox(height: 10),
 
+              // Copy URL Template Button
               ElevatedButton.icon(
-                onPressed: () async {
-                  try {
-                    await _nativeChannel.invokeMethod('testNotification');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Test notification banner fired! Long press it to test [✓ Confirm] / [⇄ Transfer]!'),
-                          backgroundColor: Color(0xFF10B981),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    await _handleIncomingUri(Uri.parse('mone://import-sms?text=HDFC%20Bank%3A%20Rs%20450.00%20debited%20from%20a%2Fc%20**4321%20at%20Swiggy%20UPI.%20Avl%20Bal%3A%20INR%2034500.00'));
-                  }
+                onPressed: () {
+                  Clipboard.setData(const ClipboardData(
+                    text: 'mone://log?type=[Type]&amount=[Amount]&category=[Category]&account=[Account]&merchant=[Merchant]',
+                  ));
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                          SizedBox(width: 8),
+                          Expanded(child: Text('Copied URL template! Paste into "Open URL" in Apple Shortcuts.')),
+                        ],
+                      ),
+                      backgroundColor: const Color(0xFF161A26),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  );
                 },
-                icon: const Icon(Icons.notifications_active_rounded, size: 20, color: Colors.white),
-                label: const Text('Test Interactive Lock Screen Banner', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
+                label: const Text('Copy Shortcut URL Template', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
               ),
+
               const SizedBox(height: 12),
+
+              // Simulation Button
+              OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await _handleDirectShortcutLog(Uri.parse(
+                    'mone://log?type=Expense&amount=250&category=Food%20%26%20Dining&account=Primary&merchant=Coffee',
+                  ));
+                },
+                icon: const Icon(Icons.play_arrow_rounded, size: 20, color: Color(0xFF10B981)),
+                label: const Text('Test Interactive Shortcut Log (₹250 Coffee)', style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF10B981)),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -1758,481 +1731,13 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 10,
+            radius: 11,
             backgroundColor: const Color(0xFF818CF8).withOpacity(0.2),
             child: Text(num, style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13))),
+          Expanded(child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.35))),
         ],
-      ),
-    );
-  }
-
-  void _showClipboardDetectedSheet(String text, ParsedSmsResult parsed) async {
-    final accounts = await _database.query('accounts');
-    int? selectedAccountId = IndianBankDirectory.matchAccountFromSms(
-      senderAddress: null,
-      messageBody: text,
-      accounts: accounts,
-    );
-    if (selectedAccountId == null && accounts.isNotEmpty) {
-      selectedAccountId = accounts.first['id'] as int;
-    }
-
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 34),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F1422).withOpacity(0.92),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-              border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.14), blurRadius: 30, spreadRadius: 2),
-                BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 24),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF06B6D4).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.35)),
-                          ),
-                          child: const Icon(Icons.water_drop_rounded, color: Color(0xFF06B6D4), size: 24),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Bank SMS Detected', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                              Text('Choose target account before auto-importing', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(parsed.merchant, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Text(parsed.category, style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13)),
-                            ],
-                          ),
-                          Text(
-                            '${parsed.type == 'INCOME' ? '+' : '-'}₹${parsed.amount.toStringAsFixed(0)}',
-                            style: TextStyle(
-                              color: parsed.type == 'INCOME' ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'CHARGE / CREDIT TO ACCOUNT:',
-                      style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
-                    ),
-                    const SizedBox(height: 10),
-                    if (accounts.isNotEmpty)
-                      SizedBox(
-                        height: 52,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: accounts.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (context, i) {
-                            final acc = accounts[i];
-                            final int accId = acc['id'] as int;
-                            final bool isSel = accId == selectedAccountId;
-                            final bool isCash = acc['type'] == 'CASH';
-                            final BankInfo bank = isCash
-                                ? IndianBankDirectory.getBankById('cash')
-                                : IndianBankDirectory.findBankByName(acc['bank_code'] ?? acc['bank_name'] ?? '');
-                            final String accNum = acc['account_number']?.toString() ?? '';
-
-                            return InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setModalState(() => selectedAccountId = accId);
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isSel ? const Color(0xFF06B6D4).withOpacity(0.18) : Colors.white.withOpacity(0.04),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isSel ? const Color(0xFF06B6D4) : Colors.white.withOpacity(0.1),
-                                    width: isSel ? 1.6 : 1.0,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    bank.buildBadge(size: 22),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${acc['name'] ?? 'Account'}${accNum.isNotEmpty ? ' ••$accNum' : ''}',
-                                      style: TextStyle(
-                                        color: isSel ? Colors.white : Colors.white70,
-                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    if (isSel) ...[
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.check_circle_rounded, color: Color(0xFF06B6D4), size: 14),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              Navigator.pop(ctx);
-                              final tx = await processIncomingSmsString(rawBody: text, targetAccountId: selectedAccountId);
-                              if (tx != null && mounted) {
-                                await _updateWidget();
-                                _cachedAccounts = await _database.query('accounts');
-                                _triggerIsland(tx);
-                                setState(() {});
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Imported ${tx['type'] == 'INCOME' ? '+' : '-'}₹${(tx['amount'] as num).toDouble().toStringAsFixed(0)} at ${tx['merchant']}!',
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: const Color(0xFF161A26),
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                  ),
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            child: const Text('Import Transaction', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showPasteSmsModal({String? initialText}) async {
-    final accounts = await _database.query('accounts');
-    int? selectedAccountId = accounts.isNotEmpty ? accounts.first['id'] as int : null;
-    final TextEditingController controller = TextEditingController(text: initialText ?? '');
-    ParsedSmsResult? previewParsed = (initialText != null && initialText.trim().isNotEmpty)
-        ? SmsTransactionParser.parse(body: initialText)
-        : null;
-
-    if (previewParsed != null && previewParsed.isValid) {
-      final autoMatched = IndianBankDirectory.matchAccountFromSms(senderAddress: null, messageBody: initialText!, accounts: accounts);
-      if (autoMatched != null) selectedAccountId = autoMatched;
-    }
-
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 34),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F1422).withOpacity(0.92),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-              border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.14), blurRadius: 30, spreadRadius: 2),
-                BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 24),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          IconButton(
-                            icon: const Icon(Icons.paste_rounded, color: Color(0xFF818CF8)),
-                            tooltip: 'Paste from Clipboard',
-                            onPressed: () async {
-                              ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
-                              if (data?.text != null) {
-                                controller.text = data!.text!;
-                                final p = SmsTransactionParser.parse(body: data.text!);
-                                int? autoMatched = IndianBankDirectory.matchAccountFromSms(senderAddress: null, messageBody: data.text!, accounts: accounts);
-                                setModalState(() {
-                                  previewParsed = p;
-                                  if (autoMatched != null) selectedAccountId = autoMatched;
-                                });
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: controller,
-                        maxLines: 4,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'e.g. HDFC Bank: Rs 550.00 debited from a/c **1234 at Starbucks UPI. Avl bal: INR 12,000.00',
-                          hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.04),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                        ),
-                        onChanged: (val) {
-                          final p = SmsTransactionParser.parse(body: val);
-                          int? autoMatched = IndianBankDirectory.matchAccountFromSms(senderAddress: null, messageBody: val, accounts: accounts);
-                          setModalState(() {
-                            previewParsed = p;
-                            if (autoMatched != null) selectedAccountId = autoMatched;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      if (previewParsed != null && previewParsed!.isValid) ...[
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.35)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Recognized: ₹${previewParsed!.amount.toStringAsFixed(0)} ${previewParsed!.type} at ${previewParsed!.merchant} (${previewParsed!.category})',
-                                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'ASSIGN TO ACCOUNT:',
-                          style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
-                        ),
-                        const SizedBox(height: 10),
-                        if (accounts.isNotEmpty)
-                          SizedBox(
-                            height: 52,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: accounts.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 8),
-                              itemBuilder: (context, i) {
-                                final acc = accounts[i];
-                                final int accId = acc['id'] as int;
-                                final bool isSel = accId == selectedAccountId;
-                                final bool isCash = acc['type'] == 'CASH';
-                                final BankInfo bank = isCash
-                                    ? IndianBankDirectory.getBankById('cash')
-                                    : IndianBankDirectory.findBankByName(acc['bank_code'] ?? acc['bank_name'] ?? '');
-                                final String accNum = acc['account_number']?.toString() ?? '';
-
-                                return InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    setModalState(() => selectedAccountId = accId);
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: isSel ? const Color(0xFF06B6D4).withOpacity(0.18) : Colors.white.withOpacity(0.04),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: isSel ? const Color(0xFF06B6D4) : Colors.white.withOpacity(0.1),
-                                        width: isSel ? 1.6 : 1.0,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        bank.buildBadge(size: 22),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '${acc['name'] ?? 'Account'}${accNum.isNotEmpty ? ' ••$accNum' : ''}',
-                                          style: TextStyle(
-                                            color: isSel ? Colors.white : Colors.white70,
-                                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        if (isSel) ...[
-                                          const SizedBox(width: 6),
-                                          const Icon(Icons.check_circle_rounded, color: Color(0xFF06B6D4), size: 14),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final text = controller.text.trim();
-                            if (text.isEmpty) return;
-                            Navigator.pop(ctx);
-                            final tx = await processIncomingSmsString(rawBody: text, targetAccountId: selectedAccountId);
-                            if (tx != null && mounted) {
-                              await _updateWidget();
-                              _cachedAccounts = await _database.query('accounts');
-                              _triggerIsland(tx);
-                              setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Saved ${tx['type'] == 'INCOME' ? '+' : '-'}₹${(tx['amount'] as num).toDouble().toStringAsFixed(0)} at ${tx['merchant']}!',
-                                          style: const TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: const Color(0xFF161A26),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                              );
-                            } else if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Could not detect transaction in pasted text'), backgroundColor: Colors.redAccent),
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          child: const Text('Parse & Save Transaction', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -2278,10 +1783,10 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                       TextButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
-                          _showPasteSmsModal();
+                          _showAppleShortcutsGuideModal();
                         },
-                        icon: const Icon(Icons.paste_rounded, size: 16, color: Color(0xFF818CF8)),
-                        label: const Text('From SMS', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.flash_on_rounded, size: 16, color: Color(0xFF818CF8)),
+                        label: const Text('Shortcut', style: TextStyle(color: Color(0xFF818CF8), fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                   ],
                 ),
@@ -3548,7 +3053,6 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         onRefreshRequested: _manualSyncSms,
         onSetTotalBudget: _showSetTotalBudgetModal,
         onSelectAccountRequested: _showSelectAccountModal,
-        onPasteSmsRequested: () => _checkClipboardForSms(userInitiated: true),
         onShortcutsGuideRequested: _showAppleShortcutsGuideModal,
       ),
       ModernAnalyticsScreen(database: _database, initialTimePeriod: _timePeriod, onAddRequested: _showAddTransactionModal),
@@ -3568,13 +3072,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
           await _database.insert('settings', {'key': 'biometric_enabled', 'value': val ? 1.0 : 0.0}, conflictAlgorithm: ConflictAlgorithm.replace);
           setState(() => _isBiometricEnabled = val);
         },
-        isClipboardSyncEnabled: _isClipboardSyncEnabled,
-        onToggleClipboardSync: (val) async {
-          await _database.insert('user_profile', {'key': 'clipboard_sync', 'value': val ? 'true' : 'false'}, conflictAlgorithm: ConflictAlgorithm.replace);
-          setState(() => _isClipboardSyncEnabled = val);
-        },
         onOpenShortcutsGuide: _showAppleShortcutsGuideModal,
-        onPasteSms: _showPasteSmsModal,
       ),
     ];
 
@@ -4064,7 +3562,6 @@ class DashboardScreen extends StatelessWidget {
   final Future<void> Function() onRefreshRequested;
   final VoidCallback onSetTotalBudget;
   final Function(Map<String, dynamic> tx)? onSelectAccountRequested;
-  final VoidCallback onPasteSmsRequested;
   final VoidCallback onShortcutsGuideRequested;
 
   const DashboardScreen({
@@ -4079,7 +3576,6 @@ class DashboardScreen extends StatelessWidget {
     required this.onRefreshRequested,
     required this.onSetTotalBudget,
     this.onSelectAccountRequested,
-    required this.onPasteSmsRequested,
     required this.onShortcutsGuideRequested,
   }) : super(key: key);
 
@@ -4449,24 +3945,24 @@ class DashboardScreen extends StatelessWidget {
                     children: [
                       Text(_getGreeting(), style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 2),
-                      Text('$userName 👋', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                      Text(userName, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                     ]
                   ),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white.withOpacity(0.12)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.circle, color: Color(0xFF10B981), size: 7),
+                            Icon(Icons.circle, color: Color(0xFF10B981), size: 6),
                             SizedBox(width: 6),
-                            Text('LIVE SYNC', style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                            Text('ACTIVE', style: TextStyle(color: Colors.white70, fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
                           ],
                         ),
                       ),
@@ -4499,11 +3995,11 @@ class DashboardScreen extends StatelessWidget {
                       },
                     ),
                     _buildQuickAction(
-                      icon: Icons.content_paste_rounded,
-                      label: 'Paste SMS',
+                      icon: Icons.flash_on_rounded,
+                      label: 'Shortcut',
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        onPasteSmsRequested();
+                        onShortcutsGuideRequested();
                       },
                     ),
                     _buildQuickAction(
@@ -4526,106 +4022,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
 
-              // Feature Showcase Strip: Indian Bank SMS & Shortcuts Sync
-              WaterGlassCard(
-                margin: const EdgeInsets.only(top: 14),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                borderRadius: 20,
-                glowColor: const Color(0xFF10B981),
-                customGradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF0F2622).withOpacity(0.70),
-                    const Color(0xFF07151B).withOpacity(0.85),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                customBorder: Border.all(color: const Color(0xFF10B981).withOpacity(0.3), width: 1.2),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.20),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF10B981).withOpacity(0.35),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'AUTO BANK SMS SYNC',
-                                style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8),
-                              ),
-                              SizedBox(width: 6),
-                              Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 12),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Active for SBI, HDFC, ICICI, Axis & 25+ Banks',
-                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: onPasteSmsRequested,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.content_paste_rounded, color: Color(0xFF10B981), size: 12),
-                            SizedBox(width: 4),
-                            Text('PASTE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: onShortcutsGuideRequested,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF818CF8).withOpacity(0.20),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.4)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.bolt_rounded, color: Color(0xFF818CF8), size: 12),
-                            SizedBox(width: 4),
-                            Text('SETUP', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 18),
+              
 
               // Formal Adaptive Daily Pacer & Budget Status Card (iOS 26 Water Glass)
               WaterGlassCard(
@@ -5215,10 +4612,7 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback onEditProfile;
   final bool isBiometricEnabled;
   final Function(bool) onToggleBiometric;
-  final bool isClipboardSyncEnabled;
-  final Function(bool) onToggleClipboardSync;
   final VoidCallback onOpenShortcutsGuide;
-  final VoidCallback onPasteSms;
 
   const ProfileScreen({
     Key? key,
@@ -5235,10 +4629,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onEditProfile,
     required this.isBiometricEnabled,
     required this.onToggleBiometric,
-    required this.isClipboardSyncEnabled,
-    required this.onToggleClipboardSync,
     required this.onOpenShortcutsGuide,
-    required this.onPasteSms,
   }) : super(key: key);
 
 
@@ -5366,28 +4757,12 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 12),
                     ListTile(
                       onTap: onOpenShortcutsGuide,
-                      leading: const Icon(Icons.bolt_rounded, color: Color(0xFF818CF8)),
-                      title: const Text('Apple Shortcuts SMS Sync', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Setup instant background SMS capture via iOS Shortcuts', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      leading: const Icon(Icons.flash_on_rounded, color: Color(0xFF818CF8)),
+                      title: const Text('Apple Shortcuts Quick Logger', style: TextStyle(color: Colors.white)),
+                      subtitle: const Text('Interactive 1-tap shortcut for expenses, income & accounts', style: TextStyle(color: Colors.grey, fontSize: 12)),
                       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                     ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    SwitchListTile(
-                      value: isClipboardSyncEnabled,
-                      onChanged: onToggleClipboardSync,
-                      secondary: const Icon(Icons.content_paste_rounded, color: Colors.greenAccent),
-                      title: const Text('Clipboard Auto-Detection', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Scans copied bank SMS transaction alerts on app launch', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      activeColor: Colors.greenAccent,
-                    ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(
-                      onTap: onPasteSms,
-                      leading: const Icon(Icons.mark_email_read_rounded, color: Color(0xFFF59E0B)),
-                      title: const Text('Paste Bank SMS Text', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Quick paste & parse any financial SMS message', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                    ),
+
                     Divider(color: Colors.white.withOpacity(0.1), height: 1),
                     SwitchListTile(
                       value: isBiometricEnabled,
@@ -5540,58 +4915,53 @@ class HowToUseScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-             _buildFeatureCard(
-               Icons.speed_rounded,
-               'Mid-Month Starting Spend & Safe Pacer',
-               'Starting mone mid-month or late in the billing cycle? Tap the Daily Safe Spending Pacer on your home dashboard (or in Profile -> Monthly Budget) to enter what you already spent this month. The app automatically calculates your true remaining budget and exact safe spending allowance per day!',
-               badge: 'MID-MONTH READY',
-             ),
-             _buildFeatureCard(
-               Icons.bolt_rounded,
-               'Silent Background SMS Tracking',
-               'Log transactions without ever opening the app! In the iOS Shortcuts app, create an Automation for "Message contains debited/spent" -> Set action to "Log Bank SMS in mone" with "Shortcut Input". It runs silently in ~50ms in the background—no app opening and no copy-paste required!',
-               badge: 'ZERO INTERRUPTIONS',
-             ),
-             _buildFeatureCard(
-               Icons.notifications_active_rounded,
-               'Interactive Notification Quick Actions',
-               'When an SMS alert arrives, press and hold (Haptic Touch) or pull down on the banner. Tap [✓ Confirm] to verify, [⇄ Transfer] for self-transfers, or [+ Income] for salary/deposits—directly from your lock screen without opening the app!',
-               badge: 'LOCK SCREEN CONTROL',
-             ),
-             _buildFeatureCard(
-               Icons.animation_rounded,
-               'Dynamic Island & Live Activities',
-               'On iPhone 14 Pro, 15, and 16, a sleek Dynamic Island capsule flashes for 6 seconds upon any transaction showing the merchant, amount, and updated balance. Ensure Settings -> mone -> Live Activities is toggled ON.',
-               badge: 'DYNAMIC ISLAND',
-             ),
-             _buildFeatureCard(
-               Icons.widgets_rounded,
-               'Interactive Home Screen Widgets',
-               'Add the "mone Balance" widget to your Home Screen. Features live net worth, today spend, and recent merchant chip. On iOS 17+, tap the eye icon directly on the widget to blur or unblur your balance!',
-               badge: 'iOS 17 WIDGETS',
-             ),
-             _buildFeatureCard(
-               Icons.mic_rounded,
-               'Siri Intelligence Voice Control',
-               'Ask Siri anytime: "Hey Siri, check daily spending in mone" or "What\'s my balance in mone?" Siri speaks your exact daily expense count and available balance without unlocking.',
-               badge: 'SIRI SHORTCUTS',
-             ),
-             _buildFeatureCard(
-               Icons.account_balance,
-               '25+ Verified Indian Banks & Cards',
-               'Authentic corporate branding, official gradients, and card stacks for SBI, HDFC, ICICI, Axis, Kotak, PNB, Canara, BoB, and more. Balances are matched automatically from bank account numbers.',
-             ),
-             _buildFeatureCard(
-               Icons.content_paste_rounded,
-               'Smart Clipboard & Manual Paste',
-               'Copied a bank SMS from Messages or WhatsApp? Open mone to auto-detect and import with a single tap, or use the Paste tile in Profile to test any message text on the fly.',
-             ),
-             _buildFeatureCard(
-               Icons.fingerprint_rounded,
-               'Biometric Face ID Security',
-               'Your financial data is 100% offline and stays strictly on your iPhone in local SQLite. Secured with Apple Face ID / Touch ID authentication.',
-             ),
-          ]
+              _buildFeatureCard(
+                Icons.flash_on_rounded,
+                'Interactive Apple Shortcuts Logger',
+                'Log expenses or income in under 2 seconds! Run your custom Apple Shortcut from your Home Screen, Action Button, or Siri. Shortcuts prompts for Type (Expense/Income), Amount, Category, Account, and Note, then instantly logs it into mone via URL Scheme.',
+                badge: '1-TAP SHORTCUT',
+              ),
+              _buildFeatureCard(
+                Icons.speed_rounded,
+                'Mid-Month Starting Spend & Safe Pacer',
+                'Starting mone mid-month or late in the billing cycle? Tap the Daily Safe Spending Pacer on your home dashboard (or in Profile -> Monthly Budget) to enter what you already spent this month. The app automatically calculates your true remaining budget and exact safe spending allowance per day!',
+                badge: 'SMART PACER',
+              ),
+              _buildFeatureCard(
+                Icons.notifications_active_rounded,
+                'Interactive Notification Quick Actions',
+                'When a transaction alert arrives, press and hold (Haptic Touch) or pull down on the banner. Tap [Confirm] to verify, [Transfer] for self-transfers, or [Income] for salary/deposits—directly from your lock screen without opening the app!',
+                badge: 'LOCK SCREEN CONTROL',
+              ),
+              _buildFeatureCard(
+                Icons.animation_rounded,
+                'Dynamic Island & Live Activities',
+                'On iPhone 14 Pro, 15, and 16, a sleek Dynamic Island capsule flashes for 6 seconds upon any transaction showing the merchant, amount, and updated balance. Ensure Settings -> mone -> Live Activities is toggled ON.',
+                badge: 'DYNAMIC ISLAND',
+              ),
+              _buildFeatureCard(
+                Icons.widgets_rounded,
+                'Interactive Home Screen Widgets',
+                'Add the "mone Balance" widget to your Home Screen. Features live net worth, today spend, and recent merchant chip. On iOS 17+, tap the eye icon directly on the widget to blur or unblur your balance!',
+                badge: 'iOS 17 WIDGETS',
+              ),
+              _buildFeatureCard(
+                Icons.mic_rounded,
+                'Siri Intelligence Voice Control',
+                'Ask Siri anytime: "Hey Siri, check daily spending in mone" or "What\'s my balance in mone?" Siri speaks your exact daily expense count and available balance without unlocking.',
+                badge: 'SIRI SHORTCUTS',
+              ),
+              _buildFeatureCard(
+                Icons.account_balance,
+                '25+ Verified Indian Banks & Cards',
+                'Authentic corporate branding, official gradients, and card stacks for SBI, HDFC, ICICI, Axis, Kotak, PNB, Canara, BoB, and more. Balances are matched automatically from bank account numbers.',
+              ),
+              _buildFeatureCard(
+                Icons.fingerprint_rounded,
+                'Biometric Face ID Security',
+                'Your financial data is 100% offline and stays strictly on your iPhone in local SQLite. Secured with Apple Face ID / Touch ID authentication.',
+              ),
+           ]
         )
       )
     );

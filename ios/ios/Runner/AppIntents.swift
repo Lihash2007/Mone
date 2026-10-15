@@ -7,17 +7,17 @@ import UserNotifications
 public func registerMoneNotificationCategories() {
     let confirmAction = UNNotificationAction(
         identifier: "confirm_ok",
-        title: "✓ Confirm",
+        title: "Confirm",
         options: []
     )
     let transferAction = UNNotificationAction(
         identifier: "change_transfer",
-        title: "⇄ Transfer",
+        title: "Transfer",
         options: []
     )
     let incomeAction = UNNotificationAction(
         identifier: "change_income",
-        title: "+ Income",
+        title: "Income",
         options: []
     )
     let category = UNNotificationCategory(
@@ -301,7 +301,7 @@ public struct LogBankSmsIntent: AppIntent {
         // Post Native Interactive Notification Banner (with Confirm, Transfer, Income buttons)
         let center = UNUserNotificationCenter.current()
         let notifContent = UNMutableNotificationContent()
-        notifContent.title = parsed.isDebit ? "⚡ ₹\(String(format: "%.0f", parsed.amount)) Spent" : "⚡ ₹\(String(format: "%.0f", parsed.amount)) Received"
+        notifContent.title = parsed.isDebit ? "₹\(String(format: "%.0f", parsed.amount)) Spent" : "₹\(String(format: "%.0f", parsed.amount)) Received"
         var bodyStr = "\(parsed.merchant) • \(parsed.bankName)"
         if let bal = parsed.availableBalance {
             bodyStr += " • Avl: ₹\(String(format: "%.0f", bal))"
@@ -331,21 +331,27 @@ public struct LogBankSmsIntent: AppIntent {
     }
 }
 
-// MARK: - 4. Quick Log Expense Intent (Manual / Siri Headless Entry)
+// MARK: - 4. Interactive Log Transaction Intent (Shortcut & Siri Entry)
 @available(iOS 16.0, *)
 public struct QuickLogExpenseIntent: AppIntent {
-    public static var title: LocalizedStringResource = "Quick Log Expense in mone"
-    public static var description = IntentDescription("Log an expense amount and merchant directly without opening the app.")
+    public static var title: LocalizedStringResource = "Log Transaction in mone"
+    public static var description = IntentDescription("Log an expense or income with category and account directly in mone.")
     public static var openAppWhenRun: Bool = false
+    
+    @Parameter(title: "Type (Expense or Income)", default: "Expense")
+    public var type: String
     
     @Parameter(title: "Amount (₹)")
     public var amount: Double
     
+    @Parameter(title: "Category", default: "Food")
+    public var category: String
+    
+    @Parameter(title: "Account / Bank", default: "Primary Account")
+    public var bankName: String
+
     @Parameter(title: "Merchant / Title", default: "Expense")
     public var merchant: String
-    
-    @Parameter(title: "Bank Name", default: "Bank")
-    public var bankName: String
     
     public init() {}
     
@@ -353,17 +359,21 @@ public struct QuickLogExpenseIntent: AppIntent {
         guard amount > 0 else {
             return .result(dialog: "Please provide a valid amount greater than 0.")
         }
-        let cleanMerchant = merchant.isEmpty ? "Expense" : merchant
+        let cleanType = type.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let isDebit = !cleanType.contains("income") && !cleanType.contains("credit") && !cleanType.contains("deposit")
+        let cleanMerchant = merchant.isEmpty ? (isDebit ? "Expense" : "Income") : merchant
+        let cleanCategory = category.isEmpty ? (isDebit ? "General" : "Salary") : category
         let notifId = UUID().uuidString
         let isoDate = ISO8601DateFormatter().string(from: Date())
         
         MoneSharedStorage.enqueuePendingTransaction([
             "id": notifId,
-            "rawBody": "Manual: ₹\(amount) at \(cleanMerchant)",
+            "rawBody": "\(cleanMerchant) - ₹\(amount)",
             "sender": "QuickLog",
             "amount": amount,
             "merchant": cleanMerchant,
-            "type": "EXPENSE",
+            "category": cleanCategory,
+            "type": isDebit ? "EXPENSE" : "INCOME",
             "bankName": bankName,
             "accountMask": "",
             "availableBalance": 0.0,
@@ -373,7 +383,7 @@ public struct QuickLogExpenseIntent: AppIntent {
         
         MoneSharedStorage.recordTransaction(
             amount: amount,
-            isDebit: true,
+            isDebit: isDebit,
             merchant: cleanMerchant,
             bankName: bankName,
             balance: nil
@@ -382,15 +392,15 @@ public struct QuickLogExpenseIntent: AppIntent {
         registerMoneNotificationCategories()
         let center = UNUserNotificationCenter.current()
         let notifContent = UNMutableNotificationContent()
-        notifContent.title = "⚡ ₹\(String(format: "%.0f", amount)) Logged"
-        notifContent.body = "\(cleanMerchant) • \(bankName)\nHold banner to change type if needed."
+        notifContent.title = "₹\(String(format: "%.0f", amount)) \(isDebit ? "Spent" : "Received")"
+        notifContent.body = "\(cleanMerchant) • \(cleanCategory) • \(bankName)"
         notifContent.sound = .default
         notifContent.categoryIdentifier = "transaction_actions"
         notifContent.userInfo = [
             "id": notifId,
             "amount": amount,
             "merchant": cleanMerchant,
-            "type": "EXPENSE",
+            "type": isDebit ? "EXPENSE" : "INCOME",
             "bankName": bankName
         ]
         
@@ -398,7 +408,7 @@ public struct QuickLogExpenseIntent: AppIntent {
         let notifRequest = UNNotificationRequest(identifier: notifId, content: notifContent, trigger: notifTrigger)
         center.add(notifRequest, withCompletionHandler: nil)
         
-        return .result(dialog: "Logged ₹\(String(format: "%.0f", amount)) at \(cleanMerchant) in mone.")
+        return .result(dialog: "Logged ₹\(String(format: "%.0f", amount)) for \(cleanMerchant) in mone.")
     }
 }
 
