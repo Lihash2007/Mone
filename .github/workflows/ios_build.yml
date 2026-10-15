@@ -112,31 +112,6 @@ jobs:
             grep -C 3 -E "(error:|fatal error:)" build_release.log || tail -n 100 build_release.log
           fi
 
-      - name: Post Commit Comment on Failure
-        if: ${{ failure() }}
-        working-directory: ./ios
-        run: |
-          ERRORS=""
-          if [ -f build_simulator.log ]; then
-            ERRORS=$(grep -C 2 -E "(error:|fatal error:)" build_simulator.log | tail -n 40)
-          fi
-          if [ -z "$ERRORS" ] && [ -f build_release.log ]; then
-            ERRORS=$(grep -C 2 -E "(error:|fatal error:)" build_release.log | tail -n 40)
-          fi
-          if [ -n "$ERRORS" ]; then
-            gh api \
-              --method POST \
-              -H "Accept: application/vnd.github+json" \
-              /repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-              -f body="### ❌ iOS Build Error Details
-
-\`\`\`text
-$ERRORS
-\`\`\`" || true
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload Unsigned IPA
         if: ${{ always() && (github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request') }}
         uses: actions/upload-artifact@v4
