@@ -53,13 +53,15 @@ jobs:
         working-directory: ./ios
         run: |
           echo "Building iOS Simulator (no codesign)..."
-          flutter build ios --simulator --no-codesign -v > build_simulator.log 2>&1 || {
-            echo "### ❌ iOS Simulator Build Failed" >> $GITHUB_STEP_SUMMARY
+          flutter build ios --simulator --no-codesign -v 2>&1 | tee build_simulator.log
+          BUILD_STATUS=${PIPESTATUS[0]}
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "### ❌ iOS Simulator Build Failed (Exit Code: $BUILD_STATUS)" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
-            tail -n 120 build_simulator.log >> $GITHUB_STEP_SUMMARY
+            grep -C 3 -E "(error:|fatal error:)" build_simulator.log | tail -n 60 >> $GITHUB_STEP_SUMMARY || tail -n 60 build_simulator.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            exit 1
-          }
+            exit $BUILD_STATUS
+          fi
           
           echo "Zipping Simulator App bundle..."
           cd build/ios/iphonesimulator
@@ -72,19 +74,37 @@ jobs:
         working-directory: ./ios
         run: |
           echo "Building iOS Release (no codesign)..."
-          flutter build ios --release --no-codesign -v > build_release.log 2>&1 || {
-            echo "### ❌ iOS Release Build Failed" >> $GITHUB_STEP_SUMMARY
+          flutter build ios --release --no-codesign -v 2>&1 | tee build_release.log
+          BUILD_STATUS=${PIPESTATUS[0]}
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "### ❌ iOS Release Build Failed (Exit Code: $BUILD_STATUS)" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
-            tail -n 120 build_release.log >> $GITHUB_STEP_SUMMARY
+            grep -C 3 -E "(error:|fatal error:)" build_release.log | tail -n 60 >> $GITHUB_STEP_SUMMARY || tail -n 60 build_release.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            exit 1
-          }
+            exit $BUILD_STATUS
+          fi
           
           echo "Packaging into unsigned IPA..."
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r mone-release-unsigned.ipa Payload
           echo "Created mone-release-unsigned.ipa successfully!"
+
+      - name: Print Diagnostic Logs on Failure
+        if: ${{ failure() }}
+        working-directory: ./ios
+        run: |
+          echo "========================================="
+          echo "=== iOS BUILD ERROR DIAGNOSTIC SUMMARY ==="
+          echo "========================================="
+          if [ -f build_simulator.log ]; then
+            echo ">>> Errors from build_simulator.log:"
+            grep -C 3 -E "(error:|fatal error:)" build_simulator.log || tail -n 100 build_simulator.log
+          fi
+          if [ -f build_release.log ]; then
+            echo ">>> Errors from build_release.log:"
+            grep -C 3 -E "(error:|fatal error:)" build_release.log || tail -n 100 build_release.log
+          fi
 
       - name: Upload Unsigned IPA
         if: ${{ always() && (github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request') }}
