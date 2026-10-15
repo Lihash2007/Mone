@@ -15,6 +15,12 @@
 		7884E8712EC3CC0700C636F2 /* AppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8702EC3CC0400C636F2 /* AppIntents.swift */; };
 		7884E8732EC3CC0700C636F2 /* LiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8722EC3CC0400C636F2 /* LiveActivities.swift */; };
 		7884E8752EC3CC0700C636F2 /* MoneWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8742EC3CC0400C636F2 /* MoneWidgets.swift */; };
+		7884E8812EC3CC0700C636F2 /* MoneDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8802EC3CC0400C636F2 /* MoneDatabase.swift */; };
+		7884E8832EC3CC0700C636F2 /* IndianBanks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8822EC3CC0400C636F2 /* IndianBanks.swift */; };
+		7884E8852EC3CC0700C636F2 /* MoneTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8842EC3CC0400C636F2 /* MoneTheme.swift */; };
+		7884E8872EC3CC0700C636F2 /* MoneModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8862EC3CC0400C636F2 /* MoneModels.swift */; };
+		7884E8892EC3CC0700C636F2 /* AddTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8882EC3CC0400C636F2 /* AddTransactionSheet.swift */; };
+		7884E88B2EC3CC0700C636F2 /* MoneAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E88A2EC3CC0400C636F2 /* MoneAppView.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
@@ -56,6 +62,12 @@
 		7884E8702EC3CC0400C636F2 /* AppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIntents.swift; sourceTree = "<group>"; };
 		7884E8722EC3CC0400C636F2 /* LiveActivities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivities.swift; sourceTree = "<group>"; };
 		7884E8742EC3CC0400C636F2 /* MoneWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneWidgets.swift; sourceTree = "<group>"; };
+		7884E8802EC3CC0400C636F2 /* MoneDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneDatabase.swift; sourceTree = "<group>"; };
+		7884E8822EC3CC0400C636F2 /* IndianBanks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndianBanks.swift; sourceTree = "<group>"; };
+		7884E8842EC3CC0400C636F2 /* MoneTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneTheme.swift; sourceTree = "<group>"; };
+		7884E8862EC3CC0400C636F2 /* MoneModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneModels.swift; sourceTree = "<group>"; };
+		7884E8882EC3CC0400C636F2 /* AddTransactionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTransactionSheet.swift; sourceTree = "<group>"; };
+		7884E88A2EC3CC0400C636F2 /* MoneAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneAppView.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
@@ -132,6 +144,12 @@
 				7884E8702EC3CC0400C636F2 /* AppIntents.swift */,
 				7884E8722EC3CC0400C636F2 /* LiveActivities.swift */,
 				7884E8742EC3CC0400C636F2 /* MoneWidgets.swift */,
+				7884E8802EC3CC0400C636F2 /* MoneDatabase.swift */,
+				7884E8822EC3CC0400C636F2 /* IndianBanks.swift */,
+				7884E8842EC3CC0400C636F2 /* MoneTheme.swift */,
+				7884E8862EC3CC0400C636F2 /* MoneModels.swift */,
+				7884E8882EC3CC0400C636F2 /* AddTransactionSheet.swift */,
+				7884E88A2EC3CC0400C636F2 /* MoneAppView.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -296,6 +314,12 @@
 				7884E8712EC3CC0700C636F2 /* AppIntents.swift in Sources */,
 				7884E8732EC3CC0700C636F2 /* LiveActivities.swift in Sources */,
 				7884E8752EC3CC0700C636F2 /* MoneWidgets.swift in Sources */,
+				7884E8812EC3CC0700C636F2 /* MoneDatabase.swift in Sources */,
+				7884E8832EC3CC0700C636F2 /* IndianBanks.swift in Sources */,
+				7884E8852EC3CC0700C636F2 /* MoneTheme.swift in Sources */,
+				7884E8872EC3CC0700C636F2 /* MoneModels.swift in Sources */,
+				7884E8892EC3CC0700C636F2 /* AddTransactionSheet.swift in Sources */,
+				7884E88B2EC3CC0700C636F2 /* MoneAppView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
