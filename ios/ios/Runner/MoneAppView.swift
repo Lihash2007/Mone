@@ -696,12 +696,11 @@ public struct AnalyticsTrendsView: View {
                             endPoint: .bottom
                         )
                     )
-                    .cornerRadius(6)
                 }
                 .frame(height: 160)
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
+                        AxisGridLine()
                             .foregroundStyle(Color.white.opacity(0.1))
                         AxisValueLabel {
                             if let intVal = value.as(Double.self) {
