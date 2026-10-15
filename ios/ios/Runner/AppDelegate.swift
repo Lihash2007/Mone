@@ -59,6 +59,18 @@ import WidgetKit
           }
         }
         result(true)
+      } else if call.method == "syncAccounts" {
+        if let args = call.arguments as? [String: Any] {
+          let storage = UserDefaults(suiteName: "group.com.personalmoneyos.frontend") ?? UserDefaults.standard
+          if let accountsJson = args["accountsJson"] as? String {
+            storage.set(accountsJson, forKey: "user_accounts_json")
+          }
+          if let names = args["accountNames"] as? [String] {
+            storage.set(names, forKey: "user_account_names")
+          }
+          storage.synchronize()
+        }
+        result(true)
       } else if call.method == "testNotification" {
         let text = (call.arguments as? [String: Any])?["text"] as? String ?? "HDFC Bank: Rs 450 debited at Swiggy on 13-Oct-26. Avl bal: Rs 34,500"
         let parsed = MoneSmsParser.parse(text: text)

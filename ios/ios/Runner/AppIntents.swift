@@ -110,6 +110,38 @@ public struct MoneSharedStorage {
         let bal = storage.double(forKey: "raw_balance")
         return (spent, count, bal)
     }
+    
+    public static func saveAccountsJson(_ jsonString: String) {
+        storage.set(jsonString, forKey: "user_accounts_json")
+        storage.synchronize()
+    }
+    
+    public static func saveAccountNames(_ names: [String]) {
+        storage.set(names, forKey: "user_account_names")
+        storage.synchronize()
+    }
+    
+    public static func getAccountNames() -> [String] {
+        if let names = storage.stringArray(forKey: "user_account_names"), !names.isEmpty {
+            return names
+        }
+        if let currentJson = storage.string(forKey: "user_accounts_json"),
+           let data = currentJson.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            var names: [String] = []
+            for item in list {
+                if let name = item["name"] as? String, !name.isEmpty {
+                    names.append(name)
+                } else if let bank = item["bank_name"] as? String, !bank.isEmpty {
+                    names.append(bank)
+                }
+            }
+            if !names.isEmpty {
+                return names
+            }
+        }
+        return ["Primary Account", "Cash", "HDFC Bank", "SBI", "ICICI Bank"]
+    }
 }
 
 // MARK: - 2. Native Swift SMS Parser for Indian Banking
@@ -366,6 +398,12 @@ public struct QuickLogExpenseIntent: AppIntent {
         let notifId = UUID().uuidString
         let isoDate = ISO8601DateFormatter().string(from: Date())
         
+        var resolvedBank = bankName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if resolvedBank.isEmpty || resolvedBank == "Primary Account" || resolvedBank.lowercased() == "choose" || resolvedBank.lowercased() == "ask" {
+            let availableAccounts = MoneSharedStorage.getAccountNames()
+            resolvedBank = availableAccounts.first ?? "Primary Account"
+        }
+        
         MoneSharedStorage.enqueuePendingTransaction([
             "id": notifId,
             "rawBody": "\(cleanMerchant) - ₹\(amount)",
@@ -374,7 +412,7 @@ public struct QuickLogExpenseIntent: AppIntent {
             "merchant": cleanMerchant,
             "category": cleanCategory,
             "type": isDebit ? "EXPENSE" : "INCOME",
-            "bankName": bankName,
+            "bankName": resolvedBank,
             "accountMask": "",
             "availableBalance": 0.0,
             "timestamp": isoDate,
@@ -385,7 +423,7 @@ public struct QuickLogExpenseIntent: AppIntent {
             amount: amount,
             isDebit: isDebit,
             merchant: cleanMerchant,
-            bankName: bankName,
+            bankName: resolvedBank,
             balance: nil
         )
         
@@ -393,7 +431,7 @@ public struct QuickLogExpenseIntent: AppIntent {
         let center = UNUserNotificationCenter.current()
         let notifContent = UNMutableNotificationContent()
         notifContent.title = "₹\(String(format: "%.0f", amount)) \(isDebit ? "Spent" : "Received")"
-        notifContent.body = "\(cleanMerchant) • \(cleanCategory) • \(bankName)"
+        notifContent.body = "\(cleanMerchant) • \(cleanCategory) • \(resolvedBank)"
         notifContent.sound = .default
         notifContent.categoryIdentifier = "transaction_actions"
         notifContent.userInfo = [
@@ -401,14 +439,29 @@ public struct QuickLogExpenseIntent: AppIntent {
             "amount": amount,
             "merchant": cleanMerchant,
             "type": isDebit ? "EXPENSE" : "INCOME",
-            "bankName": bankName
+            "bankName": resolvedBank
         ]
         
         let notifTrigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
         let notifRequest = UNNotificationRequest(identifier: notifId, content: notifContent, trigger: notifTrigger)
         center.add(notifRequest, withCompletionHandler: nil)
         
-        return .result(dialog: "Logged ₹\(String(format: "%.0f", amount)) for \(cleanMerchant) in mone.")
+        return .result(dialog: "Logged ₹\(String(format: "%.0f", amount)) for \(cleanMerchant) (\(resolvedBank)) in mone.")
+    }
+}
+
+// MARK: - 4b. Get Registered Accounts Intent (For Shortcuts Dynamic Choice)
+@available(iOS 16.0, *)
+public struct GetAccountsIntent: AppIntent {
+    public static var title: LocalizedStringResource = "Get Accounts in mone"
+    public static var description = IntentDescription("Returns the list of accounts in mone so you can choose which account to use in Shortcuts.")
+    public static var openAppWhenRun: Bool = false
+    
+    public init() {}
+    
+    public func perform() async throws -> some IntentResult & ReturnsValue<[String]> {
+        let accounts = MoneSharedStorage.getAccountNames()
+        return .result(value: accounts)
     }
 }
 
@@ -450,6 +503,16 @@ public struct GetBalanceIntent: AppIntent {
 @available(iOS 16.0, *)
 public struct MoneShortcutsProvider: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: GetAccountsIntent(),
+            phrases: [
+                "Get my accounts in \(.applicationName)",
+                "Show my accounts in \(.applicationName)",
+                "List accounts in \(.applicationName)"
+            ],
+            shortTitle: "Get Accounts",
+            systemImageName: "creditcard.fill"
+        )
         AppShortcut(
             intent: CheckDailySpendingIntent(),
             phrases: [

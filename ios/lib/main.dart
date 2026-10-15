@@ -986,6 +986,31 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     if (uri.scheme == 'mone') {
       await _ensureDatabase();
 
+      if (uri.host == 'accounts' || uri.host == 'get-accounts' || uri.path.contains('accounts')) {
+        await _syncAccountsToNative();
+        final accs = await _database.query('accounts');
+        final names = accs.map((a) => a['name']?.toString() ?? 'Account').join('\n');
+        Clipboard.setData(ClipboardData(text: names));
+        HapticFeedback.mediumImpact();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Copied ${accs.length} accounts to clipboard for Shortcuts!')),
+                ],
+              ),
+              backgroundColor: const Color(0xFF161A26),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          );
+        }
+        return;
+      }
+
       // Check if direct or interactive shortcut logging requested
       final amountParam = uri.queryParameters['amount'] ?? 
                           uri.queryParameters['amt'] ?? 
@@ -1122,6 +1147,325 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     return clean;
   }
 
+  Future<void> _syncAccountsToNative() async {
+    if (!_isDbReady) return;
+    try {
+      final accs = await _database.query('accounts');
+      _cachedAccounts = accs;
+      final names = accs.map((a) => a['name']?.toString() ?? 'Account').toList();
+      final List<Map<String, dynamic>> simplified = accs.map((a) => {
+        'id': a['id'],
+        'name': a['name']?.toString() ?? 'Account',
+        'bank_name': a['bank_name']?.toString() ?? '',
+        'account_number': a['account_number']?.toString() ?? '',
+        'type': a['type']?.toString() ?? 'SAVINGS',
+      }).toList();
+
+      final jsonStr = jsonEncode(simplified);
+      await HomeWidget.saveWidgetData<String>('user_accounts_json', jsonStr);
+      await HomeWidget.saveWidgetData<String>('user_account_names', jsonEncode(names));
+
+      try {
+        await _nativeChannel.invokeMethod('syncAccounts', {
+          'accountsJson': jsonStr,
+          'accountNames': names,
+        });
+      } catch (_) {}
+    } catch (e) {
+      debugPrint("Error syncing accounts to native: $e");
+    }
+  }
+
+  Future<void> _logTransactionWithAccount({
+    required double amount,
+    required String type,
+    required String category,
+    required String merchant,
+    required int accountId,
+    required String accountName,
+  }) async {
+    final nowIso = DateTime.now().toIso8601String();
+    final newTxId = await _database.insert('transactions', {
+      'merchant': merchant,
+      'category': category,
+      'amount': amount,
+      'type': type,
+      'date': nowIso,
+      'account_id': accountId,
+      'needs_review': 0,
+    });
+
+    // Update account balance
+    final accMatches = await _database.query('accounts', where: 'id = ?', whereArgs: [accountId]);
+    if (accMatches.isNotEmpty) {
+      final accRow = accMatches.first;
+      final double currentBal = (accRow['balance'] as num?)?.toDouble() ?? 0.0;
+      final double newBal = type == 'INCOME' ? currentBal + amount : currentBal - amount;
+      await _database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [accountId]);
+    }
+
+    await _updateWidget();
+    await _syncAccountsToNative();
+    _cachedAccounts = await _database.query('accounts');
+
+    final createdRows = await _database.query('transactions', where: 'id = ?', whereArgs: [newTxId]);
+    final tx = createdRows.isNotEmpty ? createdRows.first : {
+      'id': newTxId,
+      'merchant': merchant,
+      'category': category,
+      'amount': amount,
+      'type': type,
+      'date': nowIso,
+      'account_id': accountId,
+    };
+
+    // Dispatch high-priority local notification banner
+    try {
+      final FlutterLocalNotificationsPlugin localNotif = FlutterLocalNotificationsPlugin();
+      await localNotif.show(
+        id: (DateTime.now().millisecondsSinceEpoch % 100000),
+        title: '${type == 'INCOME' ? '+' : '-'}₹${amount.toStringAsFixed(0)} ${type == 'INCOME' ? 'Income Logged' : 'Expense Logged'}',
+        body: '$merchant • $category • $accountName',
+        payload: newTxId.toString(),
+        notificationDetails: const NotificationDetails(
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+          android: AndroidNotificationDetails(
+            'mone_sync_channel',
+            'Mone Quick Log',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    } catch (ne) {
+      debugPrint("Shortcut notification error: $ne");
+    }
+
+    // Update UI, Dynamic Island, and SnackBar
+    if (mounted) {
+      _triggerIsland(tx);
+      setState(() {});
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Logged ${type == 'INCOME' ? '+' : '-'}₹${amount.toStringAsFixed(0)} · $category · $accountName',
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF101420),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
+    }
+  }
+
+  void _showChooseAccountForShortcutModal({
+    required double amount,
+    required String type,
+    required String category,
+    required String merchant,
+    String? failedAccountSearch,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final accounts = _cachedAccounts;
+        final bool isIncome = type == 'INCOME';
+
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          decoration: const BoxDecoration(
+            color: Color(0xFF14151C),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border(top: BorderSide(color: Colors.white12, width: 1)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: (isIncome ? const Color(0xFF10B981) : const Color(0xFF818CF8)).withOpacity(0.16),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      isIncome ? Icons.arrow_downward_rounded : Icons.account_balance_wallet_rounded,
+                      color: isIncome ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Choose Account',
+                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          failedAccountSearch != null
+                              ? 'Account "$failedAccountSearch" not found in mone'
+                              : 'Select which account to log this transaction to',
+                          style: TextStyle(
+                            color: failedAccountSearch != null ? const Color(0xFFF59E0B) : Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              WaterGlassCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          merchant.isNotEmpty ? merchant : category,
+                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          category,
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '${isIncome ? '+' : '-'}₹${amount.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        color: isIncome ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Accounts in mone:',
+                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.42),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: accounts.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final acc = accounts[index];
+                    final accId = acc['id'] as int;
+                    final accName = acc['name']?.toString() ?? 'Account';
+                    final bankName = acc['bank_name']?.toString() ?? '';
+                    final accNumber = acc['account_number']?.toString() ?? '';
+                    final double bal = (acc['balance'] as num?)?.toDouble() ?? 0.0;
+                    final bankCode = acc['bank_code']?.toString() ?? '';
+                    final bankInfo = IndianBankDirectory.findBankByName(bankCode.isNotEmpty ? bankCode : (bankName.isNotEmpty ? bankName : (acc['type'] == 'CASH' ? 'cash' : '')));
+
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          await _logTransactionWithAccount(
+                            amount: amount,
+                            type: type,
+                            category: category,
+                            merchant: merchant,
+                            accountId: accId,
+                            accountName: accName,
+                          );
+                        },
+                        child: WaterGlassCard(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Row(
+                            children: [
+                              bankInfo.buildBadge(size: 32, showBorder: false),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      accName,
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      accNumber.isNotEmpty ? '$bankName ••$accNumber' : (bankName.isNotEmpty ? bankName : 'Account'),
+                                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '₹${bal.toStringAsFixed(0)}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                  ),
+                                  const Text(
+                                    'Balance',
+                                    style: TextStyle(color: Colors.white38, fontSize: 10),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.chevron_right_rounded, color: Colors.white38, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _handleDirectShortcutLog(Uri uri) async {
     try {
       await _ensureDatabase();
@@ -1180,7 +1524,26 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
 
       String category = _normalizeCategory(rawCategory, type: type);
 
-      // 4. Account resolution
+      // 4. Merchant resolution
+      String? merchant = uri.queryParameters['merchant'] ?? 
+                         uri.queryParameters['note'] ?? 
+                         uri.queryParameters['title'] ?? 
+                         uri.queryParameters['name'] ?? 
+                         uri.queryParameters['desc'] ?? 
+                         uri.queryParameters['vendor'] ?? 
+                         uri.queryParameters['payee'];
+      if (merchant != null) {
+        try {
+          merchant = Uri.decodeComponent(merchant);
+        } catch (_) {}
+      }
+      if (merchant == null || merchant.trim().isEmpty || merchant.trim().startsWith('[')) {
+        merchant = category;
+      } else {
+        merchant = merchant.trim();
+      }
+
+      // 5. Account resolution
       final accounts = await _database.query('accounts');
       int? matchedAccountId;
       String matchedAccountName = 'Primary Account';
@@ -1191,8 +1554,15 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                          uri.queryParameters['wallet'] ?? 
                          uri.queryParameters['account_id'];
 
-      if (rawAccount != null && rawAccount.trim().isNotEmpty && !rawAccount.trim().startsWith('[')) {
-        final queryAcc = Uri.decodeComponent(rawAccount).trim().toLowerCase();
+      final bool isChoiceRequested = rawAccount == null || 
+                                    rawAccount.trim().isEmpty || 
+                                    rawAccount.trim().startsWith('[') || 
+                                    rawAccount.trim().toLowerCase() == 'choose' || 
+                                    rawAccount.trim().toLowerCase() == 'ask' || 
+                                    rawAccount.trim().toLowerCase() == 'select';
+
+      if (!isChoiceRequested) {
+        final queryAcc = Uri.decodeComponent(rawAccount!).trim().toLowerCase();
         
         // Match by ID
         final parsedId = int.tryParse(queryAcc);
@@ -1218,6 +1588,12 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
             if (queryAcc == 'cash' && accType == 'cash') {
               matchedAccountId = a['id'] as int;
               matchedAccountName = a['name']?.toString() ?? 'Cash';
+              break;
+            }
+
+            if (accName == queryAcc || bankName == queryAcc || bankCode == queryAcc) {
+              matchedAccountId = a['id'] as int;
+              matchedAccountName = a['name']?.toString() ?? 'Account';
               break;
             }
 
@@ -1249,120 +1625,41 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         }
       }
 
-      // Fallback to first non-cash account, or first account
-      if (matchedAccountId == null && accounts.isNotEmpty) {
-        final nonCash = accounts.where((a) => (a['type'] ?? '').toString().toUpperCase() != 'CASH');
-        final defaultAcc = nonCash.isNotEmpty ? nonCash.first : accounts.first;
-        matchedAccountId = defaultAcc['id'] as int;
-        matchedAccountName = defaultAcc['name']?.toString() ?? 'Account';
-      }
-
-      // 5. Merchant resolution
-      String? merchant = uri.queryParameters['merchant'] ?? 
-                         uri.queryParameters['note'] ?? 
-                         uri.queryParameters['title'] ?? 
-                         uri.queryParameters['name'] ?? 
-                         uri.queryParameters['desc'] ?? 
-                         uri.queryParameters['vendor'] ?? 
-                         uri.queryParameters['payee'];
-      if (merchant != null) {
-        try {
-          merchant = Uri.decodeComponent(merchant);
-        } catch (_) {}
-      }
-      if (merchant == null || merchant.trim().isEmpty || merchant.trim().startsWith('[')) {
-        merchant = category;
-      } else {
-        merchant = merchant.trim();
-      }
-
-      // 6. Insert transaction
-      final nowIso = DateTime.now().toIso8601String();
-      final newTxId = await _database.insert('transactions', {
-        'merchant': merchant,
-        'category': category,
-        'amount': amount,
-        'type': type,
-        'date': nowIso,
-        'account_id': matchedAccountId,
-        'needs_review': 0,
-      });
-
-      // 7. Update account balance
+      // If matched directly, log immediately!
       if (matchedAccountId != null) {
-        final accMatches = accounts.where((a) => a['id'] == matchedAccountId);
-        if (accMatches.isNotEmpty) {
-          final accRow = accMatches.first;
-          final double currentBal = (accRow['balance'] as num?)?.toDouble() ?? 0.0;
-          final double newBal = type == 'INCOME' ? currentBal + amount : currentBal - amount;
-          await _database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [matchedAccountId]);
-        }
-      }
-
-      // 8. Update widgets & cache
-      await _updateWidget();
-      _cachedAccounts = await _database.query('accounts');
-
-      final createdRows = await _database.query('transactions', where: 'id = ?', whereArgs: [newTxId]);
-      final tx = createdRows.isNotEmpty ? createdRows.first : {
-        'id': newTxId,
-        'merchant': merchant,
-        'category': category,
-        'amount': amount,
-        'type': type,
-        'date': nowIso,
-        'account_id': matchedAccountId,
-      };
-
-      // 9. Dispatch high-priority local notification banner
-      try {
-        final FlutterLocalNotificationsPlugin localNotif = FlutterLocalNotificationsPlugin();
-        await localNotif.show(
-          id: (DateTime.now().millisecondsSinceEpoch % 100000),
-          title: '${type == 'INCOME' ? '+' : '-'}₹${amount.toStringAsFixed(0)} ${type == 'INCOME' ? 'Income Logged' : 'Expense Logged'}',
-          body: '$merchant • $category • $matchedAccountName',
-          payload: newTxId.toString(),
-          notificationDetails: const NotificationDetails(
-            iOS: DarwinNotificationDetails(
-              presentAlert: true,
-              presentBadge: true,
-              presentSound: true,
-            ),
-            android: AndroidNotificationDetails(
-              'mone_sync_channel',
-              'Mone Quick Log',
-              importance: Importance.max,
-              priority: Priority.high,
-            ),
-          ),
+        await _logTransactionWithAccount(
+          amount: amount,
+          type: type,
+          category: category,
+          merchant: merchant,
+          accountId: matchedAccountId,
+          accountName: matchedAccountName,
         );
-      } catch (ne) {
-        debugPrint("Shortcut notification error: $ne");
+        return;
       }
 
-      // 10. Update UI, Dynamic Island, and SnackBar
-      if (mounted) {
-        _triggerIsland(tx);
-        setState(() {}); // Instant refresh on all screens!
-        HapticFeedback.mediumImpact();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Logged ${type == 'INCOME' ? '+' : '-'}₹${amount.toStringAsFixed(0)} · $category · $matchedAccountName',
-                    style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF101420),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
+      // If multiple accounts are available and choice was requested OR account wasn't matched:
+      if (accounts.length > 1 && mounted) {
+        _showChooseAccountForShortcutModal(
+          amount: amount,
+          type: type,
+          category: category,
+          merchant: merchant,
+          failedAccountSearch: (!isChoiceRequested && rawAccount != null) ? rawAccount : null,
+        );
+        return;
+      }
+
+      // Fallback if only 1 account exists
+      if (accounts.isNotEmpty) {
+        final defAcc = accounts.first;
+        await _logTransactionWithAccount(
+          amount: amount,
+          type: type,
+          category: category,
+          merchant: merchant,
+          accountId: defAcc['id'] as int,
+          accountName: defAcc['name']?.toString() ?? 'Account',
         );
       }
     } catch (e) {
@@ -1501,6 +1798,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       existingAccs = await _database.query('accounts');
     }
     _cachedAccounts = existingAccs;
+    _syncAccountsToNative();
 
     _dbInitCompleter ??= Completer<Database>();
     if (!_dbInitCompleter!.isCompleted) {
@@ -1718,6 +2016,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
           'todaySpent': todaySpent,
         });
       } catch (_) {}
+      await _syncAccountsToNative();
     } catch (e) {
       debugPrint("Error updating widget: $e");
     }
@@ -1819,13 +2118,93 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
               _buildShortcutStep('1', 'Choose from Menu: "Expense" or "Income"'),
               _buildShortcutStep('2', 'Ask for Input: Number ("Enter Amount")'),
               _buildShortcutStep('3', 'Choose from List: "Food & Dining", "Shopping", "Bills", "Transport", "Investment", "Salary"'),
-              _buildShortcutStep('4', 'Choose from List: Your bank accounts ("HDFC", "SBI", "Cash", etc.)'),
+              _buildShortcutStep('4', 'Choose from List: Your registered bank accounts in mone:'),
+              
+              // Accounts Showcase for Shortcuts
+              Padding(
+                padding: const EdgeInsets.only(left: 32, bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_cachedAccounts.isNotEmpty) ...[
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _cachedAccounts.map((a) {
+                          final b = IndianBankDirectory.findBankByName((a['bank_code'] ?? a['bank_name'] ?? (a['type'] == 'CASH' ? 'cash' : '')).toString());
+                          final name = a['name']?.toString() ?? 'Account';
+                          return ActionChip(
+                            backgroundColor: Colors.white.withOpacity(0.06),
+                            side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            avatar: b.buildBadge(size: 16, showBorder: false),
+                            label: Text(name, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: name));
+                              HapticFeedback.selectionClick();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Copied "$name" to clipboard'),
+                                  duration: const Duration(seconds: 1),
+                                  backgroundColor: const Color(0xFF161A26),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              );
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          final names = _cachedAccounts.map((a) => a['name']?.toString() ?? 'Account').join('\n');
+                          Clipboard.setData(ClipboardData(text: names));
+                          HapticFeedback.mediumImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                                  SizedBox(width: 8),
+                                  Expanded(child: Text('Copied all account names! Paste into "Choose from List" in Shortcuts.')),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF161A26),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF818CF8).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.3)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.copy_rounded, color: Color(0xFF818CF8), size: 13),
+                              SizedBox(width: 6),
+                              Text('Copy All Account Names for Shortcuts', style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
               _buildShortcutStep('5', 'Ask for Input: Text ("Merchant or Note")'),
               _buildShortcutStep('6', 'Open URL: mone://log?type=[Type]&amount=[Amount]&category=[Category]&account=[Account]&merchant=[Merchant]'),
 
               const SizedBox(height: 18),
 
-              // Copy URL Template Button
+              // Copy URL Template Button (Direct)
               ElevatedButton.icon(
                 onPressed: () {
                   Clipboard.setData(const ClipboardData(
@@ -1848,9 +2227,42 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                   );
                 },
                 icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
-                label: const Text('Copy Direct Shortcut URL Template', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                label: const Text('Copy Direct URL Template (with Account)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Copy In-App Account Chooser URL Button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(const ClipboardData(
+                    text: 'mone://log?type=[Type]&amount=[Amount]&category=[Category]&merchant=[Merchant]&account=choose',
+                  ));
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF818CF8), size: 18),
+                          SizedBox(width: 8),
+                          Expanded(child: Text('Copied URL with In-App Account Choice! mone will let you tap your account.')),
+                        ],
+                      ),
+                      backgroundColor: const Color(0xFF161A26),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.touch_app_rounded, size: 16, color: Color(0xFF818CF8)),
+                label: const Text('Copy URL with In-App Account Chooser', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF818CF8))),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF818CF8)),
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
@@ -1889,21 +2301,45 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
 
               const SizedBox(height: 12),
 
-              // Simulation Button
-              OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await _handleDirectShortcutLog(Uri.parse(
-                    'mone://log?type=Expense&amount=250&category=Food%20%26%20Dining&account=Primary&merchant=Coffee',
-                  ));
-                },
-                icon: const Icon(Icons.play_arrow_rounded, size: 20, color: Color(0xFF10B981)),
-                label: const Text('Test Interactive Shortcut Log (₹250 Coffee)', style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF10B981)),
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
+              // Simulation Buttons Row
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await _handleDirectShortcutLog(Uri.parse(
+                          'mone://log?type=Expense&amount=250&category=Food%20%26%20Dining&merchant=Coffee&account=choose',
+                        ));
+                      },
+                      icon: const Icon(Icons.touch_app_rounded, size: 16, color: Color(0xFF818CF8)),
+                      label: const Text('Test Account Choice', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF818CF8)),
+                        minimumSize: const Size.fromHeight(44),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await _handleDirectShortcutLog(Uri.parse(
+                          'mone://log?type=Expense&amount=250&category=Food%20%26%20Dining&account=Primary&merchant=Coffee',
+                        ));
+                      },
+                      icon: const Icon(Icons.play_arrow_rounded, size: 16, color: Color(0xFF10B981)),
+                      label: const Text('Test Direct Log', style: TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF10B981)),
+                        minimumSize: const Size.fromHeight(44),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
             ],
