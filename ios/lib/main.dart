@@ -570,6 +570,13 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   int _selectedIndex = 0;
   bool _isDbReady = false;
   late Database _database;
+  Completer<Database>? _dbInitCompleter;
+
+  Future<Database> _ensureDatabase() async {
+    if (_isDbReady) return _database;
+    _dbInitCompleter ??= Completer<Database>();
+    return _dbInitCompleter!.future;
+  }
   String _timePeriod = 'Monthly';
   String _userName = '';
   bool _needsOnboarding = false;
@@ -977,21 +984,37 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
   Future<void> _handleIncomingUri(Uri uri) async {
     debugPrint("Handling incoming URI: $uri");
     if (uri.scheme == 'mone') {
-      // 1. Ensure DB is fully ready before proceeding
-      int waitCount = 0;
-      while (!_isDbReady && waitCount < 20) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        waitCount++;
-      }
+      await _ensureDatabase();
 
-      // Direct Interactive Shortcut logging: mone://log?type=...&amount=...&category=...&account=...&merchant=...
-      final amountParam = uri.queryParameters['amount'] ?? uri.queryParameters['amt'] ?? uri.queryParameters['value'];
-      if ((uri.host == 'log' || uri.host == 'quick-log' || uri.host == 'add' || uri.path.contains('log')) && amountParam != null) {
-        await _handleDirectShortcutLog(uri);
+      // Check if direct or interactive shortcut logging requested
+      final amountParam = uri.queryParameters['amount'] ?? 
+                          uri.queryParameters['amt'] ?? 
+                          uri.queryParameters['value'] ?? 
+                          uri.queryParameters['val'] ?? 
+                          uri.queryParameters['price'] ?? 
+                          uri.queryParameters['cost'] ?? 
+                          uri.queryParameters['sum'];
+
+      if (uri.host == 'log' || uri.host == 'quick-log' || uri.host == 'add' || uri.path.contains('log') || uri.path.contains('add')) {
+        if (amountParam != null && amountParam.trim().isNotEmpty) {
+          await _handleDirectShortcutLog(uri);
+        } else {
+          // No amount provided: Pop open interactive modal asking for Expense/Income, Amount, Category, Account
+          if (mounted) {
+            String? cat = uri.queryParameters['category'] ?? uri.queryParameters['cat'];
+            String? type = uri.queryParameters['type'];
+            String? merchant = uri.queryParameters['merchant'] ?? uri.queryParameters['note'];
+            _showAddTransactionModal(existingTx: {
+              if (cat != null) 'category': cat,
+              if (type != null) 'type': type.toUpperCase(),
+              if (merchant != null) 'merchant': merchant,
+            });
+          }
+        }
         return;
       }
 
-      if (uri.host == 'import-sms' || uri.path.contains('import-sms') || uri.host == 'sms' || uri.host == 'log') {
+      if (uri.host == 'import-sms' || uri.path.contains('import-sms') || uri.host == 'sms') {
         String? text = uri.queryParameters['text'] ?? 
                        uri.queryParameters['body'] ?? 
                        uri.queryParameters['sms'] ?? 
@@ -1018,7 +1041,6 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         }
 
         if (text != null && text.trim().isNotEmpty) {
-          // Decode URL component if encoded
           try {
             text = Uri.decodeComponent(text);
           } catch (_) {}
@@ -1064,63 +1086,115 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     }
   }
 
+  String _normalizeCategory(String? raw, {required String type}) {
+    if (raw == null || raw.trim().isEmpty || raw.trim().startsWith('[')) {
+      return type == 'INCOME' ? 'Salary' : 'Food & Dining';
+    }
+    String clean = raw.trim();
+    String lower = clean.toLowerCase();
+    if (lower.contains('food') || lower.contains('dine') || lower.contains('dining') || lower.contains('restaurant') || lower.contains('cafe') || lower.contains('zomato') || lower.contains('swiggy') || lower.contains('lunch') || lower.contains('dinner')) {
+      return 'Food & Dining';
+    }
+    if (lower.contains('shop') || lower.contains('cloth') || lower.contains('amazon') || lower.contains('flipkart') || lower.contains('myntra')) {
+      return 'Shopping';
+    }
+    if (lower.contains('transp') || lower.contains('travel') || lower.contains('uber') || lower.contains('ola') || lower.contains('petrol') || lower.contains('fuel') || lower.contains('metro')) {
+      return 'Transport';
+    }
+    if (lower.contains('bill') || lower.contains('utilit') || lower.contains('electric') || lower.contains('recharge') || lower.contains('rent') || lower.contains('wifi')) {
+      return 'Bills';
+    }
+    if (lower.contains('groc') || lower.contains('supermarket') || lower.contains('blinkit') || lower.contains('zepto') || lower.contains('instamart') || lower.contains('milk')) {
+      return 'Groceries';
+    }
+    if (lower.contains('entertain') || lower.contains('movie') || lower.contains('netflix') || lower.contains('cinema') || lower.contains('spotify')) {
+      return 'Entertainment';
+    }
+    if (lower.contains('health') || lower.contains('fit') || lower.contains('med') || lower.contains('pharmacy') || lower.contains('doctor')) {
+      return 'Health & Fitness';
+    }
+    if (lower.contains('sal') || lower.contains('stipend') || lower.contains('freelance') || lower.contains('bonus')) {
+      return 'Salary';
+    }
+    if (lower.contains('invest') || lower.contains('stock') || lower.contains('mutual') || lower.contains('gold')) {
+      return 'Investment';
+    }
+    return clean;
+  }
+
   Future<void> _handleDirectShortcutLog(Uri uri) async {
     try {
-      final rawAmount = uri.queryParameters['amount'] ?? uri.queryParameters['amt'] ?? uri.queryParameters['value'];
-      if (rawAmount == null) return;
-      final cleanAmountStr = rawAmount.replaceAll(RegExp(r'[^\d.]'), '');
-      final double? amount = double.tryParse(cleanAmountStr);
+      await _ensureDatabase();
+
+      // 1. Amount resolution
+      final rawAmount = uri.queryParameters['amount'] ?? 
+                        uri.queryParameters['amt'] ?? 
+                        uri.queryParameters['value'] ?? 
+                        uri.queryParameters['val'] ?? 
+                        uri.queryParameters['price'] ?? 
+                        uri.queryParameters['cost'] ?? 
+                        uri.queryParameters['sum'];
+
+      double? amount;
+      if (rawAmount != null && rawAmount.trim().isNotEmpty) {
+        final cleanAmountStr = rawAmount.replaceAll(RegExp(r'[^\d.]'), '');
+        amount = double.tryParse(cleanAmountStr);
+      }
+
+      // If amount is null or zero, prompt interactively
       if (amount == null || amount <= 0) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid amount received from Shortcut'),
-              backgroundColor: Color(0xFFEF4444),
-            ),
-          );
+          _showAddTransactionModal(existingTx: {
+            if (uri.queryParameters['type'] != null) 'type': uri.queryParameters['type']!.toUpperCase(),
+            if (uri.queryParameters['category'] != null) 'category': uri.queryParameters['category'],
+            if (uri.queryParameters['merchant'] != null) 'merchant': uri.queryParameters['merchant'],
+          });
         }
         return;
       }
 
-      final rawType = (uri.queryParameters['type'] ?? 'EXPENSE').trim().toUpperCase();
+      // 2. Type resolution
+      final rawType = (uri.queryParameters['type'] ?? uri.queryParameters['kind'] ?? uri.queryParameters['mode'] ?? 'EXPENSE').trim().toUpperCase();
       String type = 'EXPENSE';
-      if (rawType.contains('INC') || rawType.contains('CREDIT') || rawType.contains('DEP') || rawType == 'SALARY') {
+      if (rawType.contains('INC') || rawType.contains('CREDIT') || rawType.contains('DEP') || rawType.contains('SALARY') || rawType.contains('EARN') || rawType.contains('RECEIV')) {
         type = 'INCOME';
-      } else if (rawType.contains('TRANS') || rawType.contains('MOVE')) {
+      } else if (rawType.contains('TRANS') || rawType.contains('MOVE') || rawType.contains('SELF')) {
         type = 'TRANSFER';
       }
 
-      String? category = uri.queryParameters['category'] ?? uri.queryParameters['cat'];
-      if (category != null) {
+      // 3. Category resolution (and fixing unescaped URL ampersand split)
+      String? rawCategory = uri.queryParameters['category'] ?? uri.queryParameters['cat'] ?? uri.queryParameters['tag'];
+      if (rawCategory != null) {
         try {
-          category = Uri.decodeComponent(category);
+          rawCategory = Uri.decodeComponent(rawCategory);
         } catch (_) {}
       }
-      if (category == null || category.trim().isEmpty) {
-        category = type == 'INCOME' ? 'Salary' : 'Food & Dining';
-      } else {
-        category = category.trim();
+      if (rawCategory != null && (rawCategory.toLowerCase() == 'food' || rawCategory.toLowerCase() == 'food ') && 
+          (uri.queryParameters.containsKey(' Dining') || uri.queryParameters.containsKey('Dining') || uri.queryParameters.containsKey('dining'))) {
+        rawCategory = 'Food & Dining';
+      }
+      if (rawCategory != null && (rawCategory.toLowerCase() == 'bills' || rawCategory.toLowerCase() == 'bills ') && 
+          (uri.queryParameters.containsKey(' Utilities') || uri.queryParameters.containsKey('Utilities') || uri.queryParameters.containsKey('utilities'))) {
+        rawCategory = 'Bills & Utilities';
       }
 
-      String? merchant = uri.queryParameters['merchant'] ?? uri.queryParameters['note'] ?? uri.queryParameters['title'] ?? uri.queryParameters['name'];
-      if (merchant != null) {
-        try {
-          merchant = Uri.decodeComponent(merchant);
-        } catch (_) {}
-      }
-      if (merchant == null || merchant.trim().isEmpty) {
-        merchant = category;
-      } else {
-        merchant = merchant.trim();
-      }
+      String category = _normalizeCategory(rawCategory, type: type);
 
+      // 4. Account resolution
       final accounts = await _database.query('accounts');
       int? matchedAccountId;
-      String matchedAccountName = 'Account';
+      String matchedAccountName = 'Primary Account';
 
-      final rawAccount = uri.queryParameters['account'] ?? uri.queryParameters['bank'] ?? uri.queryParameters['account_id'];
-      if (rawAccount != null && rawAccount.trim().isNotEmpty) {
+      final rawAccount = uri.queryParameters['account'] ?? 
+                         uri.queryParameters['bank'] ?? 
+                         uri.queryParameters['acc'] ?? 
+                         uri.queryParameters['wallet'] ?? 
+                         uri.queryParameters['account_id'];
+
+      if (rawAccount != null && rawAccount.trim().isNotEmpty && !rawAccount.trim().startsWith('[')) {
         final queryAcc = Uri.decodeComponent(rawAccount).trim().toLowerCase();
+        
+        // Match by ID
         final parsedId = int.tryParse(queryAcc);
         if (parsedId != null) {
           for (var a in accounts) {
@@ -1131,27 +1205,78 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
             }
           }
         }
+
+        // Match by Name, Bank Name, Bank Code, Account Number, Type
         if (matchedAccountId == null) {
           for (var a in accounts) {
             final accName = (a['name'] ?? '').toString().toLowerCase();
             final bankName = (a['bank_name'] ?? '').toString().toLowerCase();
             final bankCode = (a['bank_code'] ?? '').toString().toLowerCase();
+            final accNum = (a['account_number'] ?? '').toString().toLowerCase();
+            final accType = (a['type'] ?? '').toString().toLowerCase();
+
+            if (queryAcc == 'cash' && accType == 'cash') {
+              matchedAccountId = a['id'] as int;
+              matchedAccountName = a['name']?.toString() ?? 'Cash';
+              break;
+            }
+
             if (accName.contains(queryAcc) || queryAcc.contains(accName) ||
-                bankName.contains(queryAcc) || queryAcc.contains(bankName) ||
-                bankCode.contains(queryAcc) || queryAcc.contains(bankCode)) {
+                (bankName.isNotEmpty && (bankName.contains(queryAcc) || queryAcc.contains(bankName))) ||
+                (bankCode.isNotEmpty && (bankCode.contains(queryAcc) || queryAcc.contains(bankCode))) ||
+                (accNum.isNotEmpty && (accNum.endsWith(queryAcc) || queryAcc.endsWith(accNum)))) {
               matchedAccountId = a['id'] as int;
               matchedAccountName = a['name']?.toString() ?? 'Account';
               break;
             }
           }
         }
+
+        // Match by IndianBankDirectory keywords
+        if (matchedAccountId == null) {
+          final matchedBank = IndianBankDirectory.findBankByName(queryAcc);
+          if (matchedBank.id != 'other') {
+            for (var a in accounts) {
+              final bankCode = (a['bank_code'] ?? '').toString().toLowerCase();
+              final bankName = (a['bank_name'] ?? '').toString().toLowerCase();
+              if (bankCode == matchedBank.id || bankName.contains(matchedBank.shortName.toLowerCase())) {
+                matchedAccountId = a['id'] as int;
+                matchedAccountName = a['name']?.toString() ?? matchedBank.shortName;
+                break;
+              }
+            }
+          }
+        }
       }
 
+      // Fallback to first non-cash account, or first account
       if (matchedAccountId == null && accounts.isNotEmpty) {
-        matchedAccountId = accounts.first['id'] as int;
-        matchedAccountName = accounts.first['name']?.toString() ?? 'Account';
+        final nonCash = accounts.where((a) => (a['type'] ?? '').toString().toUpperCase() != 'CASH');
+        final defaultAcc = nonCash.isNotEmpty ? nonCash.first : accounts.first;
+        matchedAccountId = defaultAcc['id'] as int;
+        matchedAccountName = defaultAcc['name']?.toString() ?? 'Account';
       }
 
+      // 5. Merchant resolution
+      String? merchant = uri.queryParameters['merchant'] ?? 
+                         uri.queryParameters['note'] ?? 
+                         uri.queryParameters['title'] ?? 
+                         uri.queryParameters['name'] ?? 
+                         uri.queryParameters['desc'] ?? 
+                         uri.queryParameters['vendor'] ?? 
+                         uri.queryParameters['payee'];
+      if (merchant != null) {
+        try {
+          merchant = Uri.decodeComponent(merchant);
+        } catch (_) {}
+      }
+      if (merchant == null || merchant.trim().isEmpty || merchant.trim().startsWith('[')) {
+        merchant = category;
+      } else {
+        merchant = merchant.trim();
+      }
+
+      // 6. Insert transaction
       final nowIso = DateTime.now().toIso8601String();
       final newTxId = await _database.insert('transactions', {
         'merchant': merchant,
@@ -1163,6 +1288,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         'needs_review': 0,
       });
 
+      // 7. Update account balance
       if (matchedAccountId != null) {
         final accMatches = accounts.where((a) => a['id'] == matchedAccountId);
         if (accMatches.isNotEmpty) {
@@ -1173,6 +1299,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         }
       }
 
+      // 8. Update widgets & cache
       await _updateWidget();
       _cachedAccounts = await _database.query('accounts');
 
@@ -1187,9 +1314,36 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         'account_id': matchedAccountId,
       };
 
+      // 9. Dispatch high-priority local notification banner
+      try {
+        final FlutterLocalNotificationsPlugin localNotif = FlutterLocalNotificationsPlugin();
+        await localNotif.show(
+          id: (DateTime.now().millisecondsSinceEpoch % 100000),
+          title: '${type == 'INCOME' ? '+' : '-'}₹${amount.toStringAsFixed(0)} ${type == 'INCOME' ? 'Income Logged' : 'Expense Logged'}',
+          body: '$merchant • $category • $matchedAccountName',
+          payload: newTxId.toString(),
+          notificationDetails: const NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+            android: AndroidNotificationDetails(
+              'mone_sync_channel',
+              'Mone Quick Log',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+        );
+      } catch (ne) {
+        debugPrint("Shortcut notification error: $ne");
+      }
+
+      // 10. Update UI, Dynamic Island, and SnackBar
       if (mounted) {
         _triggerIsland(tx);
-        setState(() {}); // Instant UI refresh!
+        setState(() {}); // Instant refresh on all screens!
         HapticFeedback.mediumImpact();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1348,6 +1502,10 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     }
     _cachedAccounts = existingAccs;
 
+    _dbInitCompleter ??= Completer<Database>();
+    if (!_dbInitCompleter!.isCompleted) {
+      _dbInitCompleter!.complete(_database);
+    }
     setState(() => _isDbReady = true);
     
     // Check if biometric is enabled
@@ -1680,7 +1838,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                         children: [
                           Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
                           SizedBox(width: 8),
-                          Expanded(child: Text('Copied URL template! Paste into "Open URL" in Apple Shortcuts.')),
+                          Expanded(child: Text('Copied Full URL template! Paste into "Open URL" in Shortcuts.')),
                         ],
                       ),
                       backgroundColor: const Color(0xFF161A26),
@@ -1690,9 +1848,40 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                   );
                 },
                 icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
-                label: const Text('Copy Shortcut URL Template', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                label: const Text('Copy Direct Shortcut URL Template', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Copy Simple In-App Quick Log URL Button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(const ClipboardData(text: 'mone://log'));
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF06B6D4), size: 18),
+                          SizedBox(width: 8),
+                          Expanded(child: Text('Copied "mone://log"! Opens app directly asking for details.')),
+                        ],
+                      ),
+                      backgroundColor: const Color(0xFF161A26),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.launch_rounded, size: 16, color: Color(0xFF06B6D4)),
+                label: const Text('Copy 1-Tap Interactive Prompt URL (mone://log)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4))),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF06B6D4)),
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
@@ -4465,7 +4654,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(widget.overrideMonth != null ? ' ${widget.overrideMonth}' : (_showLastMonth && widget.timePeriod == 'Monthly' ? ' Last Month' : ' Analytics'), style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                  Text(widget.overrideMonth != null ? widget.overrideMonth! : (_showLastMonth && widget.timePeriod == 'Monthly' ? 'Last Month' : 'Analytics'), style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
                   if (widget.timePeriod == 'Monthly' && widget.overrideMonth == null)
                     Container(
                       padding: const EdgeInsets.all(4),
@@ -4805,34 +4994,47 @@ class ProfileScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// TRENDS SCREEN
+// TRENDS SCREEN - EXECUTIVE HISTORICAL VELOCITY & TELEMETRY
 // ---------------------------------------------------------
 class TrendsScreen extends StatelessWidget {
   final Database database;
   final Function({Map<String, dynamic>? existingTx}) onAddRequested;
   final VoidCallback onTransactionChanged;
 
-  const TrendsScreen({Key? key, required this.database, required this.onAddRequested, required this.onTransactionChanged}) : super(key: key);
+  const TrendsScreen({
+    Key? key,
+    required this.database,
+    required this.onAddRequested,
+    required this.onTransactionChanged,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: database.rawQuery('''
-        SELECT strftime('%Y-%m', date) as month, SUM(amount) as total
+        SELECT 
+          strftime('%Y-%m', date) as month, 
+          SUM(amount) as total,
+          COUNT(*) as tx_count
         FROM transactions
-        WHERE type = 'EXPENSE'
+        WHERE type = 'EXPENSE' OR type = 'TRANSFER_OUT'
         GROUP BY month
         ORDER BY month DESC
       '''),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)));
+        }
         final data = snapshot.data!;
         
         double maxTotal = 0;
+        double sumLifetime = 0;
         for (var row in data) {
           double total = (row['total'] as num).toDouble();
+          sumLifetime += total;
           if (total > maxTotal) maxTotal = total;
         }
+        final double avgMonthly = data.isNotEmpty ? (sumLifetime / data.length) : 0.0;
         
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -4840,54 +5042,383 @@ class TrendsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(' Historical Trends', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 32),
-              if (data.isEmpty) const Text('No data yet.', style: TextStyle(color: Colors.white54)),
-              ...data.map((row) {
+              // Executive Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.35)),
+                    ),
+                    child: const Icon(Icons.auto_graph_rounded, color: Color(0xFF818CF8), size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Historical Trends',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Month-over-month spending telemetry and velocity',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Lifetime Metrics Summary Glass Card
+              if (data.isNotEmpty) ...[
+                WaterGlassCard(
+                  borderRadius: 24,
+                  padding: const EdgeInsets.all(20),
+                  glowColor: const Color(0xFF6366F1),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.account_balance_wallet_rounded, size: 12, color: Color(0xFF818CF8)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'LIFETIME EXPENSES',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '₹ ${sumLifetime.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(width: 1, height: 38, color: Colors.white.withValues(alpha: 0.1)),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.speed_rounded, size: 12, color: Color(0xFF06B6D4)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'MONTHLY AVG',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '₹ ${avgMonthly.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Color(0xFF06B6D4),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(width: 1, height: 38, color: Colors.white.withValues(alpha: 0.1)),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_month_rounded, size: 12, color: Color(0xFF10B981)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'TRACKED',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${data.length} Mo',
+                            style: const TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Section Header
+              Text(
+                'MONTH-OVER-MONTH VELOCITY',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.55),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Empty State
+              if (data.isEmpty)
+                WaterGlassCard(
+                  borderRadius: 24,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.query_stats_rounded, size: 36, color: Color(0xFF818CF8)),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Historical Trends Yet',
+                          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'As you log expenses over months, mone automatically analyzes your month-over-month burn rate and velocity charts.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Month Cards with Real Delta Comparison
+              ...List.generate(data.length, (index) {
+                final row = data[index];
                 String raw = row['month'] as String;
                 double total = (row['total'] as num).toDouble();
+                int txCount = (row['tx_count'] as num?)?.toInt() ?? 0;
                 List<String> parts = raw.split('-');
                 if (parts.length != 2) return const SizedBox();
-                int m = int.parse(parts[1]);
-                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                String name = '${monthNames[m - 1]} ${parts[0]}';
-                
-                double pct = maxTotal > 0 ? (total / maxTotal) : 0;
-                
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 28),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (ctx) => Scaffold(
-                        backgroundColor: const Color(0xFF09090B),
-                        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, title: const Text(''), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(ctx))),
-                        body: AnalyticsScreen(database: database, timePeriod: 'Monthly', onResolveRollover: (a,b){}, onAddRequested: onAddRequested, onTransactionChanged: onTransactionChanged, overrideMonth: raw)
-                      )));
-                    },
+                int m = int.tryParse(parts[1]) ?? 1;
+                const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                String monthLabel = '${monthNames[(m - 1).clamp(0, 11)]} ${parts[0]}';
+
+                double pct = maxTotal > 0 ? (total / maxTotal) : 0.0;
+
+                // Compute Delta vs following item in the list (which is the previous calendar month)
+                String deltaText = 'Baseline benchmark';
+                Color deltaColor = Colors.white54;
+                IconData deltaIcon = Icons.remove_rounded;
+
+                if (index + 1 < data.length) {
+                  double prevTotal = (data[index + 1]['total'] as num).toDouble();
+                  if (prevTotal > 0) {
+                    double diffPct = ((total - prevTotal) / prevTotal) * 100;
+                    if (diffPct > 0) {
+                      deltaText = '+${diffPct.toStringAsFixed(1)}% vs prev mo';
+                      deltaColor = const Color(0xFFF43F5E);
+                      deltaIcon = Icons.arrow_upward_rounded;
+                    } else if (diffPct < 0) {
+                      deltaText = '${diffPct.toStringAsFixed(1)}% vs prev mo';
+                      deltaColor = const Color(0xFF10B981);
+                      deltaIcon = Icons.arrow_downward_rounded;
+                    } else {
+                      deltaText = '0.0% vs prev mo';
+                      deltaColor = const Color(0xFF06B6D4);
+                      deltaIcon = Icons.horizontal_rule_rounded;
+                    }
+                  }
+                }
+
+                return WaterGlassCard(
+                  borderRadius: 22,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(18),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (ctx) => Scaffold(
+                          backgroundColor: const Color(0xFF09090B),
+                          appBar: AppBar(
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            title: Text(monthLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                            leading: IconButton(
+                              icon: const Icon(Icons.arrow_back, color: Colors.white),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ),
+                          body: AnalyticsScreen(
+                            database: database,
+                            timePeriod: 'Monthly',
+                            onResolveRollover: (a, b) {},
+                            onAddRequested: onAddRequested,
+                            onTransactionChanged: onTransactionChanged,
+                            overrideMonth: raw,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header: Month Chip & Delta Badge
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text('₹${total.toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 18, fontWeight: FontWeight.bold)),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.35), width: 0.8),
+                                ),
+                                child: Text(
+                                  monthLabel,
+                                  style: const TextStyle(
+                                    color: Color(0xFF818CF8),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              if (txCount > 0) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '$txCount ${txCount == 1 ? 'txn' : 'txns'}',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Icon(deltaIcon, size: 12, color: deltaColor),
+                              const SizedBox(width: 3),
+                              Text(
+                                deltaText,
+                                style: TextStyle(
+                                  color: deltaColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.chevron_right_rounded, size: 16, color: Colors.white.withValues(alpha: 0.3)),
+                            ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10), 
-                        child: LinearProgressIndicator(
-                          value: pct, 
-                          backgroundColor: Colors.white.withOpacity(0.05), 
-                          color: const Color(0xFF8B5CF6), 
-                          minHeight: 12
-                        )
+
+                      // Amount & Max Share
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '₹ ${total.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          Text(
+                            '${(pct * 100).toInt()}% of peak',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.45),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ]
-                  )
-                ));
-              }).toList(),
+                      const SizedBox(height: 12),
+
+                      // Smooth Gradient Pill Progress Bar (NO blocky square glitches)
+                      Container(
+                        height: 8,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: pct.clamp(0.03, 1.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF06B6D4), Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.4),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ],
           ),
         );
