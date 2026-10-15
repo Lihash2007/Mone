@@ -112,6 +112,26 @@ jobs:
             grep -C 3 -E "(error:|fatal error:)" build_release.log || tail -n 100 build_release.log
           fi
 
+      - name: Push Error Log to Diagnostics Branch
+        if: ${{ failure() }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p ci-diagnostics
+          echo "=== DIAGNOSTIC REPORT FOR RUN ${{ github.run_id }} ===" > ci-diagnostics/report.txt
+          if [ -f ios/build_simulator.log ]; then
+            echo "--- SIMULATOR ERRORS ---" >> ci-diagnostics/report.txt
+            grep -C 3 -E "(error:|fatal error:|\.swift:[0-9]+:)" ios/build_simulator.log | head -n 120 >> ci-diagnostics/report.txt || tail -n 80 ios/build_simulator.log >> ci-diagnostics/report.txt
+          fi
+          if [ -f ios/build_release.log ]; then
+            echo "--- RELEASE ERRORS ---" >> ci-diagnostics/report.txt
+            grep -C 3 -E "(error:|fatal error:|\.swift:[0-9]+:)" ios/build_release.log | head -n 120 >> ci-diagnostics/report.txt || tail -n 80 ios/build_release.log >> ci-diagnostics/report.txt
+          fi
+          git checkout -B ci-diagnostics
+          git add ci-diagnostics/report.txt
+          git commit -m "ci: diagnostic logs for run ${{ github.run_id }}" || true
+          git push -f origin ci-diagnostics || true
+
       - name: Upload Unsigned IPA
         if: ${{ always() && (github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ipa (Physical iPhone / Sideloading)' || github.event_name == 'push' || github.event_name == 'pull_request') }}
         uses: actions/upload-artifact@v4
