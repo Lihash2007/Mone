@@ -23,6 +23,9 @@ class BankInfo {
     this.isCash = false,
   });
 
+  String get logoAsset => 'assets/banks/$id.png';
+  bool get hasLogoAsset => !isCash && id != 'other';
+
   Widget buildBadge({double size = 36, bool showBorder = true}) {
     if (isCash) {
       return Container(
@@ -35,10 +38,10 @@ class BankInfo {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: showBorder ? Border.all(color: Colors.white.withOpacity(0.18), width: 1) : null,
+          border: showBorder ? Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1) : null,
           boxShadow: [
             BoxShadow(
-              color: gradientColors.first.withOpacity(0.35),
+              color: gradientColors.first.withValues(alpha: 0.35),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -48,33 +51,77 @@ class BankInfo {
       );
     }
 
+    Widget fallbackBadge() {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.28),
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: showBorder ? Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1) : null,
+          boxShadow: [
+            BoxShadow(
+              color: gradientColors.first.withValues(alpha: 0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Center(
+          child: id == 'other'
+              ? Icon(Icons.account_balance_rounded, color: Colors.white, size: size * 0.52)
+              : Text(
+                  shortName.length > 5 ? shortName.substring(0, 4) : shortName,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: size * 0.32,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+        ),
+      );
+    }
+
+    if (!hasLogoAsset) {
+      return fallbackBadge();
+    }
+
+    // Official Bank Logo Badge:
+    // A crisp, executive container with a clean white backing and subtle border
+    // ensuring authentic institution branding is instantly identifiable on any card background.
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.28),
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: showBorder ? Border.all(color: Colors.white.withOpacity(0.2), width: 1) : null,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(size * 0.26),
+        border: showBorder
+            ? Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1,
+              )
+            : null,
         boxShadow: [
           BoxShadow(
-            color: gradientColors.first.withOpacity(0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
+      padding: EdgeInsets.all(size * 0.13),
       child: Center(
-        child: Text(
-          shortName.length > 5 ? shortName.substring(0, 4) : shortName,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: size * 0.32,
-            letterSpacing: 0.5,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(size * 0.16),
+          child: Image.asset(
+            logoAsset,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => fallbackBadge(),
           ),
         ),
       ),
