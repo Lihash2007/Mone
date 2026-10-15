@@ -567,7 +567,7 @@ public struct TransactionRowView: View {
             Spacer()
             
             // Amount & Type
-            VStack(alignment: .end, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text(tx.formattedAmount)
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(tx.isExpense ? .white : MoneTheme.emerald)
@@ -903,7 +903,7 @@ public struct AccountsDirectoryView: View {
             
             Spacer()
             
-            VStack(alignment: .end, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text(acc.formattedBalance)
                     .font(.system(size: 16, weight: .black, design: .rounded))
                     .foregroundColor(.white)

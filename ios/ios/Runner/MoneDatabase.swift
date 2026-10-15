@@ -231,7 +231,7 @@ public final class MoneDatabase: ObservableObject {
     public func addTransaction(_ tx: MoneTransaction) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            let newId = self.insertTransactionInternal(tx)
+            _ = self.insertTransactionInternal(tx)
             
             // Update account balance
             if let accId = tx.accountId {
