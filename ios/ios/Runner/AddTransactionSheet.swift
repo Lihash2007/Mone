@@ -106,56 +106,42 @@ public struct AddTransactionSheet: View {
     
     // MARK: - Components
     private var typeSelector: some View {
-        HStack(spacing: 8) {
-            typeButton(title: "Expense", rawType: "EXPENSE", activeColor: MoneTheme.rose)
-            typeButton(title: "Income", rawType: "INCOME", activeColor: MoneTheme.emerald)
-            typeButton(title: "Transfer", rawType: "TRANSFER", activeColor: MoneTheme.cyan)
-        }
-        .padding(4)
-        .background(Color.white.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-    
-    private func typeButton(title: String, rawType: String, activeColor: Color) -> some View {
-        let isSelected = type == rawType
-        return Button {
-            MoneHaptics.impact(.light)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                type = rawType
-                if rawType == "INCOME" {
-                    selectedCategory = "Salary"
-                } else if rawType == "EXPENSE" {
-                    selectedCategory = "Food & Dining"
+        FluidSegmentedControl(
+            items: [
+                FluidSegmentItem(id: "EXPENSE", title: "Expense", icon: "arrow.down.right.circle.fill", accentColor: MoneTheme.rose),
+                FluidSegmentItem(id: "INCOME", title: "Income", icon: "arrow.up.left.circle.fill", accentColor: MoneTheme.emerald),
+                FluidSegmentItem(id: "TRANSFER", title: "Transfer", icon: "arrow.left.arrow.right.circle.fill", accentColor: MoneTheme.cyan)
+            ],
+            selection: Binding(
+                get: { self.type },
+                set: { newType in
+                    self.type = newType
+                    if newType == "INCOME" {
+                        self.selectedCategory = "Salary"
+                    } else if newType == "EXPENSE" {
+                        self.selectedCategory = "Food & Dining"
+                    }
                 }
-            }
-        } label: {
-            Text(title)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(isSelected ? .white : .white.opacity(0.6))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(
-                    isSelected ? activeColor.opacity(0.85) : Color.clear
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
+            )
+        )
     }
     
     private var amountHeroCard: some View {
-        VStack(spacing: 8) {
-            Text(type == "INCOME" ? "AMOUNT RECEIVED" : "AMOUNT SPENT")
+        let accent = type == "INCOME" ? MoneTheme.emerald : (type == "TRANSFER" ? MoneTheme.cyan : MoneTheme.rose)
+        return VStack(spacing: 8) {
+            Text(type == "INCOME" ? "AMOUNT RECEIVED" : (type == "TRANSFER" ? "AMOUNT TRANSFERRED" : "AMOUNT SPENT"))
                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundColor(.white.opacity(0.5))
-                .tracking(1)
+                .foregroundColor(.white.opacity(0.55))
+                .tracking(1.4)
             
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("₹")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(type == "INCOME" ? MoneTheme.emerald : MoneTheme.rose)
+                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .foregroundColor(accent)
                 
                 TextField("0", text: $amountString)
                     .keyboardType(.numberPad)
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .font(.system(size: 46, weight: .black, design: .rounded))
                     .foregroundColor(.white)
                     .monospacedDigit()
                     .multilineTextAlignment(.leading)
@@ -163,8 +149,9 @@ public struct AddTransactionSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .glassCard(cornerRadius: 24, padding: 20)
+        .spatialGlass(cornerRadius: 26, padding: 22, glow: accent, glowRadius: 14)
     }
+
     
     private var categorySelector: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -289,30 +276,48 @@ public struct AddTransactionSheet: View {
     }
     
     private var logButton: some View {
-        Button {
+        let isEnabled = !amountString.isEmpty && (Double(amountString) ?? 0) > 0
+        let gradientColors = type == "INCOME" ? 
+            [Color(hex: "059669"), Color(hex: "10E599")] : 
+            (type == "TRANSFER" ? [Color(hex: "0284C7"), Color(hex: "00D2FF")] : [Color(hex: "6366F1"), Color(hex: "A855F7"), Color(hex: "FF2E63")])
+        let shadowColor = type == "INCOME" ? MoneTheme.emerald : (type == "TRANSFER" ? MoneTheme.cyan : MoneTheme.indigo)
+        
+        return Button {
             saveTransaction()
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 16, weight: .bold))
-                Text(type == "INCOME" ? "Record Income" : "Record Expense")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 17, weight: .bold))
+                Text(type == "INCOME" ? "RECORD INCOME" : (type == "TRANSFER" ? "RECORD TRANSFER" : "RECORD EXPENSE"))
+                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .tracking(1)
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.vertical, 17)
             .background(
                 LinearGradient(
-                    colors: type == "INCOME" ? [Color(hex: "059669"), Color(hex: "10B981")] : [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                    colors: gradientColors,
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: (type == "INCOME" ? MoneTheme.emerald : MoneTheme.indigo).opacity(0.4), radius: 10, x: 0, y: 5)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.4), Color.white.opacity(0.1)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: shadowColor.opacity(isEnabled ? 0.45 : 0.1), radius: 14, x: 0, y: 6)
         }
-        .disabled(amountString.isEmpty || (Double(amountString) ?? 0) <= 0)
-        .opacity((amountString.isEmpty || (Double(amountString) ?? 0) <= 0) ? 0.5 : 1.0)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1.0 : 0.45)
     }
     
     private func saveTransaction() {

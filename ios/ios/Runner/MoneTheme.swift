@@ -35,22 +35,22 @@ public struct MoneTheme {
     public static let bgCard = Color(hex: "161922")
     
     // Accents
-    public static let emerald = Color(hex: "10B981")
-    public static let rose = Color(hex: "F43F5E")
+    public static let emerald = Color(hex: "10E599")
+    public static let rose = Color(hex: "FF2E63")
     public static let indigo = Color(hex: "6366F1")
-    public static let violet = Color(hex: "8B5CF6")
-    public static let cyan = Color(hex: "06B6D4")
+    public static let violet = Color(hex: "A855F7")
+    public static let cyan = Color(hex: "00D2FF")
     public static let amber = Color(hex: "F59E0B")
     
     // Glass Surface Gradients
     public static let glassGlow = LinearGradient(
-        colors: [Color.white.opacity(0.12), Color.white.opacity(0.03)],
+        colors: [Color.white.opacity(0.16), Color.white.opacity(0.03)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
     public static let heroBalanceGradient = LinearGradient(
-        colors: [Color(hex: "181B26"), Color(hex: "11131C")],
+        colors: [Color(hex: "181C26"), Color(hex: "0F1118")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -77,22 +77,31 @@ public struct MoneHaptics {
     }
 }
 
-// MARK: - Bespoke Glass Card View Modifier
-public struct GlassCardModifier: ViewModifier {
-    public var cornerRadius: CGFloat = 24
-    public var padding: CGFloat = 16
-    public var borderColor: Color = Color.white.opacity(0.14)
+// MARK: - iOS 26 Volumetric Spatial Glass Modifier
+public struct SpatialGlassModifier: ViewModifier {
+    public var cornerRadius: CGFloat = 26
+    public var padding: CGFloat = 18
+    public var glowColor: Color = Color.clear
+    public var glowRadius: CGFloat = 0
+    public var strokeOpacity: Double = 0.22
     
     public func body(content: Content) -> some View {
         content
             .padding(padding)
             .background(
                 ZStack {
+                    if glowRadius > 0 {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .stroke(glowColor, lineWidth: 2)
+                            .blur(radius: glowRadius)
+                            .opacity(0.7)
+                    }
+                    
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(.ultraThinMaterial)
                     
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color(hex: "12141D").opacity(0.65))
+                        .fill(Color(hex: "0E1119").opacity(0.72))
                 }
             )
             .overlay(
@@ -100,8 +109,9 @@ public struct GlassCardModifier: ViewModifier {
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.20),
-                                Color.white.opacity(0.04)
+                                Color.white.opacity(strokeOpacity),
+                                Color.white.opacity(0.08),
+                                Color.white.opacity(0.02)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -109,12 +119,122 @@ public struct GlassCardModifier: ViewModifier {
                         lineWidth: 1
                     )
             )
-            .shadow(color: Color.black.opacity(0.35), radius: 12, x: 0, y: 6)
+            .shadow(color: Color.black.opacity(0.42), radius: 18, x: 0, y: 10)
+            .shadow(color: glowColor.opacity(glowRadius > 0 ? 0.25 : 0), radius: glowRadius, x: 0, y: 4)
     }
 }
 
 public extension View {
     func glassCard(cornerRadius: CGFloat = 24, padding: CGFloat = 16) -> some View {
-        self.modifier(GlassCardModifier(cornerRadius: cornerRadius, padding: padding))
+        self.modifier(SpatialGlassModifier(cornerRadius: cornerRadius, padding: padding))
+    }
+    
+    func spatialGlass(cornerRadius: CGFloat = 26, padding: CGFloat = 18, glow: Color = .clear, glowRadius: CGFloat = 0) -> some View {
+        self.modifier(SpatialGlassModifier(cornerRadius: cornerRadius, padding: padding, glowColor: glow, glowRadius: glowRadius))
     }
 }
+
+// MARK: - iOS 26 Fluid Magnetic Capsule Segmented Control
+public struct FluidSegmentItem<T: Hashable>: Identifiable {
+    public let id: T
+    public let title: String
+    public let icon: String?
+    public let accentColor: Color
+    
+    public init(id: T, title: String, icon: String? = nil, accentColor: Color = MoneTheme.indigo) {
+        self.id = id
+        self.title = title
+        self.icon = icon
+        self.accentColor = accentColor
+    }
+}
+
+public struct FluidSegmentedControl<T: Hashable>: View {
+    public let items: [FluidSegmentItem<T>]
+    @Binding public var selection: T
+    @Namespace private var segmentAnimation
+    
+    public init(items: [FluidSegmentItem<T>], selection: Binding<T>) {
+        self.items = items
+        self._selection = selection
+    }
+    
+    public var body: some View {
+        HStack(spacing: 4) {
+            ForEach(items) { item in
+                let isSelected = selection == item.id
+                Button {
+                    MoneHaptics.impact(.light)
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                        selection = item.id
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if let icon = item.icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        Text(item.title)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.55))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        ZStack {
+                            if isSelected {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                item.accentColor.opacity(0.85),
+                                                item.accentColor.opacity(0.65)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .matchedGeometryEffect(id: "FLUID_ACTIVE_PILL", in: segmentAnimation)
+                                    .shadow(color: item.accentColor.opacity(0.5), radius: 10, x: 0, y: 3)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(
+                                                LinearGradient(
+                                                    colors: [Color.white.opacity(0.40), Color.white.opacity(0.05)],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                ),
+                                                lineWidth: 1
+                                            )
+                                    )
+                            }
+                        }
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(hex: "0B0D14").opacity(0.85))
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.18), Color.white.opacity(0.04)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+    }
+}
+

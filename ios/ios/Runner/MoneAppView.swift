@@ -187,21 +187,21 @@ public struct MoneAppView: View {
                 RoundedRectangle(cornerRadius: 32, style: .continuous)
                     .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .fill(Color(hex: "10121A").opacity(0.85))
+                    .fill(Color(hex: "07090F").opacity(0.88))
             }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .stroke(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
+                        colors: [Color.white.opacity(0.24), Color.white.opacity(0.04)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.45), radius: 20, x: 0, y: 10)
+        .shadow(color: Color.black.opacity(0.55), radius: 24, x: 0, y: 12)
         .padding(.horizontal, 20)
         .padding(.bottom, 16)
     }
@@ -210,20 +210,28 @@ public struct MoneAppView: View {
         let isSelected = selectedTab == index
         return Button {
             MoneHaptics.selection()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
                 selectedTab = index
             }
         } label: {
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: isSelected ? .bold : .medium))
-                    .foregroundColor(isSelected ? MoneTheme.indigo : .white.opacity(0.5))
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.45))
+                    .shadow(color: isSelected ? MoneTheme.indigo.opacity(0.7) : .clear, radius: 8)
+                
                 Text(title)
                     .font(.system(size: 10, weight: isSelected ? .bold : .medium, design: .rounded))
-                    .foregroundColor(isSelected ? .white : .white.opacity(0.5))
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.45))
+                
+                // Active beacon dot with glow
+                Circle()
+                    .fill(isSelected ? MoneTheme.emerald : Color.clear)
+                    .frame(width: 4, height: 4)
+                    .shadow(color: isSelected ? MoneTheme.emerald : .clear, radius: 4)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
         }
     }
     
@@ -239,23 +247,23 @@ public struct MoneAppView: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                            colors: [Color(hex: "00D2FF"), Color(hex: "6366F1"), Color(hex: "FF2E63")],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 48, height: 48)
+                    .frame(width: 52, height: 52)
                     .overlay(
-                        Circle().stroke(Color.white.opacity(0.25), lineWidth: 1.5)
+                        Circle().stroke(Color.white.opacity(0.35), lineWidth: 1.5)
                     )
-                    .shadow(color: MoneTheme.indigo.opacity(0.5), radius: 10, x: 0, y: 4)
+                    .shadow(color: MoneTheme.indigo.opacity(0.6), radius: 14, x: 0, y: 6)
                 
                 Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.white)
             }
         }
-        .offset(y: -4)
+        .offset(y: -6)
         .padding(.horizontal, 6)
     }
 }
@@ -265,6 +273,7 @@ public struct OverviewDashboardView: View {
     @Binding public var isPrivacyActive: Bool
     @ObservedObject private var database = MoneDatabase.shared
     @ObservedObject private var routeManager = MoneRouteManager.shared
+    @State private var selectedFilter: String = "ALL"
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
@@ -313,7 +322,7 @@ public struct OverviewDashboardView: View {
             } label: {
                 Image(systemName: isPrivacyActive ? "eye.slash.fill" : "eye.fill")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.white.opacity(0.85))
                     .padding(10)
                     .background(Color.white.opacity(0.06))
                     .clipShape(Circle())
@@ -323,71 +332,90 @@ public struct OverviewDashboardView: View {
     }
     
     private var heroBalanceCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("NET WORTH")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.5))
-                    .tracking(1.2)
+                HStack(spacing: 6) {
+                    Image(systemName: "wallet.pass.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(MoneTheme.cyan)
+                    Text("NET WORTH")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(1.4)
+                }
                 
                 Spacer()
                 
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     Circle()
                         .fill(MoneTheme.emerald)
                         .frame(width: 6, height: 6)
+                        .shadow(color: MoneTheme.emerald, radius: 4)
                     Text("LIVE")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 10, weight: .black, design: .rounded))
                         .foregroundColor(MoneTheme.emerald)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
                 .background(MoneTheme.emerald.opacity(0.15))
                 .clipShape(Capsule())
+                .overlay(Capsule().stroke(MoneTheme.emerald.opacity(0.3), lineWidth: 1))
             }
             
             // Amount
             if isPrivacyActive {
                 Text("••••••••")
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
             } else {
-                Text(String(format: "₹ %.0f", database.totalBalance))
-                    .font(.system(size: 38, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.7)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("₹")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .foregroundColor(MoneTheme.emerald)
+                    
+                    Text(String(format: "%.0f", database.totalBalance))
+                        .font(.system(size: 44, weight: .black, design: .rounded))
+                        .foregroundColor(.white)
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.65)
+                }
             }
             
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(Color.white.opacity(0.12))
             
             HStack {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: "arrow.down.right.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(MoneTheme.rose)
-                    Text("Today:")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.6))
-                    Text(String(format: "₹ %.0f", database.todaySpent))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Today")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.5))
+                        Text(String(format: "₹ %.0f", database.todaySpent))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
                 }
                 
                 Spacer()
                 
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: "calendar")
-                        .foregroundColor(MoneTheme.indigo)
-                    Text("This Month:")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.6))
-                    Text(String(format: "₹ %.0f", database.monthlySpent))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(MoneTheme.cyan)
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text("This Month")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.5))
+                        Text(String(format: "₹ %.0f", database.monthlySpent))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
                 }
             }
         }
-        .glassCard(cornerRadius: 28, padding: 22)
+        .spatialGlass(cornerRadius: 28, padding: 22, glow: MoneTheme.emerald, glowRadius: 12)
     }
     
     private var budgetBurnRateCard: some View {
@@ -442,7 +470,7 @@ public struct OverviewDashboardView: View {
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: pct > 0.9 ? [Color(hex: "F43F5E"), Color(hex: "EF4444")] : [Color(hex: "06B6D4"), Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                                colors: pct > 0.9 ? [Color(hex: "FF2E63"), Color(hex: "EF4444")] : [Color(hex: "00D2FF"), Color(hex: "6366F1"), Color(hex: "A855F7")],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -452,7 +480,7 @@ public struct OverviewDashboardView: View {
             }
             .frame(height: 8)
         }
-        .glassCard(cornerRadius: 22, padding: 18)
+        .spatialGlass(cornerRadius: 24, padding: 18)
     }
     
     private var quickActionBar: some View {
@@ -496,18 +524,39 @@ public struct OverviewDashboardView: View {
     }
     
     private var recentActivitySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let filteredTxs: [MoneTransaction] = {
+            switch selectedFilter {
+            case "EXPENSE":
+                return database.transactions.filter { $0.isExpense }
+            case "INCOME":
+                return database.transactions.filter { !$0.isExpense }
+            default:
+                return database.transactions
+            }
+        }()
+        
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Recent Activity")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 Spacer()
-                Text("\(database.transactions.count) records")
+                Text("\(filteredTxs.count) records")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.white.opacity(0.45))
             }
             
-            if database.transactions.isEmpty {
+            // iOS 26 Fluid Magnetic Filter
+            FluidSegmentedControl(
+                items: [
+                    FluidSegmentItem(id: "ALL", title: "All", icon: "square.grid.2x2.fill", accentColor: MoneTheme.indigo),
+                    FluidSegmentItem(id: "EXPENSE", title: "Expense", icon: "arrow.down.right", accentColor: MoneTheme.rose),
+                    FluidSegmentItem(id: "INCOME", title: "Income", icon: "arrow.up.left", accentColor: MoneTheme.emerald)
+                ],
+                selection: $selectedFilter
+            )
+            
+            if filteredTxs.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray.fill")
                         .font(.system(size: 32))
@@ -518,10 +567,10 @@ public struct OverviewDashboardView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
-                .glassCard(cornerRadius: 22, padding: 16)
+                .spatialGlass(cornerRadius: 22, padding: 16)
             } else {
                 VStack(spacing: 8) {
-                    ForEach(database.transactions.prefix(15)) { tx in
+                    ForEach(filteredTxs.prefix(15)) { tx in
                         TransactionRowView(tx: tx)
                     }
                 }
@@ -537,15 +586,20 @@ public struct TransactionRowView: View {
     
     public var body: some View {
         HStack(spacing: 12) {
-            // Category Icon Badge
+            // Category Icon Badge with soft halo
             ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(tx.categoryColor.opacity(0.18))
-                    .frame(width: 42, height: 42)
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(tx.categoryColor.opacity(0.20))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(tx.categoryColor.opacity(0.35), lineWidth: 1)
+                    )
                 
                 Image(systemName: tx.categoryIcon)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundColor(tx.categoryColor)
+                    .shadow(color: tx.categoryColor.opacity(0.4), radius: 5)
             }
             
             // Title & Info
@@ -569,24 +623,36 @@ public struct TransactionRowView: View {
             // Amount & Type
             VStack(alignment: .trailing, spacing: 2) {
                 Text(tx.formattedAmount)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(.system(size: 15, weight: .black, design: .rounded))
                     .foregroundColor(tx.isExpense ? .white : MoneTheme.emerald)
                     .monospacedDigit()
                 
                 if let acc = database.accounts.first(where: { $0.id == tx.accountId }) {
                     Text(acc.name)
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.white.opacity(0.45))
                 }
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Color.white.opacity(0.04))
+        .padding(.vertical, 11)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(hex: "0E1119").opacity(0.72))
+            }
+        )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.14), Color.white.opacity(0.02)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
         .contextMenu {
             Button(role: .destructive) {
@@ -614,13 +680,24 @@ public struct AnalyticsTrendsView: View {
                         Text("Analytics & Trends")
                             .font(.system(size: 24, weight: .black, design: .rounded))
                             .foregroundColor(.white)
-                        Text("Spending insights & month-over-month deltas")
+                        Text("Spending trajectory & dynamic month-over-month deltas")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundColor(.white.opacity(0.5))
                     }
                     Spacer()
                 }
                 .padding(.top, 16)
+                
+                // iOS 26 Fluid Timeframe Segmented Control
+                FluidSegmentedControl(
+                    items: [
+                        FluidSegmentItem(id: 0, title: "1 Month", icon: "clock.fill", accentColor: MoneTheme.cyan),
+                        FluidSegmentItem(id: 1, title: "3 Mos", icon: "calendar", accentColor: MoneTheme.indigo),
+                        FluidSegmentItem(id: 2, title: "6 Mos", icon: "chart.bar.fill", accentColor: MoneTheme.violet),
+                        FluidSegmentItem(id: 3, title: "All Time", icon: "infinity", accentColor: MoneTheme.emerald)
+                    ],
+                    selection: $selectedTimeframe
+                )
                 
                 // Lifetime KPI Card
                 lifetimeKPICard
@@ -666,11 +743,19 @@ public struct AnalyticsTrendsView: View {
                 .tracking(0.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(cornerRadius: 18, padding: 14)
+        .spatialGlass(cornerRadius: 18, padding: 14)
     }
     
     private var monthlyTrendChartCard: some View {
         let trends = computeMonthlyTrends()
+        let timeframeTitle: String = {
+            switch selectedTimeframe {
+            case 0: return "Last 30 Days"
+            case 1: return "Past 3 Months"
+            case 2: return "Past 6 Months"
+            default: return "Full History"
+            }
+        }()
         
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -678,9 +763,9 @@ public struct AnalyticsTrendsView: View {
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 Spacer()
-                Text("Last 6 Months")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.5))
+                Text(timeframeTitle)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.cyan)
             }
             
             if #available(iOS 16.0, *), !trends.isEmpty {
@@ -691,7 +776,7 @@ public struct AnalyticsTrendsView: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Color(hex: "06B6D4"), Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                            colors: [Color(hex: "00D2FF"), Color(hex: "6366F1"), Color(hex: "A855F7")],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -701,7 +786,7 @@ public struct AnalyticsTrendsView: View {
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
                         AxisGridLine()
-                            .foregroundStyle(Color.white.opacity(0.1))
+                            .foregroundStyle(Color.white.opacity(0.08))
                         AxisValueLabel {
                             if let intVal = value.as(Double.self) {
                                 Text("₹\(Int(intVal / 1000))k")
@@ -729,7 +814,7 @@ public struct AnalyticsTrendsView: View {
                     .frame(height: 100)
             }
         }
-        .glassCard(cornerRadius: 24, padding: 18)
+        .spatialGlass(cornerRadius: 26, padding: 20, glow: MoneTheme.cyan, glowRadius: 10)
     }
     
     private var categoryBreakdownCard: some View {
@@ -769,7 +854,7 @@ public struct AnalyticsTrendsView: View {
                                     Capsule()
                                         .fill(
                                             LinearGradient(
-                                                colors: [Color(hex: "6366F1"), Color(hex: "06B6D4")],
+                                                colors: [Color(hex: "6366F1"), Color(hex: "00D2FF")],
                                                 startPoint: .leading,
                                                 endPoint: .trailing
                                             )
@@ -783,7 +868,7 @@ public struct AnalyticsTrendsView: View {
                 }
             }
         }
-        .glassCard(cornerRadius: 24, padding: 18)
+        .spatialGlass(cornerRadius: 24, padding: 18)
     }
     
     private func computeMonthlyTrends() -> [MonthlyTrend] {
@@ -799,9 +884,18 @@ public struct AnalyticsTrendsView: View {
             grouped[key, default: 0.0] += t.amount
         }
         
-        let sortedKeys = grouped.keys.sorted().suffix(6)
+        let sortedKeys = grouped.keys.sorted()
+        let sliceCount: Int
+        switch selectedTimeframe {
+        case 0: sliceCount = 1
+        case 1: sliceCount = 3
+        case 2: sliceCount = 6
+        default: sliceCount = max(sortedKeys.count, 1)
+        }
+        
+        let selectedKeys = sortedKeys.suffix(sliceCount)
         var result: [MonthlyTrend] = []
-        for k in sortedKeys {
+        for k in selectedKeys {
             if let date = f.date(from: k) {
                 let label = displayF.string(from: date)
                 result.append(MonthlyTrend(monthKey: k, monthLabel: label, expenseTotal: grouped[k] ?? 0.0))
@@ -831,9 +925,17 @@ public struct AnalyticsTrendsView: View {
 public struct AccountsDirectoryView: View {
     @ObservedObject private var database = MoneDatabase.shared
     @State private var showAddAccountSheet: Bool = false
+    @State private var selectedAccountType: String = "ALL"
     
     public var body: some View {
-        ScrollView(showsIndicators: false) {
+        let filteredAccounts: [MoneAccount] = {
+            if selectedAccountType == "ALL" {
+                return database.accounts
+            }
+            return database.accounts.filter { $0.type.uppercased() == selectedAccountType }
+        }()
+        
+        return ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -850,25 +952,57 @@ public struct AccountsDirectoryView: View {
                         MoneHaptics.impact(.medium)
                         showAddAccountSheet = true
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 5) {
                             Image(systemName: "plus")
                                 .font(.system(size: 12, weight: .bold))
                             Text("Add Bank")
                                 .font(.system(size: 12, weight: .bold, design: .rounded))
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(MoneTheme.indigo)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "6366F1"), Color(hex: "A855F7")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .clipShape(Capsule())
+                        .shadow(color: MoneTheme.indigo.opacity(0.4), radius: 8, y: 3)
                     }
                 }
                 .padding(.top, 16)
                 
+                // iOS 26 Fluid Segmented Account Filter
+                FluidSegmentedControl(
+                    items: [
+                        FluidSegmentItem(id: "ALL", title: "All", icon: "square.grid.2x2.fill", accentColor: MoneTheme.indigo),
+                        FluidSegmentItem(id: "SAVINGS", title: "Savings", icon: "building.columns.fill", accentColor: MoneTheme.cyan),
+                        FluidSegmentItem(id: "CREDIT", title: "Credit", icon: "creditcard.fill", accentColor: MoneTheme.rose),
+                        FluidSegmentItem(id: "WALLET", title: "Wallets", icon: "wallet.pass.fill", accentColor: MoneTheme.emerald)
+                    ],
+                    selection: $selectedAccountType
+                )
+                
                 // Account Cards
-                VStack(spacing: 12) {
-                    ForEach(database.accounts) { acc in
-                        accountCard(acc)
+                if filteredAccounts.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "creditcard")
+                            .font(.system(size: 32))
+                            .foregroundColor(.white.opacity(0.2))
+                        Text("No accounts in this category")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                    .spatialGlass(cornerRadius: 22, padding: 16)
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(filteredAccounts) { acc in
+                            accountCard(acc)
+                        }
                     }
                 }
                 
@@ -903,7 +1037,7 @@ public struct AccountsDirectoryView: View {
             
             Spacer()
             
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 3) {
                 Text(acc.formattedBalance)
                     .font(.system(size: 16, weight: .black, design: .rounded))
                     .foregroundColor(.white)
@@ -911,14 +1045,15 @@ public struct AccountsDirectoryView: View {
                 
                 Text(acc.type)
                     .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.indigo)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(MoneTheme.indigo.opacity(0.15))
+                    .foregroundColor(MoneTheme.cyan)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(MoneTheme.cyan.opacity(0.14))
                     .clipShape(Capsule())
+                    .overlay(Capsule().stroke(MoneTheme.cyan.opacity(0.25), lineWidth: 1))
             }
         }
-        .glassCard(cornerRadius: 22, padding: 16)
+        .spatialGlass(cornerRadius: 22, padding: 16, glow: MoneTheme.indigo.opacity(0.3), glowRadius: 6)
         .contextMenu {
             Button(role: .destructive) {
                 if let id = acc.id {
