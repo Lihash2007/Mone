@@ -395,51 +395,49 @@ public final class MoneDatabase: ObservableObject {
         }
     }
     
-    public func resetToDemoData() {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            self.execute(sql: "DELETE FROM transactions;")
-            self.execute(sql: "DELETE FROM accounts;")
-            
-            let hdfcId = self.insertAccountInternal(MoneAccount(name: "HDFC Salary", bankName: "HDFC Bank", bankCode: "hdfc", accountNumber: "4821", balance: 45200.0, type: "SAVINGS"))
-            let sbiId = self.insertAccountInternal(MoneAccount(name: "SBI Savings", bankName: "State Bank of India", bankCode: "sbi", accountNumber: "9102", balance: 18500.0, type: "SAVINGS"))
-            let iciciId = self.insertAccountInternal(MoneAccount(name: "ICICI Amazon Pay", bankName: "ICICI Bank", bankCode: "icici", accountNumber: "3184", balance: 8400.0, type: "CREDIT"))
-            let cashId = self.insertAccountInternal(MoneAccount(name: "Cash Wallet", bankName: "Cash", bankCode: "cash", accountNumber: "", balance: 2500.0, type: "CASH"))
-            
-            let now = Date()
-            let cal = Calendar.current
-            let demoTxs: [(String, String, Double, String, Int, Int64?)] = [
-                ("Creator payments", "Salary", 5710.20, "INCOME", 0, hdfcId),
-                ("Binance", "Investment", 714.00, "INCOME", 0, sbiId),
-                ("Henrik Jansen", "Freelance", 428.00, "INCOME", -1, hdfcId),
-                ("Multiplex Cinema", "Entertainment", 124.55, "EXPENSE", -1, iciciId),
-                ("Nike Store", "Shopping", 328.96, "EXPENSE", -1, iciciId),
-                ("Matteo Ricci", "Freelance", 548.00, "INCOME", -2, sbiId),
-                ("Megogo Subscription", "Subscription payments", 847.20, "EXPENSE", -2, hdfcId),
-                ("Emilia Costa", "Other", 147.00, "INCOME", -3, hdfcId),
-                ("Swiggy Gourmet", "Food & Dining", 640.00, "EXPENSE", 0, hdfcId),
-                ("Uber Premier", "Transport", 380.00, "EXPENSE", 0, iciciId)
-            ]
-            
-            for (merchant, cat, amt, type, dayOffset, accId) in demoTxs {
-                let txDate = cal.date(byAdding: .day, value: dayOffset, to: now) ?? now
-                _ = self.insertTransactionInternal(MoneTransaction(merchant: merchant, category: cat, amount: amt, type: type, date: txDate, accountId: accId))
-            }
-            
-            self.reloadAllData()
-        }
-    }
-    
     public func exportCSV() -> String {
-        var csv = "ID,Date,Type,Merchant,Category,Amount,Account\n"
-        let f = ISO8601DateFormatter()
+        var csv = "\u{FEFF}ID,Date,Time,Type,Merchant,Category,Amount,Account\r\n"
+        let dateF = DateFormatter()
+        dateF.dateFormat = "yyyy-MM-dd"
+        let timeF = DateFormatter()
+        timeF.dateFormat = "HH:mm:ss"
+        
         for t in transactions {
             let accName = accounts.first(where: { $0.id == t.accountId })?.name ?? "None"
-            let cleanMerchant = t.merchant.replacingOccurrences(of: "\"", with: "\"\"")
-            let cleanCat = t.category.replacingOccurrences(of: "\"", with: "\"\"")
-            csv += "\(t.id ?? 0),\(f.string(from: t.date)),\(t.type),\"\(cleanMerchant)\",\"\(cleanCat)\",\(t.amount),\"\(accName)\"\n"
+            let cleanMerchant = t.merchant
+                .replacingOccurrences(of: "\"", with: "\"\"")
+                .replacingOccurrences(of: "\r\n", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+            let cleanCat = t.category
+                .replacingOccurrences(of: "\"", with: "\"\"")
+                .replacingOccurrences(of: "\r\n", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+            let cleanAcc = accName
+                .replacingOccurrences(of: "\"", with: "\"\"")
+                .replacingOccurrences(of: "\r\n", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+            let dStr = dateF.string(from: t.date)
+            let tStr = timeF.string(from: t.date)
+            let amtStr = String(format: "%.2f", t.amount)
+            csv += "\(t.id ?? 0),\(dStr),\(tStr),\(t.type),\"\(cleanMerchant)\",\"\(cleanCat)\",\(amtStr),\"\(cleanAcc)\"\r\n"
         }
         return csv
+    }
+    
+    public func exportCSVFileURL() -> URL? {
+        let csvContent = exportCSV()
+        let fileDateF = DateFormatter()
+        fileDateF.dateFormat = "yyyyMMdd_HHmmss"
+        let fileName = "Mone_Statement_\(fileDateF.string(from: Date())).csv"
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        
+        do {
+            try csvContent.write(to: tempURL, atomically: true, encoding: .utf8)
+            return tempURL
+        } catch {
+            print("Failed to write CSV file: \(error.localizedDescription)")
+            return nil
+        }
     }
     
     private func columnText(_ stmt: OpaquePointer?, _ index: Int32, default defaultVal: String = "") -> String {

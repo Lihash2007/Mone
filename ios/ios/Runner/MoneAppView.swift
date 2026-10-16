@@ -199,7 +199,7 @@ public struct MoneAppView: View {
     @State private var editingTransaction: MoneTransaction? = nil
     @State private var editingAccount: MoneAccount? = nil
     @State private var showShareSheet: Bool = false
-    @State private var csvToShare: String = ""
+    @State private var csvFileURLToShare: URL? = nil
     
     @Namespace private var dockAnimation
     
@@ -237,7 +237,7 @@ public struct MoneAppView: View {
                         SettingsView(
                             showProfileModal: $showProfileModal,
                             showShareSheet: $showShareSheet,
-                            csvToShare: $csvToShare
+                            csvFileURLToShare: $csvFileURLToShare
                         )
                     default:
                         OverviewDashboardView(
@@ -280,7 +280,7 @@ public struct MoneAppView: View {
                 showAllTransactions: $showAllTransactions,
                 showAddAccountSheet: $showAddAccountSheet,
                 showShareSheet: $showShareSheet,
-                csvToShare: $csvToShare
+                csvFileURLToShare: $csvFileURLToShare
             )
             .presentationDetents([.medium])
         }
@@ -292,7 +292,9 @@ public struct MoneAppView: View {
                 .presentationDetents([.medium])
         }
         .sheet(isPresented: $showShareSheet) {
-            ActivityViewController(activityItems: [csvToShare])
+            if let fileURL = csvFileURLToShare {
+                ActivityViewController(activityItems: [fileURL])
+            }
         }
         .sheet(isPresented: $routeManager.showAccountChoiceSheet) {
             AccountChoiceSheet(
@@ -1449,6 +1451,8 @@ public struct AllTransactionsView: View {
     @State private var searchText: String = ""
     @State private var selectedFilter: String = "ALL"
     @State private var selectedBankFilter: String = "ALL"
+    @State private var showShareSheet: Bool = false
+    @State private var csvFileURLToShare: URL? = nil
     
     public var body: some View {
         NavigationStack {
@@ -1551,6 +1555,24 @@ public struct AllTransactionsView: View {
                     Button("Done") { dismiss() }
                         .foregroundColor(Color(hex: "0284C7"))
                         .font(.system(size: 15, weight: .bold))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        MoneHaptics.impact(.medium)
+                        if let url = database.exportCSVFileURL() {
+                            csvFileURLToShare = url
+                            showShareSheet = true
+                        }
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundColor(Color(hex: "0284C7"))
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                if let fileURL = csvFileURLToShare {
+                    ActivityViewController(activityItems: [fileURL])
                 }
             }
         }
@@ -1951,10 +1973,9 @@ public struct SettingsView: View {
     
     @Binding public var showProfileModal: Bool
     @Binding public var showShareSheet: Bool
-    @Binding public var csvToShare: String
+    @Binding public var csvFileURLToShare: URL?
     
     @State private var budgetString: String = "50000"
-    @State private var showResetAlert: Bool = false
     @State private var showClearAlert: Bool = false
     @State private var showCategoryLimitSheet: Bool = false
     @State private var showManageCategoriesSheet: Bool = false
@@ -1991,7 +2012,7 @@ public struct SettingsView: View {
                 // 5. Apple Shortcuts Recipes
                 shortcutsHubCard
                 
-                // 6. Data Management (Export, Reset, Clear)
+                // 6. Data Management (Export, Clear)
                 dataManagementCard
                 
                 // 7. About Card
@@ -2009,15 +2030,6 @@ public struct SettingsView: View {
         }
         .sheet(isPresented: $showManageCategoriesSheet) {
             ManageCategoriesSheet()
-        }
-        .alert("Reset to Demo Data?", isPresented: $showResetAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Reset", role: .destructive) {
-                MoneHaptics.notification(.success)
-                database.resetToDemoData()
-            }
-        } message: {
-            Text("This will replace current transactions and accounts with realistic sample demo records.")
         }
         .alert("Clear All Transactions?", isPresented: $showClearAlert) {
             Button("Cancel", role: .cancel) {}
@@ -2295,31 +2307,15 @@ public struct SettingsView: View {
             // Export CSV
             Button {
                 MoneHaptics.impact(.medium)
-                csvToShare = database.exportCSV()
-                showShareSheet = true
+                if let url = database.exportCSVFileURL() {
+                    csvFileURLToShare = url
+                    showShareSheet = true
+                }
             } label: {
                 HStack {
                     Image(systemName: "square.and.arrow.up.fill")
                         .foregroundColor(Color(hex: "0284C7"))
                     Text("Export All Transactions (CSV)")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                    Spacer()
-                }
-                .padding(12)
-                .background(MoneTheme.bgCanvas(isDark: isDarkMode))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            
-            // Reset to Demo Data
-            Button {
-                showResetAlert = true
-            } label: {
-                HStack {
-                    Image(systemName: "arrow.counterclockwise.circle.fill")
-                        .foregroundColor(MoneTheme.badgeBlueText)
-                    Text("Reset to Sample Demo Data")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     Spacer()
@@ -2376,7 +2372,7 @@ public struct QuickControlMenuSheet: View {
     @Binding public var showAllTransactions: Bool
     @Binding public var showAddAccountSheet: Bool
     @Binding public var showShareSheet: Bool
-    @Binding public var csvToShare: String
+    @Binding public var csvFileURLToShare: URL?
     
     public var body: some View {
         ZStack {
@@ -2409,8 +2405,12 @@ public struct QuickControlMenuSheet: View {
                     
                     menuRow(icon: "square.and.arrow.up.fill", title: "Export Statement (CSV)", subtitle: "Share transaction history") {
                         dismiss()
-                        csvToShare = database.exportCSV()
-                        showShareSheet = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            if let url = database.exportCSVFileURL() {
+                                csvFileURLToShare = url
+                                showShareSheet = true
+                            }
+                        }
                     }
                     
                     menuRow(icon: "chart.pie.fill", title: "Category Limits", subtitle: "Budgets & category caps") {
@@ -2586,7 +2586,16 @@ public struct ActivityViewController: UIViewControllerRepresentable {
     public var applicationActivities: [UIActivity]? = nil
 
     public func makeUIViewController(context: UIViewControllerRepresentableContext<ActivityViewController>) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        if let popover = controller.popoverPresentationController {
+            popover.sourceView = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first { $0.isKeyWindow }?.rootViewController?.view
+            popover.sourceRect = CGRect(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        return controller
     }
 
     public func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ActivityViewController>) {}
