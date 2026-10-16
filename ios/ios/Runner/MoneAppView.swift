@@ -200,6 +200,7 @@ public struct MoneAppView: View {
     @State private var editingAccount: MoneAccount? = nil
     @State private var showShareSheet: Bool = false
     @State private var csvFileURLToShare: URL? = nil
+    @State private var showManageFamilySheet: Bool = false
     
     @Namespace private var dockAnimation
     
@@ -221,7 +222,8 @@ public struct MoneAppView: View {
                             showProfileModal: $showProfileModal,
                             editingTransaction: $editingTransaction,
                             showAddAccountSheet: $showAddAccountSheet,
-                            editingAccount: $editingAccount
+                            editingAccount: $editingAccount,
+                            showManageFamilySheet: $showManageFamilySheet
                         )
                     case 1:
                         AnalyticsTrendsView(
@@ -239,7 +241,8 @@ public struct MoneAppView: View {
                         SettingsView(
                             showProfileModal: $showProfileModal,
                             showShareSheet: $showShareSheet,
-                            csvFileURLToShare: $csvFileURLToShare
+                            csvFileURLToShare: $csvFileURLToShare,
+                            showManageFamilySheet: $showManageFamilySheet
                         )
                     default:
                         OverviewDashboardView(
@@ -249,7 +252,8 @@ public struct MoneAppView: View {
                             showProfileModal: $showProfileModal,
                             editingTransaction: $editingTransaction,
                             showAddAccountSheet: $showAddAccountSheet,
-                            editingAccount: $editingAccount
+                            editingAccount: $editingAccount,
+                            showManageFamilySheet: $showManageFamilySheet
                         )
                     }
                 }
@@ -278,13 +282,17 @@ public struct MoneAppView: View {
         .sheet(item: $editingAccount) { acc in
             EditAccountSheet(acc: acc)
         }
+        .sheet(isPresented: $showManageFamilySheet) {
+            ManageFamilySheet()
+        }
         .sheet(isPresented: $showMenuDrawer) {
             QuickControlMenuSheet(
                 selectedTab: $selectedTab,
                 showAllTransactions: $showAllTransactions,
                 showAddAccountSheet: $showAddAccountSheet,
                 showShareSheet: $showShareSheet,
-                csvFileURLToShare: $csvFileURLToShare
+                csvFileURLToShare: $csvFileURLToShare,
+                showManageFamilySheet: $showManageFamilySheet
             )
             .presentationDetents([.medium])
         }
@@ -396,6 +404,8 @@ public struct AppleWalletCardView: View {
     public let isFocused: Bool
     public let isDarkMode: Bool
     
+    @ObservedObject private var database = MoneDatabase.shared
+    
     public var body: some View {
         ZStack(alignment: .topLeading) {
             // Card Background Gradient
@@ -435,6 +445,24 @@ public struct AppleWalletCardView: View {
                     }
                     
                     Spacer()
+                    
+                    // Option A: Member Owner Pill
+                    if let mId = account.memberId,
+                       let member = database.familyMembers.first(where: { $0.id == mId }) {
+                        HStack(spacing: 4) {
+                            Text(member.avatarEmoji)
+                                .font(.system(size: 10))
+                            Text(member.name)
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3.5)
+                        .background(Color.white.opacity(0.20))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 0.8))
+                    }
                     
                     // Contactless Wave Symbol
                     Image(systemName: "wave.3.right")
@@ -548,19 +576,34 @@ public struct AppleWalletCardsSection: View {
     
     @Binding public var showAddAccountSheet: Bool
     @Binding public var editingAccount: MoneAccount?
+    public var selectedFamilyMemberId: Int64? = nil
     
     @State private var focusedCardId: Int64? = nil
     @State private var isStackExpanded: Bool = false
+    
+    private var displayedAccounts: [MoneAccount] {
+        if let mId = selectedFamilyMemberId {
+            return database.accounts.filter { $0.memberId == mId }
+        }
+        return database.accounts
+    }
+    
+    private var activeMember: MoneFamilyMember? {
+        if let mId = selectedFamilyMemberId {
+            return database.familyMembers.first(where: { $0.id == mId })
+        }
+        return nil
+    }
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             // Section Header
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Bank Accounts & Cards")
+                    Text(activeMember != nil ? "\(activeMember!.name)'s Bank Cards" : "Bank Accounts & Cards")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                    Text("\(database.accounts.count) Linked • Apple Wallet Stack")
+                    Text(activeMember != nil ? "\(displayedAccounts.count) Cards • \(activeMember!.role) Member" : "\(database.accounts.count) Linked • Apple Wallet Stack")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 }
@@ -569,7 +612,7 @@ public struct AppleWalletCardsSection: View {
                 
                 HStack(spacing: 8) {
                     // Expand / Stack Toggle Button
-                    if database.accounts.count > 1 {
+                    if displayedAccounts.count > 1 {
                         Button {
                             MoneHaptics.impact(.light)
                             withAnimation(.spring(response: 0.42, dampingFraction: 0.74)) {
@@ -608,13 +651,17 @@ public struct AppleWalletCardsSection: View {
                 }
             }
             
-            if database.accounts.isEmpty {
+            if displayedAccounts.isEmpty {
                 // Empty state card
-                emptyWalletCard
+                if let member = activeMember {
+                    emptyMemberCard(member: member)
+                } else {
+                    emptyWalletCard
+                }
             } else if isStackExpanded {
                 // Expanded list of cards
                 VStack(spacing: 14) {
-                    ForEach(database.accounts) { acc in
+                    ForEach(displayedAccounts) { acc in
                         VStack(spacing: 8) {
                             AppleWalletCardView(account: acc, isFocused: true, isDarkMode: isDarkMode)
                                 .onTapGesture {
@@ -634,7 +681,7 @@ public struct AppleWalletCardsSection: View {
     }
     
     private var walletStackContainer: some View {
-        let accounts = database.accounts
+        let accounts = displayedAccounts
         let peekHeight: CGFloat = 58
         let cardHeight: CGFloat = 195
         let totalHeight: CGFloat = {
@@ -750,6 +797,41 @@ public struct AppleWalletCardsSection: View {
         .padding(.vertical, 4)
     }
     
+    private func emptyMemberCard(member: MoneFamilyMember) -> some View {
+        Button {
+            MoneHaptics.impact(.medium)
+            showAddAccountSheet = true
+        } label: {
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(member.accentColor.opacity(0.16))
+                        .frame(width: 52, height: 52)
+                    Text(member.avatarEmoji)
+                        .font(.system(size: 26))
+                }
+                Text("No Bank Accounts Linked for \(member.name)")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                Text("Tap here to assign an HDFC, SBI, ICICI, or Cash Wallet to \(member.name)")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 32)
+            .background(MoneTheme.bgCanvas(isDark: isDarkMode))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
+                    .foregroundColor(member.accentColor.opacity(0.45))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
     private var emptyWalletCard: some View {
         Button {
             MoneHaptics.impact(.medium)
@@ -789,6 +871,7 @@ public struct OverviewDashboardView: View {
     @Binding public var editingTransaction: MoneTransaction?
     @Binding public var showAddAccountSheet: Bool
     @Binding public var editingAccount: MoneAccount?
+    @Binding public var showManageFamilySheet: Bool
     
     @ObservedObject private var database = MoneDatabase.shared
     @ObservedObject private var routeManager = MoneRouteManager.shared
@@ -796,6 +879,7 @@ public struct OverviewDashboardView: View {
     @AppStorage("userName") private var userName: String = "Lihash"
     @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
     @State private var selectedFilter: String = "ALL"
+    @State private var selectedFamilyMemberId: Int64? = nil
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
@@ -807,10 +891,14 @@ public struct OverviewDashboardView: View {
                 // Greeting: "Hi, Lihash!"
                 greetingSection
                 
-                // Apple Wallet Stacked Bank Cards Section (Immediately after "Hi Lihash!")
+                // Option A: Family Switcher Capsule Strip
+                familySwitcherSection
+                
+                // Apple Wallet Stacked Bank Cards Section (Immediately after family switcher)
                 AppleWalletCardsSection(
                     showAddAccountSheet: $showAddAccountSheet,
-                    editingAccount: $editingAccount
+                    editingAccount: $editingAccount,
+                    selectedFamilyMemberId: selectedFamilyMemberId
                 )
                 
                 // "Your financial insights" Headline
@@ -910,6 +998,101 @@ public struct OverviewDashboardView: View {
         }
     }
     
+    // MARK: - Option A: Family Switcher Capsule Strip
+    private var familySwitcherSection: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "All Family" pill
+                let isAllSelected = selectedFamilyMemberId == nil
+                Button {
+                    MoneHaptics.selection()
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        selectedFamilyMemberId = nil
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("👨‍👩‍👧")
+                            .font(.system(size: 13))
+                        Text("All Family")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                        if isAllSelected {
+                            Circle()
+                                .fill(Color(hex: "0284C7"))
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                    .foregroundColor(isAllSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(isAllSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(isDarkMode ? Color.white.opacity(0.1) : Color.black.opacity(0.04), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.25 : 0.04), radius: 4, y: 2)
+                }
+                .buttonStyle(.plain)
+                
+                // Individual family members
+                ForEach(database.familyMembers) { member in
+                    let isSelected = selectedFamilyMemberId == member.id
+                    Button {
+                        MoneHaptics.selection()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            selectedFamilyMemberId = member.id
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(member.avatarEmoji)
+                                .font(.system(size: 13))
+                            Text(member.name)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                            Text(member.role)
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundColor(isSelected ? (isDarkMode ? Color.black.opacity(0.6) : Color.white.opacity(0.8)) : member.accentColor)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(isSelected ? Color.white.opacity(0.25) : member.accentColor.opacity(0.14))
+                                .clipShape(Capsule())
+                        }
+                        .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(isDarkMode ? Color.white.opacity(0.1) : Color.black.opacity(0.04), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(isDarkMode ? 0.25 : 0.04), radius: 4, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                // Manage Family button
+                Button {
+                    MoneHaptics.impact(.light)
+                    showManageFamilySheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Manage")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(Color(hex: "0284C7"))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(MoneTheme.badgeBlueBg)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 2)
+        }
+    }
+    
     private var financialInsightsHeadline: some View {
         Text("Your financial\ninsights")
             .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -919,16 +1102,49 @@ public struct OverviewDashboardView: View {
     }
     
     private var dualKpiCards: some View {
-        let budget = max(database.totalMonthlyBudget, 1000.0)
-        let spent = database.monthlySpent
-        let isOverBudget = spent > budget
-        let unspent = max(budget - spent, 0.0)
+        let selectedMember = selectedFamilyMemberId != nil ? database.familyMembers.first(where: { $0.id == selectedFamilyMemberId }) : nil
+        let memberAccounts = selectedMember != nil ? database.accounts.filter { $0.memberId == selectedMember!.id } : database.accounts
+        let memberAccountIds = Set(memberAccounts.compactMap { $0.id })
+        
+        let now = Date()
         let calendar = Calendar.current
-        let range = calendar.range(of: .day, in: .month, for: Date())?.count ?? 30
-        let day = calendar.component(.day, from: Date())
+        let currentMonth = calendar.component(.month, from: now)
+        let currentYear = calendar.component(.year, from: now)
+        let range = calendar.range(of: .day, in: .month, for: now)?.count ?? 30
+        let day = calendar.component(.day, from: now)
         let daysLeft = max(range - day + 1, 1)
+        
+        let (totalBal, monthlySpent, monthlyIncome): (Double, Double, Double) = {
+            if let member = selectedMember {
+                let bal = memberAccounts.reduce(0.0) { $0 + ($1.includeInTotal ? $1.balance : 0.0) }
+                var spent: Double = 0.0
+                var income: Double = 0.0
+                for tx in database.transactions {
+                    let tMonth = calendar.component(.month, from: tx.date)
+                    let tYear = calendar.component(.year, from: tx.date)
+                    guard tMonth == currentMonth && tYear == currentYear else { continue }
+                    
+                    let belongsToMember = (tx.memberId == member.id) || (tx.accountId != nil && memberAccountIds.contains(tx.accountId!))
+                    if belongsToMember {
+                        if tx.type == "EXPENSE" {
+                            spent += tx.amount
+                        } else if tx.type == "INCOME" {
+                            income += tx.amount
+                        }
+                    }
+                }
+                return (bal, spent, income)
+            } else {
+                return (database.totalBalance, database.monthlySpent, database.monthlyIncome)
+            }
+        }()
+        
+        let netFlow = monthlyIncome - monthlySpent
+        let hasAllowance = (selectedMember?.monthlyAllowance ?? 0) > 0
+        let budgetTarget = hasAllowance ? selectedMember!.monthlyAllowance : max(database.totalMonthlyBudget, 1000.0)
+        let isOverBudget = monthlySpent > budgetTarget
+        let unspent = max(budgetTarget - monthlySpent, 0.0)
         let dailySafeSpend = unspent / Double(daysLeft)
-        let netFlow = database.monthlyIncome - database.monthlySpent
         
         return HStack(spacing: 12) {
             // Balance Card
@@ -947,32 +1163,38 @@ public struct OverviewDashboardView: View {
                     .clipShape(Capsule())
                     
                     Spacer()
+                    
+                    if let member = selectedMember {
+                        Text(member.avatarEmoji)
+                            .font(.system(size: 14))
+                    }
                 }
                 
-                Text("Total Balance")
+                Text(selectedMember != nil ? "\(selectedMember!.name)'s Balance" : "Total Balance")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    .lineLimit(1)
                 
-                Text(String(format: "₹%.2f", database.totalBalance))
+                Text(String(format: "₹%.2f", totalBal))
                     .font(.system(size: 20, weight: .black, design: .rounded))
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
                 
-                Text("\(database.accounts.count) linked accounts")
+                Text("\(memberAccounts.count) linked accounts")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
             }
             .whiteCard(cornerRadius: 22, padding: 14)
             
-            // Remaining Budget Card
+            // Remaining Budget / Allowance Card
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    let pctLeft = Int(round((unspent / budget) * 100))
+                    let pctLeft = Int(round((unspent / budgetTarget) * 100))
                     HStack(spacing: 3) {
                         Image(systemName: isOverBudget ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
                             .font(.system(size: 8, weight: .black))
-                        Text(isOverBudget ? "Over Budget" : "\(pctLeft)% Left")
+                        Text(isOverBudget ? (hasAllowance ? "Allowance Over" : "Over Budget") : "\(pctLeft)% Left")
                             .font(.system(size: 10, weight: .black, design: .rounded))
                     }
                     .foregroundColor(isOverBudget ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
@@ -984,17 +1206,18 @@ public struct OverviewDashboardView: View {
                     Spacer()
                 }
                 
-                Text(isOverBudget ? "Budget Exceeded" : "Remaining Budget")
+                Text(hasAllowance ? (isOverBudget ? "Allowance Exceeded" : "Remaining Allowance") : (isOverBudget ? "Budget Exceeded" : "Remaining Budget"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    .lineLimit(1)
                 
-                Text(String(format: "₹%.2f", isOverBudget ? (spent - budget) : unspent))
+                Text(String(format: "₹%.2f", isOverBudget ? (monthlySpent - budgetTarget) : unspent))
                     .font(.system(size: 20, weight: .black, design: .rounded))
                     .foregroundColor(isOverBudget ? MoneTheme.badgeRedText : MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
                 
-                Text(isOverBudget ? "₹\(Int(round(spent))) spent of ₹\(Int(round(budget)))" : "Safe: ₹\(Int(round(dailySafeSpend)))/day (\(daysLeft)d left)")
+                Text(isOverBudget ? "₹\(Int(round(monthlySpent))) spent of ₹\(Int(round(budgetTarget)))" : "Safe: ₹\(Int(round(dailySafeSpend)))/day (\(daysLeft)d left)")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
                     .lineLimit(1)
@@ -1198,16 +1421,28 @@ public struct OverviewDashboardView: View {
     }
     
     private var recentActivitySection: some View {
+        let baseList: [MoneTransaction] = {
+            if let mId = selectedFamilyMemberId {
+                let memberAccIds = Set(database.accounts.filter { $0.memberId == mId }.compactMap { $0.id })
+                return database.transactions.filter { tx in
+                    if tx.memberId == mId { return true }
+                    if let aId = tx.accountId, memberAccIds.contains(aId) { return true }
+                    return false
+                }
+            }
+            return database.transactions
+        }()
+        
         let filteredTxs: [MoneTransaction] = {
             switch selectedFilter {
             case "EXPENSE":
-                return database.transactions.filter { $0.type == "EXPENSE" }
+                return baseList.filter { $0.type == "EXPENSE" }
             case "INCOME":
-                return database.transactions.filter { $0.type == "INCOME" }
+                return baseList.filter { $0.type == "INCOME" }
             case "TRANSFER":
-                return database.transactions.filter { $0.isTransfer }
+                return baseList.filter { $0.isTransfer }
             default:
-                return database.transactions
+                return baseList
             }
         }()
         
@@ -1312,6 +1547,12 @@ public struct TransactionRowView: View {
                         Text(tx.formattedDateStamp)
                         Text("•")
                         Text(tx.formattedTime)
+                        if let memberId = tx.memberId ?? database.accounts.first(where: { $0.id == tx.accountId })?.memberId,
+                           let member = database.familyMembers.first(where: { $0.id == memberId }) {
+                            Text("•")
+                            Text("\(member.avatarEmoji) \(member.name)")
+                                .foregroundColor(member.accentColor)
+                        }
                     }
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
@@ -2250,6 +2491,7 @@ public struct AllTransactionsView: View {
     @State private var searchText: String = ""
     @State private var selectedFilter: String = "ALL"
     @State private var selectedBankFilter: String = "ALL"
+    @State private var selectedMemberFilter: String = "ALL"
     @State private var showShareSheet: Bool = false
     @State private var csvFileURLToShare: URL? = nil
     
@@ -2292,6 +2534,19 @@ public struct AllTransactionsView: View {
                         selection: $selectedFilter
                     )
                     .padding(.horizontal, 20)
+                    
+                    // Family Member Filter Chips
+                    if database.familyMembers.count > 1 {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                memberFilterChip(title: "👨‍👩‍👧 All Family", id: "ALL")
+                                ForEach(database.familyMembers) { member in
+                                    memberFilterChip(title: "\(member.avatarEmoji) \(member.name)", id: String(member.id ?? 0))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
                     
                     // Bank Filter Chips
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -2401,6 +2656,24 @@ public struct AllTransactionsView: View {
         .buttonStyle(.plain)
     }
     
+    private func memberFilterChip(title: String, id: String) -> some View {
+        let isSelected = selectedMemberFilter == id
+        return Button {
+            MoneHaptics.selection()
+            selectedMemberFilter = id
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+    
     private var filteredTransactions: [MoneTransaction] {
         database.transactions.filter { tx in
             // Search filter
@@ -2415,6 +2688,12 @@ public struct AllTransactionsView: View {
             if selectedFilter == "EXPENSE" && tx.type != "EXPENSE" { return false }
             if selectedFilter == "INCOME" && tx.type != "INCOME" { return false }
             if selectedFilter == "TRANSFER" && !tx.isTransfer { return false }
+            // Member filter
+            if selectedMemberFilter != "ALL", let mId = Int64(selectedMemberFilter) {
+                let memberAccIds = Set(database.accounts.filter { $0.memberId == mId }.compactMap { $0.id })
+                let matchesMember = (tx.memberId == mId) || (tx.accountId != nil && memberAccIds.contains(tx.accountId!))
+                if !matchesMember { return false }
+            }
             // Bank filter
             if selectedBankFilter != "ALL" {
                 if String(tx.accountId ?? -1) != selectedBankFilter { return false }
@@ -2536,6 +2815,11 @@ public struct AccountsDirectoryView: View {
                             Text("•")
                             Text(acc.maskedNumber)
                         }
+                        if let mId = acc.memberId, let member = database.familyMembers.first(where: { $0.id == mId }) {
+                            Text("•")
+                            Text("\(member.avatarEmoji) \(member.name)")
+                                .foregroundColor(member.accentColor)
+                        }
                     }
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
@@ -2593,6 +2877,7 @@ public struct EditAccountSheet: View {
     @State private var balanceString: String = ""
     @State private var selectedBank: BankInfo = IndianBankDirectory.hdfc
     @State private var type: String = "SAVINGS"
+    @State private var selectedMemberId: Int64? = nil
     @State private var showDeleteConfirmation: Bool = false
     
     public init(acc: MoneAccount) {
@@ -2608,6 +2893,9 @@ public struct EditAccountSheet: View {
                     VStack(spacing: 18) {
                         // Bank Selection
                         bankSelector
+                        
+                        // Card Owner (Family Member)
+                        memberSelector
                         
                         // Account Nickname
                         inputField(title: "Account Nickname", text: $name, placeholder: "e.g. Salary Account")
@@ -2647,6 +2935,7 @@ public struct EditAccountSheet: View {
                             updated.accountNumber = accountNumber
                             updated.balance = bal
                             updated.type = type
+                            updated.memberId = selectedMemberId
                             
                             database.updateAccount(updated)
                             MoneHaptics.notification(.success)
@@ -2709,8 +2998,48 @@ public struct EditAccountSheet: View {
                 accountNumber = acc.accountNumber
                 balanceString = String(format: "%.0f", acc.balance)
                 type = acc.type
+                selectedMemberId = acc.memberId ?? database.familyMembers.first?.id
                 if let b = IndianBankDirectory.allBanks.first(where: { $0.id == acc.bankCode }) {
                     selectedBank = b
+                }
+            }
+        }
+    }
+    
+    private var memberSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Card Owner (Family Member)")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(database.familyMembers) { member in
+                        let isSelected = selectedMemberId == member.id
+                        Button {
+                            MoneHaptics.selection()
+                            selectedMemberId = member.id
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(member.avatarEmoji)
+                                    .font(.system(size: 14))
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(member.name)
+                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    Text(member.role)
+                                        .font(.system(size: 9, weight: .medium, design: .rounded))
+                                        .foregroundColor(isSelected ? (isDarkMode ? Color.black.opacity(0.6) : Color.white.opacity(0.8)) : MoneTheme.textSecondary(isDark: isDarkMode))
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                            .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
@@ -2775,6 +3104,7 @@ public struct SettingsView: View {
     @Binding public var showProfileModal: Bool
     @Binding public var showShareSheet: Bool
     @Binding public var csvFileURLToShare: URL?
+    @Binding public var showManageFamilySheet: Bool
     
     @State private var budgetString: String = "50000"
     @State private var showClearAlert: Bool = false
@@ -2801,7 +3131,10 @@ public struct SettingsView: View {
                 // 1. Profile & Avatar Card
                 profileCard
                 
-                // 2. Appearance Card (Dark / Light)
+                // 2. Family & Household Hub (Option A Multi-Member)
+                familyManagementCard
+                
+                // 3. Appearance Card (Dark / Light)
                 appearanceCard
                 
                 // 3. Monthly Budget Control
@@ -2882,6 +3215,41 @@ public struct SettingsView: View {
                     .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
             }
             .whiteCard(cornerRadius: 22, padding: 16)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var familyManagementCard: some View {
+        Button {
+            MoneHaptics.impact(.light)
+            showManageFamilySheet = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "0284C7").opacity(0.14))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "person.2.fill")
+                        .foregroundColor(Color(hex: "0284C7"))
+                        .font(.system(size: 17, weight: .bold))
+                }
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Family & Household")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text("\(database.familyMembers.count) Members • Allowances & Linked Cards")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+            }
+            .whiteCard(cornerRadius: 20, padding: 16)
         }
         .buttonStyle(.plain)
     }
@@ -3174,6 +3542,7 @@ public struct QuickControlMenuSheet: View {
     @Binding public var showAddAccountSheet: Bool
     @Binding public var showShareSheet: Bool
     @Binding public var csvFileURLToShare: URL?
+    @Binding public var showManageFamilySheet: Bool
     
     public var body: some View {
         ZStack {
@@ -3190,6 +3559,11 @@ public struct QuickControlMenuSheet: View {
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 
                 VStack(spacing: 10) {
+                    menuRow(icon: "person.2.fill", title: "Family & Household", subtitle: "Multi-member accounts & allowances") {
+                        dismiss()
+                        showManageFamilySheet = true
+                    }
+                    
                     menuRow(icon: "list.bullet.rectangle.portrait.fill", title: "All Transactions", subtitle: "Search, filter & manage history") {
                         dismiss()
                         showAllTransactions = true
@@ -3519,6 +3893,7 @@ public struct AddAccountSheet: View {
     @State private var balanceString: String = ""
     @State private var selectedBank: BankInfo = IndianBankDirectory.hdfc
     @State private var type: String = "SAVINGS"
+    @State private var selectedMemberId: Int64? = nil
     
     public var body: some View {
         NavigationStack {
@@ -3528,6 +3903,9 @@ public struct AddAccountSheet: View {
                 ScrollView {
                     VStack(spacing: 18) {
                         bankSelector
+                        
+                        // Card Owner (Family Member)
+                        memberSelector
                         
                         inputField(title: "Account Nickname", text: $name, placeholder: "\(selectedBank.shortName) Primary")
                         
@@ -3562,7 +3940,8 @@ public struct AddAccountSheet: View {
                                 bankCode: selectedBank.id,
                                 accountNumber: accountNumber,
                                 balance: bal,
-                                type: type
+                                type: type,
+                                memberId: selectedMemberId
                             ))
                             MoneHaptics.notification(.success)
                             dismiss()
@@ -3587,6 +3966,50 @@ public struct AddAccountSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                         .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+            }
+            .onAppear {
+                if selectedMemberId == nil {
+                    selectedMemberId = database.familyMembers.first?.id
+                }
+            }
+        }
+    }
+    
+    private var memberSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Card Owner (Family Member)")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(database.familyMembers) { member in
+                        let isSelected = selectedMemberId == member.id
+                        Button {
+                            MoneHaptics.selection()
+                            selectedMemberId = member.id
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(member.avatarEmoji)
+                                    .font(.system(size: 14))
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(member.name)
+                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    Text(member.role)
+                                        .font(.system(size: 9, weight: .medium, design: .rounded))
+                                        .foregroundColor(isSelected ? (isDarkMode ? Color.black.opacity(0.6) : Color.white.opacity(0.8)) : MoneTheme.textSecondary(isDark: isDarkMode))
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                            .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
@@ -3946,6 +4369,573 @@ public struct ManageCategoriesSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Manage Family Sheet (Option A Household Multi-Member Architecture)
+public struct ManageFamilySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    @State private var editingMember: MoneFamilyMember? = nil
+    @State private var showAddMemberModal: Bool = false
+    @State private var memberToDelete: MoneFamilyMember? = nil
+    
+    public init() {}
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // Household Overview Card
+                        householdSummaryCard
+                        
+                        // Family Members Section Header
+                        HStack {
+                            Text("Family Members (\(database.familyMembers.count))")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            
+                            Spacer()
+                            
+                            Button {
+                                MoneHaptics.impact(.medium)
+                                showAddMemberModal = true
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 11, weight: .bold))
+                                    Text("Add Member")
+                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                }
+                                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.top, 4)
+                        
+                        // Family Members List
+                        VStack(spacing: 12) {
+                            ForEach(database.familyMembers) { member in
+                                memberRow(member)
+                            }
+                        }
+                        
+                        // Information Banner
+                        infoBanner
+                        
+                        Spacer(minLength: 40)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                }
+            }
+            .navigationTitle("Family & Household")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "0284C7"))
+                }
+            }
+            .sheet(isPresented: $showAddMemberModal) {
+                EditFamilyMemberModal(member: nil)
+            }
+            .sheet(item: $editingMember) { member in
+                EditFamilyMemberModal(member: member)
+            }
+            .alert("Delete Family Member?", isPresented: Binding(
+                get: { memberToDelete != nil },
+                set: { if !$0 { memberToDelete = nil } }
+            )) {
+                Button("Cancel", role: .cancel) { memberToDelete = nil }
+                Button("Delete", role: .destructive) {
+                    if let m = memberToDelete, let id = m.id {
+                        MoneHaptics.notification(.warning)
+                        database.deleteFamilyMember(id: id)
+                        memberToDelete = nil
+                    }
+                }
+            } message: {
+                Text("Their accounts and transactions will be unassigned but preserved in your app.")
+            }
+        }
+    }
+    
+    private var householdSummaryCard: some View {
+        let totalAllowance = database.familyMembers.reduce(0.0) { $0 + $1.monthlyAllowance }
+        
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: "0284C7").opacity(0.15))
+                            .frame(width: 38, height: 38)
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(Color(hex: "0284C7"))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Household Hub")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("\(database.familyMembers.count) Active Members • Option A Local")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
+                }
+                
+                Spacer()
+            }
+            
+            Divider()
+                .background(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
+            
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Total Family Balance")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    Text(String(format: "₹%.2f", database.totalBalance))
+                        .font(.system(size: 18, weight: .black, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        .monospacedDigit()
+                }
+                
+                Spacer()
+                
+                if totalAllowance > 0 {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("Monthly Allowances")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        Text(String(format: "₹%.0f/mo", totalAllowance))
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                            .foregroundColor(Color(hex: "0284C7"))
+                            .monospacedDigit()
+                    }
+                }
+            }
+        }
+        .whiteCard(cornerRadius: 22, padding: 18)
+    }
+    
+    private func memberRow(_ member: MoneFamilyMember) -> some View {
+        let memberAccounts = database.accounts.filter { $0.memberId == member.id }
+        let memberBalance = memberAccounts.reduce(0.0) { $0 + $1.balance }
+        
+        let now = Date()
+        let calendar = Calendar.current
+        let currentMonth = calendar.component(.month, from: now)
+        let currentYear = calendar.component(.year, from: now)
+        let memberAccIds = Set(memberAccounts.compactMap { $0.id })
+        
+        var memberMonthSpent: Double = 0.0
+        for tx in database.transactions {
+            let tMonth = calendar.component(.month, from: tx.date)
+            let tYear = calendar.component(.year, from: tx.date)
+            guard tMonth == currentMonth && tYear == currentYear else { continue }
+            if tx.type == "EXPENSE" {
+                if tx.memberId == member.id || (tx.accountId != nil && memberAccIds.contains(tx.accountId!)) {
+                    memberMonthSpent += tx.amount
+                }
+            }
+        }
+        
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(member.accentColor.opacity(0.18))
+                        .frame(width: 46, height: 46)
+                    Text(member.avatarEmoji)
+                        .font(.system(size: 22))
+                }
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(member.name)
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        
+                        Text(member.role)
+                            .font(.system(size: 9, weight: .black, design: .rounded))
+                            .foregroundColor(member.accentColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(member.accentColor.opacity(0.14))
+                            .clipShape(Capsule())
+                    }
+                    
+                    Text("\(memberAccounts.count) Linked Cards • ₹\(String(format: "%.2f", memberBalance))")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 6) {
+                    Button {
+                        MoneHaptics.selection()
+                        editingMember = member
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            .frame(width: 32, height: 32)
+                            .background(isDarkMode ? Color(hex: "1F2737") : Color(hex: "F3F6FA"))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    if database.familyMembers.count > 1 {
+                        Button {
+                            MoneHaptics.notification(.warning)
+                            memberToDelete = member
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(MoneTheme.badgeRedText)
+                                .frame(width: 32, height: 32)
+                                .background(MoneTheme.badgeRedBg)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            
+            if member.monthlyAllowance > 0 {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Monthly Allowance")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        
+                        Spacer()
+                        
+                        let unspent = max(member.monthlyAllowance - memberMonthSpent, 0)
+                        Text("₹\(Int(memberMonthSpent)) / ₹\(Int(member.monthlyAllowance)) (₹\(Int(unspent)) left)")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(memberMonthSpent > member.monthlyAllowance ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
+                    }
+                    
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
+                                .frame(height: 6)
+                            
+                            let progress = min(CGFloat(memberMonthSpent / member.monthlyAllowance), 1.0)
+                            Capsule()
+                                .fill(memberMonthSpent > member.monthlyAllowance ? MoneTheme.badgeRedText : member.accentColor)
+                                .frame(width: max(geo.size.width * progress, 6), height: 6)
+                        }
+                    }
+                    .frame(height: 6)
+                }
+                .padding(.top, 4)
+            }
+        }
+        .whiteCard(cornerRadius: 20, padding: 16)
+    }
+    
+    private var infoBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "shield.lefthalf.filled")
+                .font(.system(size: 16))
+                .foregroundColor(Color(hex: "0284C7"))
+                .padding(.top, 2)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Option A: Household Multi-Member Architecture")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                Text("All family accounts, allowances, and transactions are stored 100% locally on device in SQLite with zero cloud dependencies and zero subscription fees.")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            }
+        }
+        .padding(14)
+        .background(MoneTheme.badgeBlueBg)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+// MARK: - Edit / Add Family Member Modal
+public struct EditFamilyMemberModal: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    public let member: MoneFamilyMember?
+    
+    @State private var name: String = ""
+    @State private var role: String = "Spouse"
+    @State private var avatarEmoji: String = "👩"
+    @State private var colorHex: String = "0284C7"
+    @State private var allowanceString: String = ""
+    
+    private let rolePresets = ["Primary", "Spouse", "Child", "Parent", "Sibling", "Other"]
+    private let emojiPresets = ["👤", "👩", "👨", "👧", "👦", "👵", "👴", "🐱", "🐶", "💼", "🎓", "👑", "⭐", "🚀"]
+    private let colorPresets = [
+        "0284C7", // Sky Blue
+        "10B981", // Emerald
+        "6366F1", // Indigo
+        "EC4899", // Rose Pink
+        "F59E0B", // Amber Gold
+        "8B5CF6", // Purple
+        "14B8A6", // Teal
+        "EF4444"  // Coral Red
+    ]
+    
+    public init(member: MoneFamilyMember?) {
+        self.member = member
+    }
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Live Avatar Preview
+                        VStack(spacing: 8) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color(hex: colorHex).opacity(0.18))
+                                    .frame(width: 76, height: 76)
+                                Circle()
+                                    .stroke(Color(hex: colorHex), lineWidth: 2.5)
+                                    .frame(width: 76, height: 76)
+                                Text(avatarEmoji)
+                                    .font(.system(size: 38))
+                            }
+                            .shadow(color: Color(hex: colorHex).opacity(0.25), radius: 10, y: 4)
+                            
+                            Text(name.isEmpty ? "Member Name" : name)
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            
+                            Text(role)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(Color(hex: colorHex))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color(hex: colorHex).opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.top, 10)
+                        
+                        // Name Input
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Member Name")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            
+                            TextField("e.g. Sarah, Dad, Emma", text: $name)
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                .padding(14)
+                                .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+                        }
+                        
+                        // Role Picker Strip
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Household Role")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(rolePresets, id: \.self) { r in
+                                        let isSelected = role == r
+                                        Button {
+                                            MoneHaptics.selection()
+                                            role = r
+                                            if member == nil {
+                                                if r == "Spouse" { avatarEmoji = "👩" }
+                                                else if r == "Child" { avatarEmoji = "👧" }
+                                                else if r == "Parent" { avatarEmoji = "👵" }
+                                            }
+                                        } label: {
+                                            Text(r)
+                                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 8)
+                                                .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                                                .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                                                .clipShape(Capsule())
+                                                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Emoji Avatar Presets
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Avatar Icon")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(emojiPresets, id: \.self) { em in
+                                        let isSelected = avatarEmoji == em
+                                        Button {
+                                            MoneHaptics.selection()
+                                            avatarEmoji = em
+                                        } label: {
+                                            Text(em)
+                                                .font(.system(size: 24))
+                                                .frame(width: 44, height: 44)
+                                                .background(isSelected ? Color(hex: colorHex).opacity(0.2) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                                                .clipShape(Circle())
+                                                .overlay(Circle().stroke(isSelected ? Color(hex: colorHex) : Color.clear, lineWidth: 2))
+                                                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Color Swatch Picker
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Theme Color")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            
+                            HStack(spacing: 12) {
+                                ForEach(colorPresets, id: \.self) { c in
+                                    let isSelected = colorHex == c
+                                    Button {
+                                        MoneHaptics.selection()
+                                        colorHex = c
+                                    } label: {
+                                        Circle()
+                                            .fill(Color(hex: c))
+                                            .frame(width: 32, height: 32)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
+                                            )
+                                            .shadow(color: Color(hex: c).opacity(0.4), radius: isSelected ? 6 : 2, y: 2)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        
+                        // Monthly Allowance Input
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Monthly Allowance")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                Spacer()
+                                Text("Optional • 0 for none")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+                            }
+                            
+                            HStack {
+                                Text("₹")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                TextField("e.g. 10000", text: $allowanceString)
+                                    .keyboardType(.numberPad)
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            }
+                            .padding(14)
+                            .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+                        }
+                        
+                        // Action Button
+                        Button {
+                            saveMember()
+                        } label: {
+                            Text(member == nil ? "Add Family Member" : "Save Changes")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.25), radius: 8, y: 3)
+                        }
+                        .padding(.top, 10)
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle(member == nil ? "New Member" : "Edit Member")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+            }
+            .onAppear {
+                if let m = member {
+                    name = m.name
+                    role = m.role
+                    avatarEmoji = m.avatarEmoji
+                    colorHex = m.colorHex
+                    if m.monthlyAllowance > 0 {
+                        allowanceString = String(format: "%.0f", m.monthlyAllowance)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func saveMember() {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return }
+        let allowance = Double(allowanceString) ?? 0.0
+        
+        if var existing = member {
+            existing.name = cleanName
+            existing.role = role
+            existing.avatarEmoji = avatarEmoji
+            existing.colorHex = colorHex
+            existing.monthlyAllowance = allowance
+            database.updateFamilyMember(existing)
+        } else {
+            let newMember = MoneFamilyMember(
+                name: cleanName,
+                role: role,
+                avatarEmoji: avatarEmoji,
+                colorHex: colorHex,
+                monthlyAllowance: allowance
+            )
+            database.addFamilyMember(newMember)
+        }
+        MoneHaptics.notification(.success)
+        dismiss()
     }
 }
 

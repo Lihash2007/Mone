@@ -738,7 +738,8 @@ public struct AddTransactionSheet: View {
                 amount: amt,
                 type: "TRANSFER_OUT",
                 date: date,
-                accountId: fromId
+                accountId: fromId,
+                memberId: selectedAccount?.memberId
             ))
             database.addTransaction(MoneTransaction(
                 merchant: "Transfer from \(selectedAccount?.name ?? "Account")",
@@ -746,7 +747,8 @@ public struct AddTransactionSheet: View {
                 amount: amt,
                 type: "TRANSFER_IN",
                 date: date,
-                accountId: toId
+                accountId: toId,
+                memberId: targetAccount?.memberId
             ))
         } else {
             let tx = MoneTransaction(
@@ -755,7 +757,8 @@ public struct AddTransactionSheet: View {
                 amount: amt,
                 type: type,
                 date: date,
-                accountId: selectedAccountId
+                accountId: selectedAccountId,
+                memberId: selectedAccount?.memberId
             )
             database.addTransaction(tx)
         }
@@ -1563,7 +1566,8 @@ public struct EditTransactionSheet: View {
             amount: amt,
             type: type,
             date: date,
-            accountId: selectedAccountId
+            accountId: selectedAccountId,
+            memberId: tx.memberId ?? selectedAccount?.memberId
         )
         
         let bankId = selectedAccount?.bankInfo.id

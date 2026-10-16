@@ -11,6 +11,7 @@ public struct MoneTransaction: Identifiable, Hashable {
     public var date: Date
     public var goalId: Int64?
     public var accountId: Int64?
+    public var memberId: Int64?
     public var needsReview: Bool
     
     public init(
@@ -22,6 +23,7 @@ public struct MoneTransaction: Identifiable, Hashable {
         date: Date = Date(),
         goalId: Int64? = nil,
         accountId: Int64? = nil,
+        memberId: Int64? = nil,
         needsReview: Bool = false
     ) {
         self.id = id
@@ -32,6 +34,7 @@ public struct MoneTransaction: Identifiable, Hashable {
         self.date = date
         self.goalId = goalId
         self.accountId = accountId
+        self.memberId = memberId
         self.needsReview = needsReview
     }
     
@@ -108,6 +111,7 @@ public struct MoneAccount: Identifiable, Hashable {
     public var balance: Double
     public var type: String
     public var includeInTotal: Bool
+    public var memberId: Int64?
     
     public init(
         id: Int64? = nil,
@@ -117,7 +121,8 @@ public struct MoneAccount: Identifiable, Hashable {
         accountNumber: String = "",
         balance: Double = 0.0,
         type: String = "SAVINGS",
-        includeInTotal: Bool = true
+        includeInTotal: Bool = true,
+        memberId: Int64? = nil
     ) {
         self.id = id
         self.name = name
@@ -127,6 +132,7 @@ public struct MoneAccount: Identifiable, Hashable {
         self.balance = balance
         self.type = type
         self.includeInTotal = includeInTotal
+        self.memberId = memberId
     }
     
     public var bankInfo: BankInfo {
@@ -225,5 +231,35 @@ public struct MonthlyTrend: Identifiable, Hashable {
         self.expenseTotal = expenseTotal
         self.incomeTotal = incomeTotal
         self.deltaPercent = deltaPercent
+    }
+}
+
+// MARK: - Family Member Model (Household Multi-Member)
+public struct MoneFamilyMember: Identifiable, Hashable {
+    public var id: Int64?
+    public var name: String
+    public var role: String // "Primary", "Spouse", "Child", "Parent", "Sibling", "Other"
+    public var avatarEmoji: String
+    public var colorHex: String
+    public var monthlyAllowance: Double
+    
+    public init(
+        id: Int64? = nil,
+        name: String,
+        role: String = "Primary",
+        avatarEmoji: String = "👤",
+        colorHex: String = "0284C7",
+        monthlyAllowance: Double = 0.0
+    ) {
+        self.id = id
+        self.name = name
+        self.role = role
+        self.avatarEmoji = avatarEmoji
+        self.colorHex = colorHex
+        self.monthlyAllowance = monthlyAllowance
+    }
+    
+    public var accentColor: Color {
+        Color(hex: colorHex)
     }
 }

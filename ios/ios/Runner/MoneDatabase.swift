@@ -16,6 +16,7 @@ public final class MoneDatabase: ObservableObject {
     @Published public var monthlySpent: Double = 0.0
     @Published public var monthlyIncome: Double = 0.0
     @Published public var totalMonthlyBudget: Double = 50000.0
+    @Published public var familyMembers: [MoneFamilyMember] = []
     
     private var db: OpaquePointer?
     private let queue = DispatchQueue(label: "com.personalmoneyos.mone.database", qos: .userInitiated)
@@ -114,6 +115,16 @@ public final class MoneDatabase: ObservableObject {
                 key TEXT PRIMARY KEY,
                 value TEXT
             );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                role TEXT,
+                avatar_emoji TEXT,
+                color_hex TEXT,
+                monthly_allowance REAL DEFAULT 0.0
+            );
             """
         ]
         
@@ -121,6 +132,8 @@ public final class MoneDatabase: ObservableObject {
             execute(sql: sql)
         }
         execute(sql: "ALTER TABLE accounts ADD COLUMN initial_balance REAL;")
+        execute(sql: "ALTER TABLE accounts ADD COLUMN member_id INTEGER;")
+        execute(sql: "ALTER TABLE transactions ADD COLUMN member_id INTEGER;")
         execute(sql: "UPDATE accounts SET initial_balance = balance WHERE initial_balance IS NULL;")
     }
     
@@ -178,6 +191,23 @@ public final class MoneDatabase: ObservableObject {
                 execute(sql: sql)
             }
         }
+        
+        let existingMembers = fetchFamilyMembersInternal()
+        if existingMembers.isEmpty {
+            let primary = MoneFamilyMember(
+                name: "Lihash",
+                role: "Primary",
+                avatarEmoji: "👤",
+                colorHex: "0284C7",
+                monthlyAllowance: 0.0
+            )
+            let pId = insertFamilyMemberInternal(primary)
+            execute(sql: "UPDATE accounts SET member_id = \(pId) WHERE member_id IS NULL;")
+            execute(sql: "UPDATE transactions SET member_id = \(pId) WHERE member_id IS NULL;")
+        } else if let first = existingMembers.first, let fId = first.id {
+            execute(sql: "UPDATE accounts SET member_id = \(fId) WHERE member_id IS NULL;")
+            execute(sql: "UPDATE transactions SET member_id = \(fId) WHERE member_id IS NULL;")
+        }
     }
     
     // MARK: - Public Reload
@@ -191,6 +221,7 @@ public final class MoneDatabase: ObservableObject {
             let accs = self.fetchAccountsInternal()
             let cats = self.fetchCategoriesInternal()
             let bdgs = self.fetchBudgetsInternal()
+            let fams = self.fetchFamilyMembersInternal()
             let budgetSetting = self.fetchSettingInternal(key: "total_budget") ?? 50000.0
             
             // Calculate stats
@@ -231,6 +262,7 @@ public final class MoneDatabase: ObservableObject {
                 self.accounts = accs
                 self.categories = cats
                 self.budgets = bdgs
+                self.familyMembers = fams
                 self.totalBalance = totalBalCalc
                 self.todaySpent = todaySpentCalc
                 self.monthlySpent = monthlySpentCalc
@@ -287,7 +319,8 @@ public final class MoneDatabase: ObservableObject {
                 amount = \(tx.amount),
                 type = '\(tx.type)',
                 date = '\(iso)',
-                account_id = \(tx.accountId != nil ? "\(tx.accountId!)" : "NULL")
+                account_id = \(tx.accountId != nil ? "\(tx.accountId!)" : "NULL"),
+                member_id = \(tx.memberId != nil ? "\(tx.memberId!)" : "NULL")
             WHERE id = \(id);
             """
             self.execute(sql: sql)
@@ -320,7 +353,8 @@ public final class MoneDatabase: ObservableObject {
                 balance = \(acc.balance),
                 initial_balance = \(newInitial),
                 type = '\(acc.type)',
-                include_in_total = \(acc.includeInTotal ? 1 : 0)
+                include_in_total = \(acc.includeInTotal ? 1 : 0),
+                member_id = \(acc.memberId != nil ? "\(acc.memberId!)" : "NULL")
             WHERE id = \(id);
             """
             self.execute(sql: sql)
@@ -333,6 +367,44 @@ public final class MoneDatabase: ObservableObject {
         queue.async { [weak self] in
             guard let self = self else { return }
             self.execute(sql: "DELETE FROM accounts WHERE id = \(id);")
+            self.reloadAllData()
+        }
+    }
+    
+    // MARK: - Family Members Operations
+    public func addFamilyMember(_ member: MoneFamilyMember) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            _ = self.insertFamilyMemberInternal(member)
+            self.reloadAllData()
+        }
+    }
+    
+    public func updateFamilyMember(_ member: MoneFamilyMember) {
+        guard let id = member.id else { return }
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            let safeName = member.name.replacingOccurrences(of: "'", with: "''")
+            let sql = """
+            UPDATE family_members SET
+                name = '\(safeName)',
+                role = '\(member.role)',
+                avatar_emoji = '\(member.avatarEmoji)',
+                color_hex = '\(member.colorHex)',
+                monthly_allowance = \(member.monthlyAllowance)
+            WHERE id = \(id);
+            """
+            self.execute(sql: sql)
+            self.reloadAllData()
+        }
+    }
+    
+    public func deleteFamilyMember(id: Int64) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.execute(sql: "DELETE FROM family_members WHERE id = \(id);")
+            self.execute(sql: "UPDATE accounts SET member_id = NULL WHERE member_id = \(id);")
+            self.execute(sql: "UPDATE transactions SET member_id = NULL WHERE member_id = \(id);")
             self.reloadAllData()
         }
     }
@@ -448,7 +520,7 @@ public final class MoneDatabase: ObservableObject {
     // MARK: - Internal SQLite Helpers
     private func fetchTransactionsInternal() -> [MoneTransaction] {
         var list: [MoneTransaction] = []
-        let sql = "SELECT id, merchant, category, amount, type, date, goal_id, account_id, needs_review FROM transactions ORDER BY date DESC;"
+        let sql = "SELECT id, merchant, category, amount, type, date, goal_id, account_id, needs_review, member_id FROM transactions ORDER BY date DESC;"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             let isoFormatter = ISO8601DateFormatter()
@@ -471,6 +543,7 @@ public final class MoneDatabase: ObservableObject {
                 let goalId = sqlite3_column_type(stmt, 6) != SQLITE_NULL ? sqlite3_column_int64(stmt, 6) : nil
                 let accountId = sqlite3_column_type(stmt, 7) != SQLITE_NULL ? sqlite3_column_int64(stmt, 7) : nil
                 let needsReview = sqlite3_column_int(stmt, 8) == 1
+                let memberId = sqlite3_column_type(stmt, 9) != SQLITE_NULL ? sqlite3_column_int64(stmt, 9) : nil
                 
                 list.append(MoneTransaction(
                     id: id,
@@ -481,6 +554,7 @@ public final class MoneDatabase: ObservableObject {
                     date: date,
                     goalId: goalId,
                     accountId: accountId,
+                    memberId: memberId,
                     needsReview: needsReview
                 ))
             }
@@ -494,8 +568,8 @@ public final class MoneDatabase: ObservableObject {
         let safeMerchant = tx.merchant.replacingOccurrences(of: "'", with: "''")
         let safeCategory = tx.category.replacingOccurrences(of: "'", with: "''")
         let sql = """
-        INSERT INTO transactions (merchant, category, amount, type, date, goal_id, account_id, needs_review)
-        VALUES ('\(safeMerchant)', '\(safeCategory)', \(tx.amount), '\(tx.type)', '\(iso)', \(tx.goalId != nil ? "\(tx.goalId!)" : "NULL"), \(tx.accountId != nil ? "\(tx.accountId!)" : "NULL"), \(tx.needsReview ? 1 : 0));
+        INSERT INTO transactions (merchant, category, amount, type, date, goal_id, account_id, needs_review, member_id)
+        VALUES ('\(safeMerchant)', '\(safeCategory)', \(tx.amount), '\(tx.type)', '\(iso)', \(tx.goalId != nil ? "\(tx.goalId!)" : "NULL"), \(tx.accountId != nil ? "\(tx.accountId!)" : "NULL"), \(tx.needsReview ? 1 : 0), \(tx.memberId != nil ? "\(tx.memberId!)" : "NULL"));
         """
         execute(sql: sql)
         return sqlite3_last_insert_rowid(db)
@@ -503,7 +577,7 @@ public final class MoneDatabase: ObservableObject {
     
     private func fetchAccountsInternal() -> [MoneAccount] {
         var list: [MoneAccount] = []
-        let sql = "SELECT id, name, bank_name, bank_code, account_number, balance, type, include_in_total FROM accounts;"
+        let sql = "SELECT id, name, bank_name, bank_code, account_number, balance, type, include_in_total, member_id FROM accounts;"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -515,6 +589,7 @@ public final class MoneDatabase: ObservableObject {
                 let balance = sqlite3_column_double(stmt, 5)
                 let type = columnText(stmt, 6, default: "SAVINGS")
                 let inc = sqlite3_column_int(stmt, 7) == 1
+                let memberId = sqlite3_column_type(stmt, 8) != SQLITE_NULL ? sqlite3_column_int64(stmt, 8) : nil
                 
                 list.append(MoneAccount(
                     id: id,
@@ -524,7 +599,8 @@ public final class MoneDatabase: ObservableObject {
                     accountNumber: accNum,
                     balance: balance,
                     type: type,
-                    includeInTotal: inc
+                    includeInTotal: inc,
+                    memberId: memberId
                 ))
             }
         }
@@ -536,8 +612,8 @@ public final class MoneDatabase: ObservableObject {
         let safeName = acc.name.replacingOccurrences(of: "'", with: "''")
         let safeBank = acc.bankName.replacingOccurrences(of: "'", with: "''")
         let sql = """
-        INSERT INTO accounts (name, bank_name, bank_code, account_number, balance, initial_balance, type, include_in_total)
-        VALUES ('\(safeName)', '\(safeBank)', '\(acc.bankCode)', '\(acc.accountNumber)', \(acc.balance), \(acc.balance), '\(acc.type)', \(acc.includeInTotal ? 1 : 0));
+        INSERT INTO accounts (name, bank_name, bank_code, account_number, balance, initial_balance, type, include_in_total, member_id)
+        VALUES ('\(safeName)', '\(safeBank)', '\(acc.bankCode)', '\(acc.accountNumber)', \(acc.balance), \(acc.balance), '\(acc.type)', \(acc.includeInTotal ? 1 : 0), \(acc.memberId != nil ? "\(acc.memberId!)" : "NULL"));
         """
         execute(sql: sql)
         return sqlite3_last_insert_rowid(db)
@@ -588,6 +664,42 @@ public final class MoneDatabase: ObservableObject {
     private func updateAccountBalanceInternal(id: Int64, delta: Double) {
         let sql = "UPDATE accounts SET balance = balance + (\(delta)) WHERE id = \(id);"
         execute(sql: sql)
+    }
+    
+    public func fetchFamilyMembersInternal() -> [MoneFamilyMember] {
+        var list: [MoneFamilyMember] = []
+        let sql = "SELECT id, name, role, avatar_emoji, color_hex, monthly_allowance FROM family_members ORDER BY id ASC;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = sqlite3_column_int64(stmt, 0)
+                let name = columnText(stmt, 1, default: "Member")
+                let role = columnText(stmt, 2, default: "Family")
+                let emoji = columnText(stmt, 3, default: "👤")
+                let color = columnText(stmt, 4, default: "0284C7")
+                let allowance = sqlite3_column_double(stmt, 5)
+                list.append(MoneFamilyMember(
+                    id: id,
+                    name: name,
+                    role: role,
+                    avatarEmoji: emoji,
+                    colorHex: color,
+                    monthlyAllowance: allowance
+                ))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return list
+    }
+    
+    private func insertFamilyMemberInternal(_ member: MoneFamilyMember) -> Int64 {
+        let safeName = member.name.replacingOccurrences(of: "'", with: "''")
+        let sql = """
+        INSERT INTO family_members (name, role, avatar_emoji, color_hex, monthly_allowance)
+        VALUES ('\(safeName)', '\(member.role)', '\(member.avatarEmoji)', '\(member.colorHex)', \(member.monthlyAllowance));
+        """
+        execute(sql: sql)
+        return sqlite3_last_insert_rowid(db)
     }
     
     private func fetchCategoriesInternal() -> [MoneCategory] {
