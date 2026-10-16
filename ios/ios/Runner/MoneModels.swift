@@ -63,6 +63,19 @@ public struct MoneTransaction: Identifiable, Hashable {
         }
     }
     
+    public var formattedDateStamp: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM"
+            return f.string(from: date)
+        }
+    }
+    
     public var categoryIcon: String {
         return MoneCategory.icon(for: category)
     }

@@ -877,6 +877,8 @@ public struct TransactionRowView: View {
                     HStack(spacing: 4) {
                         Text(tx.category)
                         Text("•")
+                        Text(tx.formattedDateStamp)
+                        Text("•")
                         Text(tx.formattedTime)
                     }
                     .font(.system(size: 11, weight: .medium, design: .rounded))

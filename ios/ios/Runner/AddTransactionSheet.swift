@@ -14,8 +14,8 @@ public struct AddTransactionSheet: View {
     @State private var selectedAccountId: Int64? = nil
     @State private var targetAccountId: Int64? = nil // For transfers
     @State private var date: Date = Date()
-    
     @State private var showAccountPickerModal: Bool = false
+    @State private var showDatePickerModal: Bool = false
     @State private var pickingTransferTarget: TransferTarget = .from
     
     public var prefillMerchant: String? = nil
@@ -50,8 +50,12 @@ public struct AddTransactionSheet: View {
                 // Top Navigation Bar
                 navHeader
                 
-                // 1. Balance Pill Badge
-                sourceBalancePill
+                // 1. Balance Pill Badge & Date Stamp Pill
+                HStack(spacing: 8) {
+                    sourceBalancePill
+                    Spacer()
+                    dateStampPill
+                }
                 
                 // 2. Account Selector Card (or Transfer Visual Flow)
                 if type == "TRANSFER" {
@@ -90,6 +94,10 @@ public struct AddTransactionSheet: View {
         .sheet(isPresented: $showAccountPickerModal) {
             accountSelectionModal
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showDatePickerModal) {
+            datePickerSheet
+                .presentationDetents([.height(440), .medium])
         }
         .onAppear {
             initializeDefaults()
@@ -175,6 +183,132 @@ public struct AddTransactionSheet: View {
         .padding(.vertical, 5)
         .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
         .clipShape(Capsule())
+    }
+    
+    // MARK: - Date Stamp Pill & Picker
+    private var dateStampPill: some View {
+        Button {
+            MoneHaptics.impact(.light)
+            showDatePickerModal = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(hex: "0284C7"))
+                
+                Text(dateStampText(for: date))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary)
+                
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func dateStampText(for d: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(d) {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM"
+            return "Today, \(f.string(from: d))"
+        } else if cal.isDateInYesterday(d) {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM"
+            return "Yesterday, \(f.string(from: d))"
+        } else {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM, yyyy"
+            return f.string(from: d)
+        }
+    }
+    
+    private var datePickerSheet: some View {
+        ZStack {
+            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 40, height: 4)
+                    .padding(.top, 12)
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Transaction Date")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("Pick when this spending occurred")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        MoneHaptics.notification(.success)
+                        showDatePickerModal = false
+                    } label: {
+                        Text("Done")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(hex: "0284C7"))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(isDarkMode ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20)
+                
+                // Quick Presets
+                HStack(spacing: 8) {
+                    quickDateChip(title: "Today", targetDate: Date())
+                    quickDateChip(title: "Yesterday", targetDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
+                    quickDateChip(title: "2 Days Ago", targetDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date())
+                }
+                .padding(.horizontal, 20)
+                
+                // Graphical Date Picker
+                DatePicker(
+                    "Date",
+                    selection: $date,
+                    displayedComponents: [.date]
+                )
+                .datePickerStyle(.graphical)
+                .padding(10)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+                .padding(.horizontal, 20)
+                
+                Spacer(minLength: 8)
+            }
+        }
+    }
+    
+    private func quickDateChip(title: String, targetDate: Date) -> some View {
+        let isSelected = Calendar.current.isDate(date, inSameDayAs: targetDate)
+        return Button {
+            MoneHaptics.selection()
+            date = targetDate
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 1)
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - 3. Type Selector
@@ -831,6 +965,7 @@ public struct EditTransactionSheet: View {
     @State private var selectedAccountId: Int64? = nil
     @State private var date: Date = Date()
     @State private var showAccountPickerModal: Bool = false
+    @State private var showDatePickerModal: Bool = false
     @State private var showDeleteConfirmation: Bool = false
     @State private var showDigitalReceipt: Bool = false
     
@@ -844,7 +979,14 @@ public struct EditTransactionSheet: View {
             
             VStack(spacing: 8) {
                 navHeader
-                sourceBalancePill
+                
+                // Balance Pill Badge & Date Stamp Pill
+                HStack(spacing: 8) {
+                    sourceBalancePill
+                    Spacer()
+                    dateStampPill
+                }
+                
                 accountSelectorCard
                 typeSelector
                 amountHeroCard
@@ -864,6 +1006,10 @@ public struct EditTransactionSheet: View {
         .sheet(isPresented: $showAccountPickerModal) {
             accountSelectionModal
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showDatePickerModal) {
+            datePickerSheet
+                .presentationDetents([.height(440), .medium])
         }
         .alert("Delete Transaction?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -945,6 +1091,132 @@ public struct EditTransactionSheet: View {
         .padding(.vertical, 8)
         .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
         .clipShape(Capsule())
+    }
+    
+    // MARK: - Date Stamp Pill & Picker
+    private var dateStampPill: some View {
+        Button {
+            MoneHaptics.impact(.light)
+            showDatePickerModal = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(hex: "0284C7"))
+                
+                Text(dateStampText(for: date))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary)
+                
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func dateStampText(for d: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(d) {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM"
+            return "Today, \(f.string(from: d))"
+        } else if cal.isDateInYesterday(d) {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM"
+            return "Yesterday, \(f.string(from: d))"
+        } else {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM, yyyy"
+            return f.string(from: d)
+        }
+    }
+    
+    private var datePickerSheet: some View {
+        ZStack {
+            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 40, height: 4)
+                    .padding(.top, 12)
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Transaction Date")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("Pick when this spending occurred")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        MoneHaptics.notification(.success)
+                        showDatePickerModal = false
+                    } label: {
+                        Text("Done")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(hex: "0284C7"))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(isDarkMode ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20)
+                
+                // Quick Presets
+                HStack(spacing: 8) {
+                    quickDateChip(title: "Today", targetDate: Date())
+                    quickDateChip(title: "Yesterday", targetDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
+                    quickDateChip(title: "2 Days Ago", targetDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date())
+                }
+                .padding(.horizontal, 20)
+                
+                // Graphical Date Picker
+                DatePicker(
+                    "Date",
+                    selection: $date,
+                    displayedComponents: [.date]
+                )
+                .datePickerStyle(.graphical)
+                .padding(10)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+                .padding(.horizontal, 20)
+                
+                Spacer(minLength: 8)
+            }
+        }
+    }
+    
+    private func quickDateChip(title: String, targetDate: Date) -> some View {
+        let isSelected = Calendar.current.isDate(date, inSameDayAs: targetDate)
+        return Button {
+            MoneHaptics.selection()
+            date = targetDate
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 1)
+        }
+        .buttonStyle(.plain)
     }
     
     private var accountSelectorCard: some View {
