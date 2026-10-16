@@ -2,6 +2,9 @@ import Foundation
 import SQLite3
 import WidgetKit
 import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Mone SQLite Database Manager
 public final class MoneDatabase: ObservableObject {
@@ -17,6 +20,7 @@ public final class MoneDatabase: ObservableObject {
     @Published public var monthlyIncome: Double = 0.0
     @Published public var totalMonthlyBudget: Double = 0.0
     @Published public var familyMembers: [MoneFamilyMember] = []
+    @Published public var profilePhotoData: Data = Data()
     
     private var db: OpaquePointer?
     private let queue = DispatchQueue(label: "com.personalmoneyos.mone.database", qos: .userInitiated)
@@ -26,6 +30,7 @@ public final class MoneDatabase: ObservableObject {
         createTables()
         seedDefaultsIfNeeded()
         reloadAllData()
+        loadProfilePhoto()
     }
     
     deinit {
@@ -766,6 +771,73 @@ public final class MoneDatabase: ObservableObject {
         
         if #available(iOS 14.0, *) {
             WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+    
+    // MARK: - Persistent Profile Photo Management
+    private static func profilePhotoURL() -> URL {
+        let fm = FileManager.default
+        let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return docs.appendingPathComponent("user_profile_avatar.jpg")
+    }
+    
+    public func loadProfilePhoto() {
+        let url = Self.profilePhotoURL()
+        if let diskData = try? Data(contentsOf: url), !diskData.isEmpty {
+            DispatchQueue.main.async {
+                self.profilePhotoData = diskData
+            }
+            return
+        }
+        
+        // Fallback to UserDefaults if available
+        if let udData = UserDefaults.standard.data(forKey: "userProfilePhotoData"), !udData.isEmpty {
+            DispatchQueue.main.async {
+                self.profilePhotoData = udData
+            }
+            // Save to permanent disk file
+            try? udData.write(to: url, options: .atomic)
+        }
+    }
+    
+    public func saveProfilePhoto(data: Data) {
+        var finalData = data
+        #if canImport(UIKit)
+        if let originalImage = UIImage(data: data) {
+            let maxDim: CGFloat = 600
+            let size = originalImage.size
+            if size.width > maxDim || size.height > maxDim {
+                let ratio = min(maxDim / size.width, maxDim / size.height)
+                let targetSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+                let renderer = UIGraphicsImageRenderer(size: targetSize)
+                let resizedImage = renderer.image { _ in
+                    originalImage.draw(in: CGRect(origin: .zero, size: targetSize))
+                }
+                if let jpeg = resizedImage.jpegData(compressionQuality: 0.82) {
+                    finalData = jpeg
+                }
+            } else if let jpeg = originalImage.jpegData(compressionQuality: 0.85) {
+                finalData = jpeg
+            }
+        }
+        #endif
+        
+        // 1. Write atomically to permanent file on disk
+        let url = Self.profilePhotoURL()
+        try? finalData.write(to: url, options: .atomic)
+        
+        // 2. Also save to App Group container if available (for widgets/extensions)
+        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.personalmoneyos.frontend")?.appendingPathComponent("user_profile_avatar.jpg") {
+            try? finalData.write(to: groupURL, options: .atomic)
+        }
+        
+        // 3. Keep in UserDefaults and synchronize
+        UserDefaults.standard.set(finalData, forKey: "userProfilePhotoData")
+        UserDefaults.standard.synchronize()
+        
+        // 4. Update in-memory published property on main thread
+        DispatchQueue.main.async {
+            self.profilePhotoData = finalData
         }
     }
 }

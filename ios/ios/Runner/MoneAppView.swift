@@ -189,99 +189,139 @@ public struct FaceIDLockScreenView: View {
     public let userName: String
     public let userProfilePhotoData: Data
     
+    @ObservedObject private var database = MoneDatabase.shared
     @State private var isAuthenticating: Bool = false
     @State private var errorMessage: String? = nil
-    @State private var pulseAnimation: Bool = false
+    @State private var isExpandingToFullScreen: Bool = false
+    @State private var controlsOpacity: Double = 1.0
+    @State private var isUnlocked: Bool = false
     
-    public init(onUnlock: @escaping () -> Void, isDark: Bool, userName: String, userProfilePhotoData: Data) {
+    public init(onUnlock: @escaping () -> Void, isDark: Bool, userName: String, userProfilePhotoData: Data = Data()) {
         self.onUnlock = onUnlock
         self.isDark = isDark
         self.userName = userName
         self.userProfilePhotoData = userProfilePhotoData
     }
     
+    private var activePhotoData: Data {
+        if !database.profilePhotoData.isEmpty {
+            return database.profilePhotoData
+        }
+        return userProfilePhotoData
+    }
+    
     public var body: some View {
-        ZStack {
-            MoneTheme.bgCanvasGradient(isDark: isDark).ignoresSafeArea()
-            
-            VStack(spacing: 28) {
-                Spacer()
+        GeometryReader { geo in
+            ZStack {
+                // Background Canvas
+                MoneTheme.bgCanvasGradient(isDark: isDark).ignoresSafeArea()
                 
-                // User Avatar / Monogram with Pulsing Halo
+                // Front Logo / Full Screen Profile Photo (Scales up smoothly upon Face Scan)
                 ZStack {
-                    Circle()
-                        .stroke(Color(hex: "0284C7").opacity(pulseAnimation ? 0.35 : 0.08), lineWidth: pulseAnimation ? 10 : 3)
-                        .frame(width: 96, height: 96)
-                        .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: pulseAnimation)
-                    
-                    if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                    if let uiImg = UIImage(data: activePhotoData) {
                         Image(uiImage: uiImg)
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 80, height: 80)
-                            .clipShape(Circle())
                     } else {
-                        Circle()
-                            .fill(Color(hex: "D9E6EF"))
-                            .frame(width: 80, height: 80)
-                        Text(String(userName.prefix(1)).uppercased())
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                            .foregroundColor(Color(hex: "335C7A"))
+                        ZStack {
+                            LinearGradient(
+                                colors: [Color(hex: "0284C7"), Color(hex: "0369A1")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            Text(String(userName.prefix(1)).uppercased())
+                                .font(.system(size: isExpandingToFullScreen ? 110 : 36, weight: .black, design: .rounded))
+                                .foregroundColor(.white)
+                        }
                     }
                 }
+                .frame(
+                    width: isExpandingToFullScreen ? geo.size.width : 94,
+                    height: isExpandingToFullScreen ? (geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 20) : 94
+                )
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: isExpandingToFullScreen ? 0 : 47,
+                        style: .continuous
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(
+                        cornerRadius: isExpandingToFullScreen ? 0 : 47,
+                        style: .continuous
+                    )
+                    .stroke(Color.white.opacity(isExpandingToFullScreen ? 0 : 0.35), lineWidth: 2)
+                )
+                .shadow(
+                    color: Color.black.opacity(isExpandingToFullScreen ? 0 : (isDark ? 0.35 : 0.12)),
+                    radius: 12,
+                    y: 4
+                )
+                .position(
+                    x: geo.size.width / 2,
+                    y: isExpandingToFullScreen ? (geo.size.height / 2) : (geo.size.height * 0.36)
+                )
+                .ignoresSafeArea()
                 
-                VStack(spacing: 8) {
-                    Text("Welcome back, \(userName)")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDark))
+                // Lock Screen Texts and Face ID Action (Fade out smoothly on scan success)
+                VStack(spacing: 24) {
+                    Spacer()
+                        .frame(height: geo.size.height * 0.44)
                     
-                    Text("mone is locked to protect your finances")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary(isDark: isDark))
-                }
-                
-                if let err = errorMessage {
-                    Text(err)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(MoneTheme.badgeRedText)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(MoneTheme.badgeRedBg)
-                        .clipShape(Capsule())
-                }
-                
-                Spacer()
-                
-                // Unlock with Face ID Button
-                Button {
-                    triggerAuthentication()
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "faceid")
-                            .font(.system(size: 22, weight: .bold))
-                        Text(isAuthenticating ? "Verifying Face ID..." : "Unlock with Face ID")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                    VStack(spacing: 8) {
+                        Text("Welcome back, \(userName)")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDark))
+                        
+                        Text("mone is locked to protect your finances")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDark))
                     }
-                    .foregroundColor(isDark ? Color(hex: "10141D") : .white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(isDark ? Color.white : MoneTheme.deepBlack)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .shadow(color: Color.black.opacity(isDark ? 0.35 : 0.12), radius: 10, y: 4)
+                    
+                    if let err = errorMessage {
+                        Text(err)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(MoneTheme.badgeRedText)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(MoneTheme.badgeRedBg)
+                            .clipShape(Capsule())
+                    }
+                    
+                    Spacer()
+                    
+                    // Unlock with Face ID Button
+                    Button {
+                        triggerAuthentication()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "faceid")
+                                .font(.system(size: 22, weight: .bold))
+                            Text(isAuthenticating ? "Verifying Face ID..." : "Unlock with Face ID")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(isDark ? Color(hex: "10141D") : .white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(isDark ? Color.white : MoneTheme.deepBlack)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .shadow(color: Color.black.opacity(isDark ? 0.35 : 0.12), radius: 10, y: 4)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 36)
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 28)
-                .padding(.bottom, 36)
+                .opacity(controlsOpacity)
+                .allowsHitTesting(controlsOpacity > 0.5)
             }
         }
         .onAppear {
-            pulseAnimation = true
             triggerAuthentication()
         }
     }
     
     private func triggerAuthentication() {
-        guard !isAuthenticating else { return }
+        guard !isAuthenticating, !isUnlocked else { return }
         isAuthenticating = true
         errorMessage = nil
         
@@ -289,35 +329,45 @@ public struct FaceIDLockScreenView: View {
         context.localizedCancelTitle = "Cancel"
         var error: NSError?
         
-        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Unlock mone to view financial records") { success, _ in
+        let reason = "Unlock mone to view financial records"
+        let policy: LAPolicy = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) ? .deviceOwnerAuthenticationWithBiometrics : .deviceOwnerAuthentication
+        
+        if context.canEvaluatePolicy(policy, error: &error) {
+            context.evaluatePolicy(policy, localizedReason: reason) { success, _ in
                 DispatchQueue.main.async {
-                    isAuthenticating = false
+                    self.isAuthenticating = false
                     if success {
-                        MoneHaptics.notification(.success)
-                        onUnlock()
+                        self.executeUnlockTransition()
                     } else {
                         MoneHaptics.notification(.error)
-                        errorMessage = "Authentication failed. Tap to try again."
-                    }
-                }
-            }
-        } else if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock mone to view financial records") { success, _ in
-                DispatchQueue.main.async {
-                    isAuthenticating = false
-                    if success {
-                        MoneHaptics.notification(.success)
-                        onUnlock()
-                    } else {
-                        MoneHaptics.notification(.error)
-                        errorMessage = "Passcode authentication failed."
+                        self.errorMessage = "Authentication failed. Tap to try again."
                     }
                 }
             }
         } else {
             isAuthenticating = false
             errorMessage = error?.localizedDescription ?? "Face ID unavailable."
+        }
+    }
+    
+    private func executeUnlockTransition() {
+        guard !isUnlocked else { return }
+        isUnlocked = true
+        MoneHaptics.notification(.success)
+        
+        // 1. Smoothly fade out the controls
+        withAnimation(.easeOut(duration: 0.22)) {
+            controlsOpacity = 0.0
+        }
+        
+        // 2. Profile photo expands smoothly from front logo circle to fill the entire screen
+        withAnimation(.easeInOut(duration: 0.55)) {
+            isExpandingToFullScreen = true
+        }
+        
+        // 3. Once fully expanded, open the app
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+            onUnlock()
         }
     }
 }
@@ -355,13 +405,13 @@ public struct MoneAppView: View {
             if isFaceIDEnabled && !isAppUnlocked {
                 FaceIDLockScreenView(
                     onUnlock: {
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
+                        withAnimation(.easeInOut(duration: 0.45)) {
                             isAppUnlocked = true
                         }
                     },
                     isDark: isDarkMode,
                     userName: userName,
-                    userProfilePhotoData: userProfilePhotoData
+                    userProfilePhotoData: database.profilePhotoData
                 )
                 .zIndex(999)
                 .transition(.opacity)
@@ -1133,7 +1183,8 @@ public struct OverviewDashboardView: View {
                 MoneHaptics.impact(.light)
                 showProfileModal = true
             } label: {
-                if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                let currentPhoto = !database.profilePhotoData.isEmpty ? database.profilePhotoData : userProfilePhotoData
+                if !currentPhoto.isEmpty, let uiImg = UIImage(data: currentPhoto) {
                     Image(uiImage: uiImg)
                         .resizable()
                         .scaledToFill()
@@ -2123,7 +2174,8 @@ public struct AnalyticsTrendsView: View {
                         MoneHaptics.impact(.light)
                         showProfileModal = true
                     } label: {
-                        if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                        let currentPhoto = !database.profilePhotoData.isEmpty ? database.profilePhotoData : userProfilePhotoData
+                        if !currentPhoto.isEmpty, let uiImg = UIImage(data: currentPhoto) {
                             Image(uiImage: uiImg)
                                 .resizable()
                                 .scaledToFill()
@@ -3664,7 +3716,8 @@ public struct SettingsView: View {
             showProfileModal = true
         } label: {
             HStack(spacing: 14) {
-                if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                let currentPhoto = !database.profilePhotoData.isEmpty ? database.profilePhotoData : userProfilePhotoData
+                if !currentPhoto.isEmpty, let uiImg = UIImage(data: currentPhoto) {
                     Image(uiImage: uiImg)
                         .resizable()
                         .scaledToFill()
@@ -4217,9 +4270,17 @@ public struct ProfileCustomizationSheet: View {
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     @AppStorage("userName") private var userName: String = "Lihash"
     @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
+    @ObservedObject private var database = MoneDatabase.shared
     
     @State private var nameInput: String = ""
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    
+    private var activePhotoData: Data {
+        if !database.profilePhotoData.isEmpty {
+            return database.profilePhotoData
+        }
+        return userProfilePhotoData
+    }
     
     public var body: some View {
         NavigationStack {
@@ -4230,7 +4291,7 @@ public struct ProfileCustomizationSheet: View {
                     // Avatar with Photo Picker
                     PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                         ZStack(alignment: .bottomTrailing) {
-                            if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                            if !activePhotoData.isEmpty, let uiImg = UIImage(data: activePhotoData) {
                                 Image(uiImage: uiImg)
                                     .resizable()
                                     .scaledToFill()
@@ -4262,7 +4323,8 @@ public struct ProfileCustomizationSheet: View {
                     .onChange(of: selectedPhotoItem) { newItem in
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                                userProfilePhotoData = data
+                                database.saveProfilePhoto(data: data)
+                                userProfilePhotoData = database.profilePhotoData
                                 MoneHaptics.notification(.success)
                             }
                         }
@@ -4292,6 +4354,10 @@ public struct ProfileCustomizationSheet: View {
                         if !nameInput.trimmingCharacters(in: .whitespaces).isEmpty {
                             userName = nameInput.trimmingCharacters(in: .whitespaces)
                         }
+                        if !database.profilePhotoData.isEmpty {
+                            userProfilePhotoData = database.profilePhotoData
+                        }
+                        UserDefaults.standard.synchronize()
                         MoneHaptics.notification(.success)
                         dismiss()
                     } label: {
@@ -4321,6 +4387,9 @@ public struct ProfileCustomizationSheet: View {
             }
             .onAppear {
                 nameInput = userName
+                if database.profilePhotoData.isEmpty && !userProfilePhotoData.isEmpty {
+                    database.saveProfilePhoto(data: userProfilePhotoData)
+                }
             }
         }
     }
