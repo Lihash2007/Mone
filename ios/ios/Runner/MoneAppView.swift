@@ -1901,6 +1901,7 @@ public struct AnalyticsTrendsView: View {
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     @AppStorage("userName") private var userName: String = "Lihash"
     @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
+    @State private var selectedFamilyMemberId: Int64? = nil
     @State private var selectedTimeframe: Int = 1 // Month default
     @State private var selectedDate: Date = Date() // Lively defaults to current month!
     @State private var showMonthPickerSheet: Bool = false
@@ -1970,6 +1971,9 @@ public struct AnalyticsTrendsView: View {
                     }
                 }
                 .padding(.top, 12)
+                
+                // Option A: Family Switcher Capsule Strip (Filter Analytics by Member)
+                familyMemberFilterStrip
                 
                 // Timeframe Black Pill Segment: Week | Month | Year
                 BlackPillSegmentedControl(
@@ -2138,7 +2142,14 @@ public struct AnalyticsTrendsView: View {
     
     private var filteredPeriodTransactions: [MoneTransaction] {
         let cal = Calendar.current
+        let memberAccounts = selectedFamilyMemberId != nil ? database.accounts.filter { $0.memberId == selectedFamilyMemberId } : database.accounts
+        let memberAccIds = Set(memberAccounts.compactMap { $0.id })
+        
         return database.transactions.filter { tx in
+            if let mId = selectedFamilyMemberId {
+                let matchesMember = tx.memberId == mId || (tx.accountId != nil && memberAccIds.contains(tx.accountId!))
+                guard matchesMember else { return false }
+            }
             switch selectedTimeframe {
             case 0:
                 return cal.isDate(tx.date, equalTo: selectedDate, toGranularity: .weekOfYear) &&
@@ -2156,6 +2167,7 @@ public struct AnalyticsTrendsView: View {
         let periodTxs = filteredPeriodTransactions
         let expenses = periodTxs.filter { $0.type == "EXPENSE" }.reduce(0.0) { $0 + $1.amount }
         let income = periodTxs.filter { $0.type == "INCOME" }.reduce(0.0) { $0 + $1.amount }
+        let memberName = activeFamilyMember != nil ? "\(activeFamilyMember!.name) • " : ""
         
         return HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
@@ -2163,7 +2175,7 @@ public struct AnalyticsTrendsView: View {
                     Text("Expenses")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : MoneTheme.textSecondary(isDark: isDarkMode))
-                    Text("• " + periodTitleString)
+                    Text("• " + memberName + periodTitleString)
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(Color(hex: "0284C7"))
                         .lineLimit(1)
@@ -2199,18 +2211,34 @@ public struct AnalyticsTrendsView: View {
     }
     
     private var totalBalanceAndTrajectoryCard: some View {
-        let trends = computeMonthlyTrends()
+        let trends = chartTrends
         let peakExpense = trends.map { $0.expenseTotal }.max() ?? 0.0
-        let net = database.monthlyIncome - database.monthlySpent
+        
+        let memberAccounts = selectedFamilyMemberId != nil ? database.accounts.filter { $0.memberId == selectedFamilyMemberId } : database.accounts
+        let memberBalance = memberAccounts.reduce(0.0) { $0 + $1.balance }
+        let displayedBalance = selectedFamilyMemberId != nil ? memberBalance : database.totalBalance
+        
+        let periodTxs = filteredPeriodTransactions
+        let periodExpenses = periodTxs.filter { $0.type == "EXPENSE" }.reduce(0.0) { $0 + $1.amount }
+        let periodIncome = periodTxs.filter { $0.type == "INCOME" }.reduce(0.0) { $0 + $1.amount }
+        let net = periodIncome - periodExpenses
         
         return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Total Balance")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                HStack {
+                    Text(selectedFamilyMemberId != nil ? "\(activeFamilyMember?.name ?? "Member")'s Balance" : "Total Family Balance")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    
+                    Spacer()
+                    
+                    Text(chartPeriodSubtitle)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(hex: "0284C7"))
+                }
                 
                 HStack(spacing: 8) {
-                    Text(String(format: "₹%.2f", database.totalBalance))
+                    Text(String(format: "₹%.2f", displayedBalance))
                         .font(.system(size: 26, weight: .black, design: .rounded))
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .monospacedDigit()
@@ -2252,7 +2280,7 @@ public struct AnalyticsTrendsView: View {
                 Chart {
                     ForEach(Array(trends.enumerated()), id: \.element.id) { index, item in
                         BarMark(
-                            x: .value("Month", item.monthLabel),
+                            x: .value("Date", item.monthLabel),
                             y: .value("Expense", item.expenseTotal)
                         )
                         .foregroundStyle(index % 2 == 0 ? (isDarkMode ? Color(hex: "384257") : Color(hex: "2E333D")) : (isDarkMode ? Color(hex: "1F2737") : Color(hex: "C8D7E3")))
@@ -2260,7 +2288,7 @@ public struct AnalyticsTrendsView: View {
                     
                     ForEach(trends) { item in
                         LineMark(
-                            x: .value("Month", item.monthLabel),
+                            x: .value("Date", item.monthLabel),
                             y: .value("Expense", item.expenseTotal)
                         )
                         .foregroundStyle(isDarkMode ? Color(hex: "60A5FA") : Color(hex: "10141D"))
@@ -2268,11 +2296,11 @@ public struct AnalyticsTrendsView: View {
                         .interpolationMethod(.catmullRom)
                         
                         PointMark(
-                            x: .value("Month", item.monthLabel),
+                            x: .value("Date", item.monthLabel),
                             y: .value("Expense", item.expenseTotal)
                         )
                         .foregroundStyle(isDarkMode ? Color(hex: "60A5FA") : Color(hex: "10141D"))
-                        .symbolSize(item.expenseTotal == peakExpense ? 36 : 16)
+                        .symbolSize(item.expenseTotal == peakExpense && peakExpense > 0 ? 36 : 14)
                     }
                 }
                 .frame(height: 170)
@@ -2293,9 +2321,24 @@ public struct AnalyticsTrendsView: View {
                     AxisMarks { value in
                         AxisValueLabel {
                             if let str = value.as(String.self) {
-                                Text(str)
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                if selectedTimeframe == 1 {
+                                    // For Month view (days 1..31), show every 5 days + day 1 + last day
+                                    if let dayNum = Int(str) {
+                                        if dayNum == 1 || dayNum % 5 == 0 || dayNum == trends.count {
+                                            Text(str)
+                                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                        }
+                                    } else {
+                                        Text(str)
+                                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                    }
+                                } else {
+                                    Text(str)
+                                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                }
                             }
                         }
                     }
@@ -2316,13 +2359,25 @@ public struct AnalyticsTrendsView: View {
         .whiteCard(cornerRadius: 26, padding: 20)
     }
     
+    private var chartPeriodSubtitle: String {
+        let member = activeFamilyMember?.name ?? "Family"
+        if selectedTimeframe == 1 {
+            return "\(member) • Daily Trajectory"
+        } else if selectedTimeframe == 2 {
+            return "\(member) • 12-Month Velocity"
+        } else {
+            return "\(member) • 7-Day Velocity"
+        }
+    }
+    
     private var transactionsSection: some View {
         let periodTxs = filteredPeriodTransactions
+        let memberLabel = activeFamilyMember != nil ? "\(activeFamilyMember!.name)'s " : ""
         
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Transactions")
+                    Text("\(memberLabel)Transactions")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     Text("\(periodTxs.count) recorded in \(periodTitleString)")
@@ -2509,30 +2564,181 @@ public struct AnalyticsTrendsView: View {
         }
     }
     
-    private func computeMonthlyTrends() -> [MonthlyTrend] {
-        let expenses = database.transactions.filter { $0.isExpense }
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM"
-        let displayF = DateFormatter()
-        displayF.dateFormat = "MMM"
-        
-        var grouped: [String: Double] = [:]
-        for t in expenses {
-            let key = f.string(from: t.date)
-            grouped[key, default: 0.0] += t.amount
+    // MARK: - Option A: Family Switcher Capsule Strip (Analytics)
+    private var activeFamilyMember: MoneFamilyMember? {
+        if let id = selectedFamilyMemberId {
+            return database.familyMembers.first(where: { $0.id == id })
         }
-        
-        let cal = Calendar.current
-        var result: [MonthlyTrend] = []
-        for i in (0..<6).reversed() {
-            if let d = cal.date(byAdding: .month, value: -i, to: selectedDate) {
-                let k = f.string(from: d)
-                let label = displayF.string(from: d)
-                let amount = grouped[k] ?? 0.0
-                result.append(MonthlyTrend(monthKey: k, monthLabel: label, expenseTotal: amount))
+        return nil
+    }
+    
+    private var familyMemberFilterStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "All Family" pill
+                let isAllSelected = selectedFamilyMemberId == nil
+                Button {
+                    MoneHaptics.selection()
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        selectedFamilyMemberId = nil
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("👨‍👩‍👧")
+                            .font(.system(size: 13))
+                        Text("All Family")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                        if isAllSelected {
+                            Circle()
+                                .fill(Color(hex: "0284C7"))
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                    .foregroundColor(isAllSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(isAllSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(isDarkMode ? Color.white.opacity(0.1) : Color.black.opacity(0.04), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.25 : 0.04), radius: 4, y: 2)
+                }
+                .buttonStyle(.plain)
+                
+                // Individual family members
+                ForEach(database.familyMembers) { member in
+                    let isSelected = selectedFamilyMemberId == member.id
+                    Button {
+                        MoneHaptics.selection()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            selectedFamilyMemberId = member.id
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(member.avatarEmoji)
+                                .font(.system(size: 13))
+                            Text(member.name)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                            Text(member.role)
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundColor(isSelected ? (isDarkMode ? Color.black.opacity(0.6) : Color.white.opacity(0.8)) : member.accentColor)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(isSelected ? Color.white.opacity(0.25) : member.accentColor.opacity(0.14))
+                                .clipShape(Capsule())
+                        }
+                        .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(isDarkMode ? Color.white.opacity(0.1) : Color.black.opacity(0.04), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(isDarkMode ? 0.25 : 0.04), radius: 4, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(.vertical, 2)
         }
-        return result
+    }
+    
+    // MARK: - Dynamic Adaptive Trajectory Chart (Month Dates / 12 Months / 7 Days)
+    private var chartTrends: [MonthlyTrend] {
+        let cal = Calendar.current
+        let memberAccounts = selectedFamilyMemberId != nil ? database.accounts.filter { $0.memberId == selectedFamilyMemberId } : database.accounts
+        let memberAccIds = Set(memberAccounts.compactMap { $0.id })
+        
+        let allExpenses = database.transactions.filter { tx in
+            guard tx.isExpense else { return false }
+            if let mId = selectedFamilyMemberId {
+                return tx.memberId == mId || (tx.accountId != nil && memberAccIds.contains(tx.accountId!))
+            }
+            return true
+        }
+        
+        if selectedTimeframe == 1 {
+            // MONTH VIEW: Graph by Days of the selected month (1st through 28/29/30/31)
+            let range = cal.range(of: .day, in: .month, for: selectedDate) ?? 1..<32
+            let year = cal.component(.year, from: selectedDate)
+            let month = cal.component(.month, from: selectedDate)
+            
+            var dailyTotals: [Int: Double] = [:]
+            for tx in allExpenses {
+                let tYear = cal.component(.year, from: tx.date)
+                let tMonth = cal.component(.month, from: tx.date)
+                if tYear == year && tMonth == month {
+                    let day = cal.component(.day, from: tx.date)
+                    dailyTotals[day, default: 0.0] += tx.amount
+                }
+            }
+            
+            var result: [MonthlyTrend] = []
+            for day in range {
+                let key = String(format: "%04d-%02d-%02d", year, month, day)
+                let label = "\(day)"
+                let amount = dailyTotals[day] ?? 0.0
+                result.append(MonthlyTrend(monthKey: key, monthLabel: label, expenseTotal: amount))
+            }
+            return result
+        } else if selectedTimeframe == 2 {
+            // YEAR VIEW: Graph by 12 Months of the selected year (Jan through Dec)
+            let year = cal.component(.year, from: selectedDate)
+            let monthFormatter = DateFormatter()
+            monthFormatter.dateFormat = "MMM"
+            
+            var monthlyTotals: [Int: Double] = [:]
+            for tx in allExpenses {
+                let tYear = cal.component(.year, from: tx.date)
+                if tYear == year {
+                    let m = cal.component(.month, from: tx.date)
+                    monthlyTotals[m, default: 0.0] += tx.amount
+                }
+            }
+            
+            var result: [MonthlyTrend] = []
+            for m in 1...12 {
+                var comps = DateComponents()
+                comps.year = year
+                comps.month = m
+                comps.day = 1
+                let date = cal.date(from: comps) ?? selectedDate
+                let label = monthFormatter.string(from: date)
+                let key = String(format: "%04d-%02d", year, m)
+                let amount = monthlyTotals[m] ?? 0.0
+                result.append(MonthlyTrend(monthKey: key, monthLabel: label, expenseTotal: amount))
+            }
+            return result
+        } else {
+            // WEEK VIEW: Graph by 7 days of the selected week (Mon through Sun)
+            let startOfWeek = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate)) ?? selectedDate
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE"
+            
+            let keyFormatter = DateFormatter()
+            keyFormatter.dateFormat = "yyyy-MM-dd"
+            
+            var dailyTotals: [String: Double] = [:]
+            for tx in allExpenses {
+                let k = keyFormatter.string(from: tx.date)
+                dailyTotals[k, default: 0.0] += tx.amount
+            }
+            
+            var result: [MonthlyTrend] = []
+            for i in 0..<7 {
+                if let d = cal.date(byAdding: .day, value: i, to: startOfWeek) {
+                    let k = keyFormatter.string(from: d)
+                    let label = dayFormatter.string(from: d)
+                    let amount = dailyTotals[k] ?? 0.0
+                    result.append(MonthlyTrend(monthKey: k, monthLabel: label, expenseTotal: amount))
+                }
+            }
+            return result
+        }
     }
 }
 
