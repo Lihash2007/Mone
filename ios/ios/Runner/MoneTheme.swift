@@ -29,13 +29,38 @@ public extension Color {
 
 // MARK: - Mone Bespoke Theme Tokens
 public struct MoneTheme {
-    // Backgrounds
+    // 1. Ice-Blue / Pastel Frost Canvas & Surfaces (Exact Replication of Reference Images)
+    public static let bgCanvas = Color(hex: "EDF4F9")
+    public static let bgCanvasGradient = LinearGradient(
+        colors: [Color(hex: "F6F9FB"), Color(hex: "EAF2F8")],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+    public static let bgCardWhite = Color.white
+    public static let bgCardBlue = Color(hex: "D8EBF7")
+    public static let bgCardMint = Color(hex: "E4F5EB")
+    public static let bgCardYellow = Color(hex: "F8F296")
+    public static let bgSegmentContainer = Color(hex: "E2EDF5")
+    
+    // Core Contrast Accents
+    public static let deepBlack = Color(hex: "12141A")
+    public static let textPrimary = Color(hex: "10141D")
+    public static let textSecondary = Color(hex: "68768A")
+    public static let textMuted = Color(hex: "94A3B8")
+    
+    // Semantic Badges
+    public static let badgeGreenBg = Color(hex: "DDF7E8")
+    public static let badgeGreenText = Color(hex: "0D9488")
+    public static let badgeRedBg = Color(hex: "FFEBEA")
+    public static let badgeRedText = Color(hex: "E11D48")
+    public static let badgeBlueBg = Color(hex: "CCE7F8")
+    public static let badgeBlueText = Color(hex: "0284C7")
+    
+    // Legacy Dark Void Tokens (Preserved for compatibility)
     public static let bgDeepVoid = Color(hex: "08090C")
     public static let bgSecondary = Color(hex: "10121A")
     public static let bgCard = Color(hex: "161922")
-    
-    // Accents
-    public static let emerald = Color(hex: "10E599")
+    public static let emerald = Color(hex: "10B981")
     public static let rose = Color(hex: "FF2E63")
     public static let indigo = Color(hex: "6366F1")
     public static let violet = Color(hex: "A855F7")
@@ -55,6 +80,7 @@ public struct MoneTheme {
         endPoint: .bottomTrailing
     )
 }
+
 
 // MARK: - Tactile Haptics Manager
 public struct MoneHaptics {
@@ -132,7 +158,80 @@ public extension View {
     func spatialGlass(cornerRadius: CGFloat = 26, padding: CGFloat = 18, glow: Color = .clear, glowRadius: CGFloat = 0) -> some View {
         self.modifier(SpatialGlassModifier(cornerRadius: cornerRadius, padding: padding, glowColor: glow, glowRadius: glowRadius))
     }
+    
+    func whiteCard(cornerRadius: CGFloat = 24, padding: CGFloat = 18, shadowRadius: CGFloat = 12) -> some View {
+        self.modifier(WhiteCardModifier(cornerRadius: cornerRadius, padding: padding, shadowRadius: shadowRadius))
+    }
 }
+
+// MARK: - Reference Design White Card Modifier
+public struct WhiteCardModifier: ViewModifier {
+    public var cornerRadius: CGFloat = 24
+    public var padding: CGFloat = 18
+    public var shadowRadius: CGFloat = 12
+    
+    public func body(content: Content) -> some View {
+        content
+            .padding(padding)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: Color(hex: "0D2040").opacity(0.06), radius: shadowRadius, x: 0, y: 5)
+    }
+}
+
+// MARK: - Reference Design Black Pill Segmented Control (Exact Screen 1 Replication)
+public struct BlackPillSegmentedControl<T: Hashable>: View {
+    public let items: [FluidSegmentItem<T>]
+    @Binding public var selection: T
+    @Namespace private var segmentAnimation
+    
+    public init(items: [FluidSegmentItem<T>], selection: Binding<T>) {
+        self.items = items
+        self._selection = selection
+    }
+    
+    public var body: some View {
+        HStack(spacing: 4) {
+            ForEach(items) { item in
+                let isSelected = selection == item.id
+                Button {
+                    MoneHaptics.selection()
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) {
+                        selection = item.id
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if let icon = item.icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        Text(item.title)
+                            .font(.system(size: 13, weight: isSelected ? .bold : .semibold, design: .rounded))
+                    }
+                    .foregroundColor(isSelected ? .white : MoneTheme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        ZStack {
+                            if isSelected {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(MoneTheme.deepBlack)
+                                    .matchedGeometryEffect(id: "BLACK_ACTIVE_PILL", in: segmentAnimation)
+                                    .shadow(color: MoneTheme.deepBlack.opacity(0.25), radius: 6, x: 0, y: 2)
+                            }
+                        }
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(MoneTheme.bgSegmentContainer)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
 
 // MARK: - iOS 26 Fluid Magnetic Capsule Segmented Control
 public struct FluidSegmentItem<T: Hashable>: Identifiable {

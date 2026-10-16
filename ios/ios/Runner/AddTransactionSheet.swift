@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Add / Edit Transaction Sheet
+// MARK: - Add / Edit Transaction Sheet (Exact Screen 3 Replication)
 public struct AddTransactionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var database = MoneDatabase.shared
@@ -11,6 +11,7 @@ public struct AddTransactionSheet: View {
     @State private var selectedCategory: String = "Food & Dining"
     @State private var selectedAccountId: Int64? = nil
     @State private var date: Date = Date()
+    @State private var showAccountPickerModal: Bool = false
     
     public var prefillMerchant: String? = nil
     public var prefillAmount: Double? = nil
@@ -33,54 +34,57 @@ public struct AddTransactionSheet: View {
     }
     
     public var body: some View {
-        NavigationStack {
-            ZStack {
-                MoneTheme.bgDeepVoid.ignoresSafeArea()
+        ZStack {
+            MoneTheme.bgCanvasGradient.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Top Navigation Bar
+                navHeader
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 12)
                 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // 1. Type Switcher
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 14) {
+                        // 1. Balance Pill Badge
+                        sourceBalancePill
+                        
+                        // 2. Account Selector Card
+                        accountSelectorCard
+                        
+                        // 3. Black Pill Segmented Control
                         typeSelector
                         
-                        // 2. Amount Input
+                        // 4. Large Currency & Amount Display
                         amountHeroCard
-                        
-                        // 3. Category Selector
-                        if type != "TRANSFER" {
-                            categorySelector
-                        }
-                        
-                        // 4. Account Picker
-                        accountPicker
                         
                         // 5. Merchant / Note Input
                         merchantInputCard
                         
-                        // 6. Date Picker Row
-                        datePickerCard
+                        // 6. Category Chips
+                        if type != "TRANSFER" {
+                            categorySelector
+                        }
                         
-                        // 7. Log Button
-                        logButton
-                            .padding(.top, 10)
+                        // 7. On-Screen Bespoke Numeric Keypad
+                        numericKeypad
+                            .padding(.top, 4)
+                        
+                        // 8. Bottom Action Slider Button
+                        bottomActionButton
+                            .padding(.top, 8)
+                            .padding(.bottom, 24)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
                 }
             }
-            .navigationTitle("Track Record")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        MoneHaptics.selection()
-                        dismiss()
-                    }
-                    .foregroundColor(.white.opacity(0.7))
-                }
-            }
-            .onAppear {
-                initializeDefaults()
-            }
+        }
+        .sheet(isPresented: $showAccountPickerModal) {
+            accountSelectionModal
+                .presentationDetents([.medium])
+        }
+        .onAppear {
+            initializeDefaults()
         }
     }
     
@@ -105,12 +109,107 @@ public struct AddTransactionSheet: View {
     }
     
     // MARK: - Components
+    
+    // Top Header with Close and Title
+    private var navHeader: some View {
+        HStack {
+            Button {
+                MoneHaptics.selection()
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(MoneTheme.textPrimary)
+                    .frame(width: 38, height: 38)
+                    .background(Color.white)
+                    .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+            }
+            
+            Spacer()
+            
+            Text(type == "INCOME" ? "Record Income" : (type == "TRANSFER" ? "Transfer Funds" : "Record Expense"))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary)
+            
+            Spacer()
+            
+            // Trailing balance or spacer for alignment
+            Color.clear
+                .frame(width: 38, height: 38)
+        }
+    }
+    
+    // Source Balance Pill (Exact Screen 3)
+    private var sourceBalancePill: some View {
+        let currentBal = selectedAccount?.balance ?? database.totalBalance
+        return HStack(spacing: 6) {
+            Text("Balance is")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary)
+            Text(String(format: "₹ %.2f", currentBal))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(MoneTheme.deepBlack)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 7)
+        .background(MoneTheme.bgCardBlue)
+        .clipShape(Capsule())
+    }
+    
+    // Account Selector Card (Exact Screen 3)
+    private var accountSelectorCard: some View {
+        let acc = selectedAccount ?? database.accounts.first
+        return Button {
+            MoneHaptics.impact(.light)
+            showAccountPickerModal = true
+        } label: {
+            HStack(spacing: 12) {
+                if let a = acc {
+                    a.bankInfo.badgeView(size: 38)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(a.name)
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary)
+                        
+                        Text(a.accountNumber.isEmpty ? a.bankName : "\(a.bankName) •••• \(a.accountNumber.suffix(4))")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary)
+                    }
+                } else {
+                    Image(systemName: "creditcard.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(MoneTheme.textSecondary)
+                    Text("Select Bank Account")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary)
+                }
+                
+                Spacer()
+                
+                // Solid Black Chevron Circle (As seen in Screen 3)
+                ZStack {
+                    Circle()
+                        .fill(MoneTheme.deepBlack)
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .whiteCard(cornerRadius: 20, padding: 14, shadowRadius: 8)
+        }
+    }
+    
+    // Type Selector (Black Pill Segmented Control from Image 1)
     private var typeSelector: some View {
-        FluidSegmentedControl(
+        BlackPillSegmentedControl(
             items: [
-                FluidSegmentItem(id: "EXPENSE", title: "Expense", icon: "arrow.down.right.circle.fill", accentColor: MoneTheme.rose),
-                FluidSegmentItem(id: "INCOME", title: "Income", icon: "arrow.up.left.circle.fill", accentColor: MoneTheme.emerald),
-                FluidSegmentItem(id: "TRANSFER", title: "Transfer", icon: "arrow.left.arrow.right.circle.fill", accentColor: MoneTheme.cyan)
+                FluidSegmentItem(id: "EXPENSE", title: "Expense", icon: "arrow.down.right"),
+                FluidSegmentItem(id: "INCOME", title: "Income", icon: "arrow.up.left"),
+                FluidSegmentItem(id: "TRANSFER", title: "Transfer", icon: "arrow.left.arrow.right")
             ],
             selection: Binding(
                 get: { self.type },
@@ -126,198 +225,269 @@ public struct AddTransactionSheet: View {
         )
     }
     
+    // Currency & Amount Display (Exact Screen 3)
     private var amountHeroCard: some View {
-        let accent = type == "INCOME" ? MoneTheme.emerald : (type == "TRANSFER" ? MoneTheme.cyan : MoneTheme.rose)
-        return VStack(spacing: 8) {
-            Text(type == "INCOME" ? "AMOUNT RECEIVED" : (type == "TRANSFER" ? "AMOUNT TRANSFERRED" : "AMOUNT SPENT"))
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundColor(.white.opacity(0.55))
-                .tracking(1.4)
+        HStack(alignment: .center) {
+            Text("INR")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(MoneTheme.bgCanvas)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("₹")
-                    .font(.system(size: 32, weight: .black, design: .rounded))
-                    .foregroundColor(accent)
-                
-                TextField("0", text: $amountString)
-                    .keyboardType(.numberPad)
-                    .font(.system(size: 46, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
-                    .monospacedDigit()
-                    .multilineTextAlignment(.leading)
-                    .minimumScaleFactor(0.5)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-        }
-        .spatialGlass(cornerRadius: 26, padding: 22, glow: accent, glowRadius: 14)
-    }
-
-    
-    private var categorySelector: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Category")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(.white.opacity(0.6))
-            
-            let cats = database.categories.filter { $0.type == type }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(cats.isEmpty ? defaultCategoriesForType(type) : cats) { cat in
-                        let isSelected = selectedCategory.lowercased() == cat.name.lowercased()
-                        Button {
-                            MoneHaptics.selection()
-                            selectedCategory = cat.name
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: iconForCategory(cat.name))
-                                    .font(.system(size: 12, weight: .bold))
-                                Text(cat.name)
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background(
-                                isSelected ? MoneTheme.indigo : Color.white.opacity(0.06)
-                            )
-                            .foregroundColor(isSelected ? .white : .white.opacity(0.8))
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule().stroke(Color.white.opacity(isSelected ? 0.3 : 0.08), lineWidth: 1)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private var accountPicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Account")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(.white.opacity(0.6))
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(database.accounts) { acc in
-                        let isSelected = selectedAccountId == acc.id
-                        Button {
-                            MoneHaptics.selection()
-                            selectedAccountId = acc.id
-                        } label: {
-                            HStack(spacing: 10) {
-                                acc.bankInfo.badgeView(size: 28)
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(acc.name)
-                                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white)
-                                    Text(acc.formattedBalance)
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.6))
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(
-                                isSelected ? Color(hex: "232738") : Color.white.opacity(0.05)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(isSelected ? MoneTheme.indigo : Color.white.opacity(0.08), lineWidth: isSelected ? 1.5 : 1)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private var merchantInputCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Title / Merchant")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(.white.opacity(0.6))
-            
-            HStack {
-                Image(systemName: "pencil.line")
-                    .foregroundColor(.white.opacity(0.4))
-                
-                TextField("e.g. Swiggy, Uber, Starbucks", text: $merchant)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.white)
-            }
-            .padding(14)
-            .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
-        }
-    }
-    
-    private var datePickerCard: some View {
-        HStack {
-            HStack(spacing: 10) {
-                Image(systemName: "calendar")
-                    .foregroundColor(MoneTheme.indigo)
-                Text("Date & Time")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-            }
             Spacer()
-            DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                .labelsHidden()
-                .colorScheme(.dark)
+            
+            HStack(spacing: 2) {
+                Text("₹")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.textSecondary)
+                
+                Text(amountString.isEmpty ? "0" : amountString)
+                    .font(.system(size: 34, weight: .black, design: .rounded))
+                    .foregroundColor(MoneTheme.textPrimary)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                
+                // Blinking cursor
+                Rectangle()
+                    .fill(MoneTheme.deepBlack)
+                    .frame(width: 2.5, height: 28)
+                    .opacity(0.8)
+            }
         }
-        .glassCard(cornerRadius: 16, padding: 12)
+        .whiteCard(cornerRadius: 22, padding: 18, shadowRadius: 8)
     }
     
-    private var logButton: some View {
+    // Merchant / Note Input
+    private var merchantInputCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "square.and.pencil")
+                .foregroundColor(MoneTheme.textSecondary)
+            TextField("Note / Payee (e.g. Swiggy, Uber, Rent)", text: $merchant)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary)
+        }
+        .whiteCard(cornerRadius: 18, padding: 14, shadowRadius: 6)
+    }
+    
+    // Category Chips
+    private var categorySelector: some View {
+        let cats = database.categories.filter { $0.type == type }
+        let list = cats.isEmpty ? defaultCategoriesForType(type) : cats
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(list) { cat in
+                    let isSelected = selectedCategory.lowercased() == cat.name.lowercased()
+                    Button {
+                        MoneHaptics.selection()
+                        selectedCategory = cat.name
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: iconForCategory(cat.name))
+                                .font(.system(size: 11, weight: .bold))
+                            Text(cat.name)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(isSelected ? MoneTheme.deepBlack : Color.white)
+                        .foregroundColor(isSelected ? .white : MoneTheme.textSecondary)
+                        .clipShape(Capsule())
+                        .shadow(color: Color.black.opacity(isSelected ? 0.15 : 0.04), radius: 5, y: 2)
+                    }
+                }
+            }
+        }
+    }
+    
+    // On-Screen Bespoke Numeric Keypad (Exact Screen 3)
+    private var numericKeypad: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                keypadButton("1")
+                keypadButton("2")
+                keypadButton("3")
+            }
+            HStack(spacing: 8) {
+                keypadButton("4")
+                keypadButton("5")
+                keypadButton("6")
+            }
+            HStack(spacing: 8) {
+                keypadButton("7")
+                keypadButton("8")
+                keypadButton("9")
+            }
+            HStack(spacing: 8) {
+                keypadButton(".")
+                keypadButton("0")
+                keypadBackButton
+            }
+        }
+    }
+    
+    private func keypadButton(_ char: String) -> some View {
+        Button {
+            MoneHaptics.impact(.light)
+            handleKeyPress(char)
+        } label: {
+            Text(char)
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: Color(hex: "0D2040").opacity(0.04), radius: 4, x: 0, y: 2)
+        }
+    }
+    
+    private var keypadBackButton: some View {
+        Button {
+            MoneHaptics.impact(.light)
+            if !amountString.isEmpty {
+                amountString.removeLast()
+            }
+        } label: {
+            Image(systemName: "delete.backward")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(MoneTheme.textPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: Color(hex: "0D2040").opacity(0.04), radius: 4, x: 0, y: 2)
+        }
+    }
+    
+    private func handleKeyPress(_ char: String) {
+        if char == "." {
+            if !amountString.contains(".") {
+                if amountString.isEmpty {
+                    amountString = "0."
+                } else {
+                    amountString.append(".")
+                }
+            }
+        } else {
+            if amountString == "0" {
+                amountString = char
+            } else if amountString.count < 9 {
+                amountString.append(char)
+            }
+        }
+    }
+    
+    // Bottom Action Slider (Exact Screen 3 Replication)
+    private var bottomActionButton: some View {
         let isEnabled = !amountString.isEmpty && (Double(amountString) ?? 0) > 0
-        let gradientColors = type == "INCOME" ? 
-            [Color(hex: "059669"), Color(hex: "10E599")] : 
-            (type == "TRANSFER" ? [Color(hex: "0284C7"), Color(hex: "00D2FF")] : [Color(hex: "6366F1"), Color(hex: "A855F7"), Color(hex: "FF2E63")])
-        let shadowColor = type == "INCOME" ? MoneTheme.emerald : (type == "TRANSFER" ? MoneTheme.cyan : MoneTheme.indigo)
-        
         return Button {
             saveTransaction()
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 17, weight: .bold))
-                Text(type == "INCOME" ? "RECORD INCOME" : (type == "TRANSFER" ? "RECORD TRANSFER" : "RECORD EXPENSE"))
-                    .font(.system(size: 15, weight: .black, design: .rounded))
-                    .tracking(1)
+            HStack {
+                // Left Black Arrow Circle
+                ZStack {
+                    Circle()
+                        .fill(MoneTheme.deepBlack)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.leading, 4)
+                
+                Spacer()
+                
+                Text(type == "INCOME" ? "Swift to record >>>" : (type == "TRANSFER" ? "Swift to transfer >>>" : "Swift to send >>>"))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.deepBlack)
+                
+                Spacer()
+                
+                // Right Icon Circle
+                ZStack {
+                    Circle()
+                        .fill(MoneTheme.deepBlack)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "indianrupeesign")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.trailing, 4)
             }
-            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 17)
-            .background(
-                LinearGradient(
-                    colors: gradientColors,
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.4), Color.white.opacity(0.1)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: shadowColor.opacity(isEnabled ? 0.45 : 0.1), radius: 14, x: 0, y: 6)
+            .frame(height: 54)
+            .background(MoneTheme.bgCardBlue)
+            .clipShape(Capsule())
+            .shadow(color: Color(hex: "0D2040").opacity(isEnabled ? 0.08 : 0.02), radius: 8, y: 4)
         }
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1.0 : 0.45)
+    }
+    
+    // Account Selection Modal Sheet
+    private var accountSelectionModal: some View {
+        ZStack {
+            MoneTheme.bgCanvasGradient.ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 36, height: 4)
+                    .padding(.top, 12)
+                
+                Text("Select Account")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.textPrimary)
+                
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(database.accounts) { acc in
+                            Button {
+                                MoneHaptics.selection()
+                                selectedAccountId = acc.id
+                                showAccountPickerModal = false
+                            } label: {
+                                HStack(spacing: 12) {
+                                    acc.bankInfo.badgeView(size: 36)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(acc.name)
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundColor(MoneTheme.textPrimary)
+                                        Text(acc.bankName)
+                                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                                            .foregroundColor(MoneTheme.textSecondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Text(acc.formattedBalance)
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        .foregroundColor(MoneTheme.textPrimary)
+                                        .monospacedDigit()
+                                    
+                                    if selectedAccountId == acc.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(MoneTheme.deepBlack)
+                                    }
+                                }
+                                .whiteCard(cornerRadius: 16, padding: 12, shadowRadius: 4)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+        }
+    }
+    
+    private var selectedAccount: MoneAccount? {
+        if let id = selectedAccountId {
+            return database.accounts.first(where: { $0.id == id })
+        }
+        return database.accounts.first
     }
     
     private func saveTransaction() {
@@ -342,6 +512,7 @@ public struct AddTransactionSheet: View {
         if t == "INCOME" {
             return [
                 MoneCategory(name: "Salary", type: "INCOME"),
+                MoneCategory(name: "Creator payments", type: "INCOME"),
                 MoneCategory(name: "Freelance", type: "INCOME"),
                 MoneCategory(name: "Investment", type: "INCOME"),
                 MoneCategory(name: "Other", type: "INCOME")
@@ -350,6 +521,7 @@ public struct AddTransactionSheet: View {
         return [
             MoneCategory(name: "Food & Dining", type: "EXPENSE"),
             MoneCategory(name: "Shopping", type: "EXPENSE"),
+            MoneCategory(name: "Subscription payments", type: "EXPENSE"),
             MoneCategory(name: "Transport", type: "EXPENSE"),
             MoneCategory(name: "Bills & Utilities", type: "EXPENSE"),
             MoneCategory(name: "Groceries", type: "EXPENSE"),
@@ -362,10 +534,12 @@ public struct AddTransactionSheet: View {
         let lower = name.lowercased()
         if lower.contains("food") { return "fork.knife" }
         if lower.contains("shop") { return "bag.fill" }
+        if lower.contains("subscript") { return "creditcard.fill" }
         if lower.contains("transp") { return "car.fill" }
         if lower.contains("bill") { return "bolt.fill" }
         if lower.contains("groc") { return "cart.fill" }
         if lower.contains("entertain") { return "tv.fill" }
+        if lower.contains("creator") { return "play.rectangle.fill" }
         if lower.contains("sal") { return "banknote.fill" }
         return "tag.fill"
     }
