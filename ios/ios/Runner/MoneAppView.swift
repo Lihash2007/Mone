@@ -804,20 +804,23 @@ public struct OverviewDashboardView: View {
                 headerRow
                     .padding(.top, 12)
                 
-                // Display Headline with dynamic greeting
-                headlineSection
+                // Greeting: "Hi, Lihash!"
+                greetingSection
+                
+                // Apple Wallet Stacked Bank Cards Section (Immediately after "Hi Lihash!")
+                AppleWalletCardsSection(
+                    showAddAccountSheet: $showAddAccountSheet,
+                    editingAccount: $editingAccount
+                )
+                
+                // "Your financial insights" Headline
+                financialInsightsHeadline
                 
                 // Dual KPI Cards: Balance & Save
                 dualKpiCards
                 
                 // Action Bar: Solid Black "+ Add money" + 3 Action Buttons
                 quickActionBar
-                
-                // Apple Wallet Stacked Bank Cards Section
-                AppleWalletCardsSection(
-                    showAddAccountSheet: $showAddAccountSheet,
-                    editingAccount: $editingAccount
-                )
                 
                 // 2x2 Feature Grid: Optimize Budget, Smart Saving, Active Banks, Expense Flow
                 featureGrid
@@ -898,18 +901,21 @@ public struct OverviewDashboardView: View {
         }
     }
     
-    private var headlineSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private var greetingSection: some View {
+        HStack {
             Text("Hi, \(userName)!")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-            
-            Text("Your financial\ninsights")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                .lineSpacing(-2)
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private var financialInsightsHeadline: some View {
+        Text("Your financial\ninsights")
+            .font(.system(size: 32, weight: .bold, design: .rounded))
+            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+            .lineSpacing(-2)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private var dualKpiCards: some View {
