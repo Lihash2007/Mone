@@ -184,23 +184,30 @@ public struct DynamicIslandToastView: View {
 
 // MARK: - Biometric Security Lock Screen (Apple Face ID)
 public struct FaceIDLockScreenView: View {
-    public let onUnlock: () -> Void
     public let isDark: Bool
     public let userName: String
     public let userProfilePhotoData: Data
+    public let onBeginUnlock: () -> Void
+    public let onFinishUnlock: () -> Void
     
     @ObservedObject private var database = MoneDatabase.shared
     @State private var isAuthenticating: Bool = false
+    @State private var isVerified: Bool = false
+    @State private var isGoingInside: Bool = false
     @State private var errorMessage: String? = nil
-    @State private var isExpandingToFullScreen: Bool = false
-    @State private var controlsOpacity: Double = 1.0
-    @State private var isUnlocked: Bool = false
     
-    public init(onUnlock: @escaping () -> Void, isDark: Bool, userName: String, userProfilePhotoData: Data = Data()) {
-        self.onUnlock = onUnlock
+    public init(
+        isDark: Bool,
+        userName: String,
+        userProfilePhotoData: Data = Data(),
+        onBeginUnlock: @escaping () -> Void,
+        onFinishUnlock: @escaping () -> Void
+    ) {
         self.isDark = isDark
         self.userName = userName
         self.userProfilePhotoData = userProfilePhotoData
+        self.onBeginUnlock = onBeginUnlock
+        self.onFinishUnlock = onFinishUnlock
     }
     
     private var activePhotoData: Data {
@@ -213,72 +220,107 @@ public struct FaceIDLockScreenView: View {
     public var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Background Canvas
-                MoneTheme.bgCanvasGradient(isDark: isDark).ignoresSafeArea()
+                // Frosted Lock Screen Backdrop Canvas
+                MoneTheme.bgCanvasGradient(isDark: isDark)
+                    .overlay(
+                        Color(isDark ? .black : .white)
+                            .opacity(isDark ? 0.35 : 0.45)
+                    )
+                    .ignoresSafeArea()
+                    .opacity(isGoingInside ? 0.0 : 1.0)
                 
-                // Front Logo / Full Screen Profile Photo (Scales up smoothly upon Face Scan)
-                ZStack {
-                    if let uiImg = UIImage(data: activePhotoData) {
-                        Image(uiImage: uiImg)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        ZStack {
-                            LinearGradient(
-                                colors: [Color(hex: "0284C7"), Color(hex: "0369A1")],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                            Text(String(userName.prefix(1)).uppercased())
-                                .font(.system(size: isExpandingToFullScreen ? 110 : 36, weight: .black, design: .rounded))
-                                .foregroundColor(.white)
+                // Portal Light Ring (Aura expanding when going inside)
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "0284C7").opacity(isDark ? 0.45 : 0.3),
+                                Color(hex: "0284C7").opacity(0.0)
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 180
+                        )
+                    )
+                    .frame(width: 320, height: 320)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.36)
+                    .scaleEffect(isGoingInside ? 3.0 : (isVerified ? 1.25 : 0.95))
+                    .opacity(isGoingInside ? 0.0 : (isVerified ? 0.8 : 0.3))
+                
+                // Front Logo (Avatar with verification badge & going-inside zoom)
+                ZStack(alignment: .bottomTrailing) {
+                    // Profile Photo / Emblem
+                    ZStack {
+                        if let uiImg = UIImage(data: activePhotoData) {
+                            Image(uiImage: uiImg)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 96, height: 96)
+                                .clipShape(Circle())
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color(hex: "0284C7"), Color(hex: "0369A1")],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 96, height: 96)
+                                Text(String(userName.prefix(1)).uppercased())
+                                    .font(.system(size: 38, weight: .black, design: .rounded))
+                                    .foregroundColor(.white)
+                            }
                         }
                     }
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                isVerified ? Color(hex: "10B981") : (isAuthenticating ? Color(hex: "0284C7") : Color.white.opacity(0.35)),
+                                lineWidth: isVerified ? 3.5 : 2.5
+                            )
+                    )
+                    .shadow(
+                        color: (isVerified ? Color(hex: "10B981") : Color(hex: "0284C7")).opacity(isVerified ? 0.6 : 0.25),
+                        radius: isVerified ? 16 : 8,
+                        y: 4
+                    )
+                    
+                    // Verification Checkmark Badge
+                    if isVerified {
+                        ZStack {
+                            Circle()
+                                .fill(Color(hex: "10B981"))
+                                .frame(width: 28, height: 28)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .offset(x: 2, y: 2)
+                        .transition(.scale.combined(with: .opacity))
+                    }
                 }
-                .frame(
-                    width: isExpandingToFullScreen ? geo.size.width : 94,
-                    height: isExpandingToFullScreen ? (geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 20) : 94
-                )
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: isExpandingToFullScreen ? 0 : 47,
-                        style: .continuous
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(
-                        cornerRadius: isExpandingToFullScreen ? 0 : 47,
-                        style: .continuous
-                    )
-                    .stroke(Color.white.opacity(isExpandingToFullScreen ? 0 : 0.35), lineWidth: 2)
-                )
-                .shadow(
-                    color: Color.black.opacity(isExpandingToFullScreen ? 0 : (isDark ? 0.35 : 0.12)),
-                    radius: 12,
-                    y: 4
-                )
-                .position(
-                    x: geo.size.width / 2,
-                    y: isExpandingToFullScreen ? (geo.size.height / 2) : (geo.size.height * 0.36)
-                )
-                .ignoresSafeArea()
+                .position(x: geo.size.width / 2, y: geo.size.height * 0.36)
+                .scaleEffect(isGoingInside ? 2.6 : (isVerified ? 1.08 : 1.0))
+                .opacity(isGoingInside ? 0.0 : 1.0)
                 
-                // Lock Screen Texts and Face ID Action (Fade out smoothly on scan success)
+                // Lock Screen Texts & Actions
                 VStack(spacing: 24) {
                     Spacer()
                         .frame(height: geo.size.height * 0.44)
                     
                     VStack(spacing: 8) {
-                        Text("Welcome back, \(userName)")
+                        Text(isVerified ? "Access Granted" : "Welcome back, \(userName)")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
-                            .foregroundColor(MoneTheme.textPrimary(isDark: isDark))
+                            .foregroundColor(isVerified ? Color(hex: "10B981") : MoneTheme.textPrimary(isDark: isDark))
                         
-                        Text("mone is locked to protect your finances")
+                        Text(isVerified ? "Opening your money dashboard..." : "mone is locked to protect your finances")
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(MoneTheme.textSecondary(isDark: isDark))
                     }
                     
-                    if let err = errorMessage {
+                    if let err = errorMessage, !isVerified {
                         Text(err)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundColor(MoneTheme.badgeRedText)
@@ -295,24 +337,25 @@ public struct FaceIDLockScreenView: View {
                         triggerAuthentication()
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "faceid")
+                            Image(systemName: isVerified ? "checkmark.circle.fill" : "faceid")
                                 .font(.system(size: 22, weight: .bold))
-                            Text(isAuthenticating ? "Verifying Face ID..." : "Unlock with Face ID")
+                            Text(isVerified ? "Verified" : (isAuthenticating ? "Verifying Face ID..." : "Unlock with Face ID"))
                                 .font(.system(size: 16, weight: .bold, design: .rounded))
                         }
                         .foregroundColor(isDark ? Color(hex: "10141D") : .white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(isDark ? Color.white : MoneTheme.deepBlack)
+                        .background(isVerified ? Color(hex: "10B981") : (isDark ? Color.white : MoneTheme.deepBlack))
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .shadow(color: Color.black.opacity(isDark ? 0.35 : 0.12), radius: 10, y: 4)
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 28)
                     .padding(.bottom, 36)
+                    .disabled(isVerified)
                 }
-                .opacity(controlsOpacity)
-                .allowsHitTesting(controlsOpacity > 0.5)
+                .scaleEffect(isGoingInside ? 1.06 : 1.0)
+                .opacity(isGoingInside ? 0.0 : 1.0)
             }
         }
         .onAppear {
@@ -321,7 +364,7 @@ public struct FaceIDLockScreenView: View {
     }
     
     private func triggerAuthentication() {
-        guard !isAuthenticating, !isUnlocked else { return }
+        guard !isAuthenticating, !isVerified else { return }
         isAuthenticating = true
         errorMessage = nil
         
@@ -337,7 +380,7 @@ public struct FaceIDLockScreenView: View {
                 DispatchQueue.main.async {
                     self.isAuthenticating = false
                     if success {
-                        self.executeUnlockTransition()
+                        self.handleVerificationSuccess()
                     } else {
                         MoneHaptics.notification(.error)
                         self.errorMessage = "Authentication failed. Tap to try again."
@@ -350,24 +393,29 @@ public struct FaceIDLockScreenView: View {
         }
     }
     
-    private func executeUnlockTransition() {
-        guard !isUnlocked else { return }
-        isUnlocked = true
+    private func handleVerificationSuccess() {
+        guard !isVerified else { return }
+        
+        // 1. Verification Ping (Face ID checkmark + green glow + haptic)
         MoneHaptics.notification(.success)
-        
-        // 1. Smoothly fade out the controls
-        withAnimation(.easeOut(duration: 0.22)) {
-            controlsOpacity = 0.0
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+            isVerified = true
         }
         
-        // 2. Profile photo expands smoothly from front logo circle to fill the entire screen
-        withAnimation(.easeInOut(duration: 0.55)) {
-            isExpandingToFullScreen = true
-        }
-        
-        // 3. Once fully expanded, open the app
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-            onUnlock()
+        // 2. Short pause to register "Verified", then trigger the "Going Inside" transition
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+            // Trigger coordinated zoom on root dashboard
+            onBeginUnlock()
+            
+            // Trigger internal portal expansion
+            withAnimation(.spring(response: 0.58, dampingFraction: 0.82)) {
+                isGoingInside = true
+            }
+            
+            // 3. Complete unlock and remove lock screen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.58) {
+                onFinishUnlock()
+            }
         }
     }
 }
@@ -384,6 +432,7 @@ public struct MoneAppView: View {
     
     @Environment(\.scenePhase) private var scenePhase
     @State private var isAppUnlocked: Bool = false
+    @State private var isUnlockingTransition: Bool = false
     
     @State private var selectedTab: Int = 0
     @State private var showMenuDrawer: Bool = false
@@ -402,77 +451,87 @@ public struct MoneAppView: View {
     
     public var body: some View {
         ZStack(alignment: .top) {
+            // Main App Content (Layers underneath and surges forward upon Face ID verification)
+            ZStack(alignment: .bottom) {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                // Tab Content
+                Group {
+                    switch selectedTab {
+                    case 0:
+                        OverviewDashboardView(
+                            selectedTab: $selectedTab,
+                            showMenuDrawer: $showMenuDrawer,
+                            showAllTransactions: $showAllTransactions,
+                            showProfileModal: $showProfileModal,
+                            editingTransaction: $editingTransaction,
+                            showAddAccountSheet: $showAddAccountSheet,
+                            editingAccount: $editingAccount,
+                            showManageFamilySheet: $showManageFamilySheet
+                        )
+                    case 1:
+                        AnalyticsTrendsView(
+                            showMenuDrawer: $showMenuDrawer,
+                            showAllTransactions: $showAllTransactions,
+                            showProfileModal: $showProfileModal,
+                            editingTransaction: $editingTransaction
+                        )
+                    case 2:
+                        AccountsDirectoryView(
+                            showAddAccountSheet: $showAddAccountSheet,
+                            editingAccount: $editingAccount
+                        )
+                    case 3:
+                        SettingsView(
+                            showProfileModal: $showProfileModal,
+                            showShareSheet: $showShareSheet,
+                            csvFileURLToShare: $csvFileURLToShare,
+                            showManageFamilySheet: $showManageFamilySheet
+                        )
+                    default:
+                        OverviewDashboardView(
+                            selectedTab: $selectedTab,
+                            showMenuDrawer: $showMenuDrawer,
+                            showAllTransactions: $showAllTransactions,
+                            showProfileModal: $showProfileModal,
+                            editingTransaction: $editingTransaction,
+                            showAddAccountSheet: $showAddAccountSheet,
+                            editingAccount: $editingAccount,
+                            showManageFamilySheet: $showManageFamilySheet
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+                // Floating Bespoke Capsule Dock (Formal Symbols)
+                floatingDock
+                    .offset(y: (isFaceIDEnabled && !isAppUnlocked && !isUnlockingTransition) ? 100 : 0)
+            }
+            .scaleEffect((isFaceIDEnabled && !isAppUnlocked) ? (isUnlockingTransition ? 1.0 : 0.88) : 1.0)
+            .blur(radius: (isFaceIDEnabled && !isAppUnlocked) ? (isUnlockingTransition ? 0 : 20) : 0)
+            .opacity((isFaceIDEnabled && !isAppUnlocked) ? (isUnlockingTransition ? 1.0 : 0.0) : 1.0)
+            .allowsHitTesting(!isFaceIDEnabled || isAppUnlocked)
+            
+            // Dynamic Island / Top HUD Toast Pill
+            DynamicIslandToastView()
+            
+            // Biometric Security Lock Screen Overlay
             if isFaceIDEnabled && !isAppUnlocked {
                 FaceIDLockScreenView(
-                    onUnlock: {
-                        withAnimation(.easeInOut(duration: 0.45)) {
-                            isAppUnlocked = true
-                        }
-                    },
                     isDark: isDarkMode,
                     userName: userName,
-                    userProfilePhotoData: database.profilePhotoData
+                    userProfilePhotoData: database.profilePhotoData,
+                    onBeginUnlock: {
+                        withAnimation(.spring(response: 0.58, dampingFraction: 0.82)) {
+                            isUnlockingTransition = true
+                        }
+                    },
+                    onFinishUnlock: {
+                        isAppUnlocked = true
+                        isUnlockingTransition = false
+                    }
                 )
                 .zIndex(999)
-                .transition(.opacity)
-            } else {
-                ZStack(alignment: .bottom) {
-                    MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
-                    
-                    // Tab Content
-                    Group {
-                        switch selectedTab {
-                        case 0:
-                            OverviewDashboardView(
-                                selectedTab: $selectedTab,
-                                showMenuDrawer: $showMenuDrawer,
-                                showAllTransactions: $showAllTransactions,
-                                showProfileModal: $showProfileModal,
-                                editingTransaction: $editingTransaction,
-                                showAddAccountSheet: $showAddAccountSheet,
-                                editingAccount: $editingAccount,
-                                showManageFamilySheet: $showManageFamilySheet
-                            )
-                        case 1:
-                            AnalyticsTrendsView(
-                                showMenuDrawer: $showMenuDrawer,
-                                showAllTransactions: $showAllTransactions,
-                                showProfileModal: $showProfileModal,
-                                editingTransaction: $editingTransaction
-                            )
-                        case 2:
-                            AccountsDirectoryView(
-                                showAddAccountSheet: $showAddAccountSheet,
-                                editingAccount: $editingAccount
-                            )
-                        case 3:
-                            SettingsView(
-                                showProfileModal: $showProfileModal,
-                                showShareSheet: $showShareSheet,
-                                csvFileURLToShare: $csvFileURLToShare,
-                                showManageFamilySheet: $showManageFamilySheet
-                            )
-                        default:
-                            OverviewDashboardView(
-                                selectedTab: $selectedTab,
-                                showMenuDrawer: $showMenuDrawer,
-                                showAllTransactions: $showAllTransactions,
-                                showProfileModal: $showProfileModal,
-                                editingTransaction: $editingTransaction,
-                                showAddAccountSheet: $showAddAccountSheet,
-                                editingAccount: $editingAccount,
-                                showManageFamilySheet: $showManageFamilySheet
-                            )
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    
-                    // Floating Bespoke Capsule Dock (Formal Symbols)
-                    floatingDock
-                }
-                
-                // Dynamic Island / Top HUD Toast Pill
-                DynamicIslandToastView()
             }
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
@@ -480,6 +539,7 @@ public struct MoneAppView: View {
             if newPhase == .background {
                 if isFaceIDEnabled {
                     isAppUnlocked = false
+                    isUnlockingTransition = false
                 }
             }
         }
