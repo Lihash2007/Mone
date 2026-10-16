@@ -14,19 +14,9 @@ public struct AddTransactionSheet: View {
     @State private var selectedAccountId: Int64? = nil
     @State private var targetAccountId: Int64? = nil // For transfers
     @State private var date: Date = Date()
-    @State private var selectedPaymentMode: String = "UPI"
-    @State private var selectedTags: Set<String> = []
     
     @State private var showAccountPickerModal: Bool = false
     @State private var pickingTransferTarget: TransferTarget = .from
-    @State private var showDatePickerModal: Bool = false
-    @State private var selectedReceiptItem: PhotosPickerItem? = nil
-    @State private var receiptImageData: Data? = nil
-    @State private var showDigitalReceipt: Bool = false
-    
-    // Calculator State
-    @State private var previousOperand: Double? = nil
-    @State private var pendingOperator: String? = nil
     
     public var prefillMerchant: String? = nil
     public var prefillAmount: Double? = nil
@@ -56,101 +46,50 @@ public struct AddTransactionSheet: View {
         ZStack {
             MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
             
-            VStack(spacing: 0) {
+            VStack(spacing: 8) {
                 // Top Navigation Bar
                 navHeader
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    .padding(.bottom, 10)
                 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 14) {
-                        // 1. Balance Pill Badge
-                        sourceBalancePill
-                        
-                        // 2. Type Selector: Expense / Income / Transfer
-                        typeSelector
-                        
-                        // 3. Account Card / Transfer Visual Flow
-                        if type == "TRANSFER" {
-                            transferVisualizerCard
-                        } else {
-                            accountSelectorCard
-                        }
-                        
-                        // 4. Large Currency & Amount Display (with Category Atmospheric Halo & Brand Morphing)
-                        ZStack {
-                            categoryAtmosphericGlow
-                            amountHeroCard
-                        }
-                        
-                        // 5. Quick Preset Amount Chips ("Fast Add")
-                        quickAmountChips
-                        
-                        // 6. Interactive Amount Dial / Quick Stepper
-                        amountScrubberDial
-                        
-                        // 7. Merchant / Note Input
-                        merchantInputCard
-                        
-                        // 8. Date & Time Backdating Pill
-                        datePickerCard
-                        
-                        // 9. Payment Mode Selector
-                        paymentModeSelector
-                        
-                        // 10. Category Chips (if not Transfer)
-                        if type != "TRANSFER" {
-                            categorySelector
-                        }
-                        
-                        // 11. Tags & Reimbursable Flag
-                        tagsSelector
-                        
-                        // 12. Optional Receipt Attachment Preview
-                        receiptAttachmentCard
-                        
-                        // 13. Digital Receipt Slip Preview Trigger
-                        digitalReceiptTriggerCard
-                        
-                        // 14. Liquid Glass Keypad with Calculator Bar
-                        numericKeypadSection
-                            .padding(.top, 4)
-                        
-                        // 15. Interactive "Slide-to-Confirm" Bottom Slider
-                        SlideToConfirmButton(
-                            title: type == "INCOME" ? "Swift to record income >>>" : (type == "TRANSFER" ? "Swift to transfer >>>" : "Swift to record expense >>>"),
-                            isDark: isDarkMode
-                        ) {
-                            saveTransaction()
-                        }
-                        .padding(.top, 8)
-                        .padding(.bottom, 28)
-                    }
-                    .padding(.horizontal, 20)
+                // 1. Balance Pill Badge
+                sourceBalancePill
+                
+                // 2. Account Selector Card (or Transfer Visual Flow)
+                if type == "TRANSFER" {
+                    transferVisualizerCard
+                } else {
+                    accountSelectorCard
                 }
+                
+                // 3. Type Selector: Expense / Income / Transfer
+                typeSelector
+                
+                // 4. Large Currency & Amount Display
+                amountHeroCard
+                
+                // 5. Merchant / Note Input
+                merchantInputCard
+                
+                // 6. Category Strip (Horizontal 1-row scroll, if not Transfer)
+                if type != "TRANSFER" {
+                    categorySelector
+                }
+                
+                Spacer(minLength: 2)
+                
+                // 7. Clean 4x3 Numeric Keypad (No calculator bar)
+                numericKeypadSection
+                
+                // 8. Solid 1-Tap Action Button
+                recordActionButton
             }
+            .padding(.horizontal, 18)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
         .sheet(isPresented: $showAccountPickerModal) {
             accountSelectionModal
                 .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showDatePickerModal) {
-            datePickerSheet
-                .presentationDetents([.fraction(0.45)])
-        }
-        .sheet(isPresented: $showDigitalReceipt) {
-            DigitalReceiptSlipSheet(
-                merchant: merchant.isEmpty ? (type == "TRANSFER" ? "Account Transfer" : selectedCategory) : merchant,
-                amount: Double(amountString) ?? 0.0,
-                category: selectedCategory,
-                type: type,
-                accountId: selectedAccountId,
-                date: date,
-                paymentMode: selectedPaymentMode,
-                tags: Array(selectedTags)
-            )
         }
         .onAppear {
             initializeDefaults()
@@ -188,20 +127,20 @@ public struct AddTransactionSheet: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                    .frame(width: 38, height: 38)
+                    .frame(width: 32, height: 32)
                     .background(isDarkMode ? Color(hex: "151926") : Color.white)
                     .clipShape(Circle())
-                    .overlay(Circle().stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1))
-                    .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.06), radius: 6, y: 2)
+                    .overlay(Circle().stroke(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.04), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.05), radius: 4, y: 1)
             }
             .buttonStyle(.plain)
             
             Spacer()
             
             Text(type == "INCOME" ? "Record Income" : (type == "TRANSFER" ? "Transfer Funds" : "Record Expense"))
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
             
             Spacer()
@@ -211,11 +150,9 @@ public struct AddTransactionSheet: View {
                 MoneHaptics.impact(.light)
                 amountString = ""
                 merchant = ""
-                previousOperand = nil
-                pendingOperator = nil
             } label: {
                 Text("Clear")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundColor(Color(hex: "0284C7"))
             }
             .buttonStyle(.plain)
@@ -225,17 +162,17 @@ public struct AddTransactionSheet: View {
     // MARK: - 2. Source Balance Pill
     private var sourceBalancePill: some View {
         let currentBal = selectedAccount?.balance ?? database.totalBalance
-        return HStack(spacing: 6) {
+        return HStack(spacing: 5) {
             Text("Balance is")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundColor(isDarkMode ? Color(hex: "94A3B8") : MoneTheme.textSecondary)
             Text(String(format: "₹ %.2f", currentBal))
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundColor(Color(hex: "0284C7"))
                 .monospacedDigit()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
         .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
         .clipShape(Capsule())
     }
@@ -260,25 +197,25 @@ public struct AddTransactionSheet: View {
             pickingTransferTarget = .from
             showAccountPickerModal = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 if let a = acc {
-                    a.bankInfo.badgeView(size: 38)
+                    a.bankInfo.badgeView(size: 32)
                     
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(a.name)
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
                             .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         
                         Text(a.accountNumber.isEmpty ? a.bankName : "\(a.bankName) •••• \(a.accountNumber.suffix(4))")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     }
                 } else {
                     Image(systemName: "creditcard.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 18))
                         .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     Text("Select Bank Account")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 }
                 
@@ -287,13 +224,13 @@ public struct AddTransactionSheet: View {
                 ZStack {
                     Circle()
                         .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 26, height: 26)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
                 }
             }
-            .whiteCard(cornerRadius: 20, padding: 14)
+            .whiteCard(cornerRadius: 16, padding: 10)
         }
         .buttonStyle(.plain)
     }
@@ -304,20 +241,19 @@ public struct AddTransactionSheet: View {
         let toAcc = targetAccount ?? database.accounts.last
         
         return HStack(spacing: 8) {
-            // FROM card
             Button {
                 pickingTransferTarget = .from
                 showAccountPickerModal = true
             } label: {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("FROM")
                         .font(.system(size: 9, weight: .black, design: .rounded))
                         .foregroundColor(Color(hex: "0284C7"))
                     HStack(spacing: 6) {
-                        fromAcc?.bankInfo.badgeView(size: 26)
+                        fromAcc?.bankInfo.badgeView(size: 22)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(fromAcc?.name ?? "Select")
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                                 .lineLimit(1)
                             Text("₹\(Int(fromAcc?.balance ?? 0))")
@@ -327,13 +263,12 @@ public struct AddTransactionSheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
+                .padding(8)
                 .background(isDarkMode ? Color(hex: "181D2A") : Color(hex: "F3F7FA"))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
             
-            // Swap Button
             Button {
                 MoneHaptics.selection()
                 let temp = selectedAccountId
@@ -343,28 +278,27 @@ public struct AddTransactionSheet: View {
                 ZStack {
                     Circle()
                         .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 30, height: 30)
                     Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
                 }
             }
             .buttonStyle(.plain)
             
-            // TO card
             Button {
                 pickingTransferTarget = .to
                 showAccountPickerModal = true
             } label: {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("TO")
                         .font(.system(size: 9, weight: .black, design: .rounded))
                         .foregroundColor(MoneTheme.badgeGreenText)
                     HStack(spacing: 6) {
-                        toAcc?.bankInfo.badgeView(size: 26)
+                        toAcc?.bankInfo.badgeView(size: 22)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(toAcc?.name ?? "Select")
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                                 .lineLimit(1)
                             Text("₹\(Int(toAcc?.balance ?? 0))")
@@ -374,13 +308,13 @@ public struct AddTransactionSheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
+                .padding(8)
                 .background(isDarkMode ? Color(hex: "181D2A") : Color(hex: "F3F7FA"))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
         }
-        .whiteCard(cornerRadius: 20, padding: 12)
+        .whiteCard(cornerRadius: 16, padding: 10)
     }
     
     // MARK: - 6. Amount Hero Card with Brand Halo Morphing
@@ -389,29 +323,29 @@ public struct AddTransactionSheet: View {
         return HStack(alignment: .center, spacing: 8) {
             HStack(spacing: 6) {
                 Text("INR")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 
                 if let bColor = brandHalo {
                     Circle()
                         .fill(bColor)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 6, height: 6)
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 5)
             .background(isDarkMode ? Color(hex: "1B212D") : MoneTheme.bgSegmentContainer)
             .clipShape(Capsule())
             
             Spacer()
             
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text("₹")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(brandHalo ?? (isDarkMode ? Color(hex: "60A5FA") : MoneTheme.textPrimary(isDark: isDarkMode)))
                 
                 Text(amountString.isEmpty ? "0" : amountString)
-                    .font(.system(size: 38, weight: .black, design: .rounded))
+                    .font(.system(size: 34, weight: .black, design: .rounded))
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .lineLimit(1)
@@ -420,120 +354,22 @@ public struct AddTransactionSheet: View {
                 // Active cursor
                 Rectangle()
                     .fill(brandHalo ?? Color(hex: "0284C7"))
-                    .frame(width: 2.5, height: 28)
+                    .frame(width: 2.5, height: 24)
                     .opacity(0.85)
             }
         }
-        .whiteCard(cornerRadius: 22, padding: 18, shadowRadius: 8)
+        .whiteCard(cornerRadius: 18, padding: 12, shadowRadius: 6)
     }
     
-    // MARK: - 7. Quick Amount Chips ("Fast Add")
-    private var quickAmountChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach([100, 250, 500, 1000, 2000, 5000], id: \.self) { preset in
-                    Button {
-                        MoneHaptics.impact(.light)
-                        let current = Double(amountString) ?? 0.0
-                        amountString = String(format: "%.0f", current + Double(preset))
-                    } label: {
-                        Text("+₹\(preset)")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(isDarkMode ? Color.white : MoneTheme.deepBlack)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(isDarkMode ? Color(hex: "181E2B") : Color(hex: "E4EFF7"))
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-    
-    // MARK: - Category Atmospheric Halo Glow
-    private var categoryAtmosphericGlow: some View {
-        let glowColor: Color = {
-            let cat = selectedCategory.lowercased()
-            if cat.contains("food") || cat.contains("dining") { return Color(hex: "F97316") }
-            if cat.contains("shopping") { return Color(hex: "EC4899") }
-            if cat.contains("transport") { return Color(hex: "06B6D4") }
-            if cat.contains("bills") || cat.contains("utilities") { return Color(hex: "3B82F6") }
-            if cat.contains("salary") { return Color(hex: "10B981") }
-            if cat.contains("entertainment") { return Color(hex: "8B5CF6") }
-            if cat.contains("groceries") { return Color(hex: "F59E0B") }
-            return Color(hex: "0284C7")
-        }()
-        
-        return RadialGradient(
-            gradient: Gradient(colors: [
-                glowColor.opacity(isDarkMode ? 0.32 : 0.16),
-                Color.clear
-            ]),
-            center: .center,
-            startRadius: 20,
-            endRadius: 180
-        )
-        .frame(height: 120)
-        .blur(radius: 16)
-        .allowsHitTesting(false)
-        .animation(.easeInOut(duration: 0.35), value: selectedCategory)
-    }
-    
-    // MARK: - Amount Scrubber Dial / Stepper
-    private var amountScrubberDial: some View {
-        HStack(spacing: 8) {
-            quickStepButton(delta: -500, label: "−₹500")
-            quickStepButton(delta: -100, label: "−₹100")
-            
-            // Center Tactile Scrubber Indicator
-            HStack(spacing: 4) {
-                ForEach(0..<5) { idx in
-                    Capsule()
-                        .fill(MoneTheme.textSecondary(isDark: isDarkMode).opacity(idx == 2 ? 0.9 : 0.3))
-                        .frame(width: 3, height: idx == 2 ? 14 : 7)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            
-            quickStepButton(delta: 100, label: "+₹100")
-            quickStepButton(delta: 500, label: "+₹500")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(isDarkMode ? Color(hex: "121622") : Color(hex: "F1F5F9"))
-        .clipShape(Capsule())
-    }
-    
-    private func quickStepButton(delta: Double, label: String) -> some View {
-        Button {
-            MoneHaptics.selection()
-            let current = Double(amountString) ?? 0.0
-            let next = max(current + delta, 0.0)
-            amountString = String(format: "%.0f", next)
-        } label: {
-            Text(label)
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundColor(delta > 0 ? Color(hex: "0284C7") : MoneTheme.textSecondary(isDark: isDarkMode))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(isDarkMode ? Color(hex: "181D2A") : Color.white)
-                .clipShape(Capsule())
-                .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
-        }
-        .buttonStyle(.plain)
-    }
-    
-    // MARK: - 8. Merchant / Note Input
+    // MARK: - 7. Merchant / Note Input
     private var merchantInputCard: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: "pencil.line")
                 .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                .font(.system(size: 13))
             
             TextField("Note / Payee (e.g. Swiggy, Starbucks, Rent)", text: $merchant)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
             
             if !merchant.isEmpty {
@@ -542,94 +378,39 @@ public struct AddTransactionSheet: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        .font(.system(size: 13))
                 }
+                .buttonStyle(.plain)
             }
         }
-        .whiteCard(cornerRadius: 18, padding: 14, shadowRadius: 6)
+        .whiteCard(cornerRadius: 16, padding: 10, shadowRadius: 4)
     }
     
-    // MARK: - 9. Date & Time Backdating Card
-    private var datePickerCard: some View {
-        Button {
-            MoneHaptics.impact(.light)
-            showDatePickerModal = true
-        } label: {
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: "calendar")
-                        .foregroundColor(Color(hex: "0284C7"))
-                    Text(formattedDate(date))
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                }
-                
-                Spacer()
-                
-                Text("Change Date")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundColor(Color(hex: "0284C7"))
-            }
-            .whiteCard(cornerRadius: 18, padding: 14)
-        }
-        .buttonStyle(.plain)
-    }
-    
-    // MARK: - 10. Payment Mode Selector
-    private var paymentModeSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(["UPI", "Credit Card", "Debit Card", "Cash", "Net Banking"], id: \.self) { mode in
-                    let isSelected = selectedPaymentMode == mode
-                    Button {
-                        MoneHaptics.selection()
-                        selectedPaymentMode = mode
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: iconForPaymentMode(mode))
-                                .font(.system(size: 11, weight: .bold))
-                            Text(mode)
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
-                        }
-                        .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textSecondary(isDark: isDarkMode))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
-                        .clipShape(Capsule())
-                        .overlay(Capsule().stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-    
-    // MARK: - 11. Category Chips
+    // MARK: - 8. Category Chips
     private var categorySelector: some View {
         let cats = database.categories.filter { $0.type == type }
         let list = cats.isEmpty ? defaultCategoriesForType(type) : cats
         return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(list) { cat in
                     let isSelected = selectedCategory.lowercased() == cat.name.lowercased()
                     Button {
                         MoneHaptics.selection()
                         selectedCategory = cat.name
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 5) {
                             Image(systemName: iconForCategory(cat.name))
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.system(size: 10, weight: .bold))
                             Text(cat.name)
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
                         .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "151926") : Color.white))
                         .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textSecondary(isDark: isDarkMode))
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+                        .overlay(Capsule().stroke(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.04), lineWidth: 1))
+                        .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 3, y: 1)
                     }
                     .buttonStyle(.plain)
                 }
@@ -638,108 +419,9 @@ public struct AddTransactionSheet: View {
         }
     }
     
-    // MARK: - 12. Tags & Reimbursable
-    private var tagsSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(["#Personal", "#Work", "#Trip", "#Family", "🔖 Reimbursable"], id: \.self) { tag in
-                    let isSelected = selectedTags.contains(tag)
-                    Button {
-                        MoneHaptics.selection()
-                        if isSelected {
-                            selectedTags.remove(tag)
-                        } else {
-                            selectedTags.insert(tag)
-                        }
-                    } label: {
-                        Text(tag)
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(isSelected ? Color(hex: "0284C7") : MoneTheme.textSecondary(isDark: isDarkMode))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(isSelected ? (isDarkMode ? Color(hex: "172A3D") : Color(hex: "D8EBF7")) : (isDarkMode ? Color(hex: "151926") : Color.white))
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(isDarkMode ? Color.white.opacity(0.06) : Color.clear, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-    
-    // MARK: - 13. Receipt Photo Attachment
-    private var receiptAttachmentCard: some View {
-        HStack {
-            PhotosPicker(selection: $selectedReceiptItem, matching: .images) {
-                HStack(spacing: 8) {
-                    Image(systemName: "camera.fill")
-                        .foregroundColor(Color(hex: "0284C7"))
-                    Text(receiptImageData == nil ? "Attach Receipt / Bill" : "Receipt Attached ✓")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                }
-            }
-            .buttonStyle(.plain)
-            .onChange(of: selectedReceiptItem) { newItem in
-                Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                        receiptImageData = data
-                        MoneHaptics.notification(.success)
-                    }
-                }
-            }
-            
-            Spacer()
-            
-            if let data = receiptImageData, let img = UIImage(data: data) {
-                Image(uiImage: img)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 32, height: 32)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-        }
-        .whiteCard(cornerRadius: 16, padding: 12)
-    }
-    
-    // MARK: - 13. Digital Receipt Slip Trigger Card
-    private var digitalReceiptTriggerCard: some View {
-        Button {
-            MoneHaptics.selection()
-            showDigitalReceipt = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "doc.text.fill")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Color(hex: "0284C7"))
-                Text("Preview Digital Slip / Perforated Receipt")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-            }
-        }
-        .buttonStyle(.plain)
-        .whiteCard(cornerRadius: 16, padding: 12)
-    }
-    
-    // MARK: - 14. Keypad with Calculator Bar
+    // MARK: - 9. Clean 4x3 Numeric Keypad (No calculator bar)
     private var numericKeypadSection: some View {
-        VStack(spacing: 8) {
-            // Calculator Operator Bar
-            HStack(spacing: 6) {
-                calcOperatorButton("+")
-                calcOperatorButton("−")
-                calcOperatorButton("×")
-                calcOperatorButton("÷")
-                calcOperatorButton("%")
-                calcOperatorButton("C")
-            }
-            
-            // 4x3 Number Pad
+        VStack(spacing: 6) {
             HStack(spacing: 8) {
                 keypadButton("1")
                 keypadButton("2")
@@ -763,22 +445,6 @@ public struct AddTransactionSheet: View {
         }
     }
     
-    private func calcOperatorButton(_ op: String) -> some View {
-        Button {
-            MoneHaptics.impact(.light)
-            handleCalculatorOperator(op)
-        } label: {
-            Text(op)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(Color(hex: "0284C7"))
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
-                .background(isDarkMode ? Color(hex: "172435") : Color(hex: "E8F2FA"))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-    
     private func keypadButton(_ char: String) -> some View {
         Button {
             MoneHaptics.impact(.light)
@@ -788,14 +454,14 @@ public struct AddTransactionSheet: View {
                 .font(.system(size: 22, weight: .semibold, design: .rounded))
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .frame(height: 44)
                 .background(isDarkMode ? Color(hex: "151926") : Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.04), lineWidth: 1)
                 )
-                .shadow(color: isDarkMode ? Color.black.opacity(0.35) : Color(hex: "0D2040").opacity(0.04), radius: 4, x: 0, y: 2)
+                .shadow(color: isDarkMode ? Color.black.opacity(0.35) : Color(hex: "0D2040").opacity(0.04), radius: 3, x: 0, y: 1)
         }
         .buttonStyle(.plain)
     }
@@ -811,19 +477,18 @@ public struct AddTransactionSheet: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .frame(height: 44)
                 .background(isDarkMode ? Color(hex: "151926") : Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.04), lineWidth: 1)
                 )
-                .shadow(color: isDarkMode ? Color.black.opacity(0.35) : Color(hex: "0D2040").opacity(0.04), radius: 4, x: 0, y: 2)
+                .shadow(color: isDarkMode ? Color.black.opacity(0.35) : Color(hex: "0D2040").opacity(0.04), radius: 3, x: 0, y: 1)
         }
         .buttonStyle(.plain)
     }
     
-    // MARK: - Keypad Handling
     private func handleKeyPress(_ char: String) {
         if char == "." {
             if !amountString.contains(".") {
@@ -838,55 +503,28 @@ public struct AddTransactionSheet: View {
         }
     }
     
-    private func handleCalculatorOperator(_ op: String) {
-        if op == "C" {
-            amountString = ""
-            previousOperand = nil
-            pendingOperator = nil
-            return
-        }
-        
-        let current = Double(amountString) ?? 0.0
-        if let prev = previousOperand, let pending = pendingOperator {
-            var result: Double = current
-            switch pending {
-            case "+": result = prev + current
-            case "−": result = prev - current
-            case "×": result = prev * current
-            case "÷": result = current != 0 ? prev / current : prev
-            case "%": result = prev * (current / 100.0)
-            default: break
+    // MARK: - 10. Solid Action Button
+    private var recordActionButton: some View {
+        Button {
+            MoneHaptics.notification(.success)
+            saveTransaction()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: type == "INCOME" ? "arrow.down.left" : (type == "TRANSFER" ? "arrow.left.arrow.right" : "arrow.up.right"))
+                    .font(.system(size: 14, weight: .bold))
+                Text(type == "INCOME" ? "Record Income" : (type == "TRANSFER" ? "Transfer Funds" : "Record Expense"))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
             }
-            amountString = String(format: "%.0f", result)
-            previousOperand = result
-        } else {
-            previousOperand = current
-            amountString = ""
+            .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
+            )
+            .shadow(color: Color.black.opacity(isDarkMode ? 0.25 : 0.08), radius: 6, y: 3)
         }
-        pendingOperator = op
-    }
-    
-    // MARK: - Date Picker Sheet
-    private var datePickerSheet: some View {
-        VStack {
-            HStack {
-                Text("Select Transaction Date")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                Spacer()
-                Button("Done") { showDatePickerModal = false }
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(Color(hex: "0284C7"))
-            }
-            .padding()
-            
-            DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                .datePickerStyle(.wheel)
-                .labelsHidden()
-            
-            Spacer()
-        }
-        .background(MoneTheme.bgCanvasGradient(isDark: isDarkMode))
+        .buttonStyle(.plain)
     }
     
     // MARK: - Account Selection Modal
@@ -959,13 +597,7 @@ public struct AddTransactionSheet: View {
             cleanMerchant = type == "TRANSFER" ? "Account Transfer" : selectedCategory
         }
         
-        // Append active tags if any
-        if !selectedTags.isEmpty {
-            cleanMerchant += " " + selectedTags.joined(separator: " ")
-        }
-        
         if type == "TRANSFER", let fromId = selectedAccountId, let toId = targetAccountId {
-            // Log outgoing transfer
             database.addTransaction(MoneTransaction(
                 merchant: "Transfer to \(targetAccount?.name ?? "Account")",
                 category: "Transfer",
@@ -974,7 +606,6 @@ public struct AddTransactionSheet: View {
                 date: date,
                 accountId: fromId
             ))
-            // Log incoming transfer
             database.addTransaction(MoneTransaction(
                 merchant: "Transfer from \(selectedAccount?.name ?? "Account")",
                 category: "Transfer",
@@ -1211,48 +842,28 @@ public struct EditTransactionSheet: View {
         ZStack {
             MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
             
-            VStack(spacing: 0) {
+            VStack(spacing: 8) {
                 navHeader
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-                
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 14) {
-                        sourceBalancePill
-                        accountSelectorCard
-                        typeSelector
-                        amountHeroCard
-                        merchantInputCard
-                        datePickerCard
-                        digitalReceiptButton
-                        if type != "TRANSFER" {
-                            categorySelector
-                        }
-                        numericKeypad
-                            .padding(.top, 4)
-                        bottomActions
-                            .padding(.top, 8)
-                            .padding(.bottom, 24)
-                    }
-                    .padding(.horizontal, 20)
+                sourceBalancePill
+                accountSelectorCard
+                typeSelector
+                amountHeroCard
+                merchantInputCard
+                if type != "TRANSFER" {
+                    categorySelector
                 }
+                Spacer(minLength: 2)
+                numericKeypad
+                bottomActions
             }
+            .padding(.horizontal, 18)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
         .sheet(isPresented: $showAccountPickerModal) {
             accountSelectionModal
                 .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showDigitalReceipt) {
-            DigitalReceiptSlipSheet(
-                merchant: merchant.isEmpty ? selectedCategory : merchant,
-                amount: Double(amountString) ?? tx.amount,
-                category: selectedCategory,
-                type: type,
-                accountId: selectedAccountId,
-                date: date
-            )
         }
         .alert("Delete Transaction?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -1547,7 +1158,7 @@ public struct EditTransactionSheet: View {
                 .font(.system(size: 24, weight: .semibold, design: .rounded))
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .frame(height: 44)
                 .background(isDarkMode ? Color(hex: "151926") : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
@@ -1570,7 +1181,7 @@ public struct EditTransactionSheet: View {
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .frame(height: 44)
                 .background(isDarkMode ? Color(hex: "151926") : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
@@ -1583,32 +1194,26 @@ public struct EditTransactionSheet: View {
     }
     
     private var bottomActions: some View {
-        VStack(spacing: 10) {
-            SlideToConfirmButton(
-                title: "Swift to save changes >>>",
-                isDark: isDarkMode
-            ) {
-                updateTransaction()
+        Button {
+            MoneHaptics.notification(.success)
+            updateTransaction()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .bold))
+                Text("Save Changes")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
             }
-            
-            Button {
-                MoneHaptics.notification(.warning)
-                showDeleteConfirmation = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("Delete This Transaction")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                }
-                .foregroundColor(MoneTheme.badgeRedText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(MoneTheme.badgeRedBg)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .buttonStyle(.plain)
+            .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
+            )
+            .shadow(color: Color.black.opacity(isDarkMode ? 0.25 : 0.08), radius: 6, y: 3)
         }
+        .buttonStyle(.plain)
     }
     
     private var accountSelectionModal: some View {

@@ -193,7 +193,6 @@ public struct MoneAppView: View {
     
     @State private var selectedTab: Int = 0
     @State private var showMenuDrawer: Bool = false
-    @State private var showAIModal: Bool = false
     @State private var showAllTransactions: Bool = false
     @State private var showProfileModal: Bool = false
     @State private var showAddAccountSheet: Bool = false
@@ -276,9 +275,6 @@ public struct MoneAppView: View {
         }
         .sheet(item: $editingAccount) { acc in
             EditAccountSheet(acc: acc)
-        }
-        .sheet(isPresented: $showAIModal) {
-            AIAssistantSheet()
         }
         .sheet(isPresented: $showMenuDrawer) {
             QuickControlMenuSheet(
@@ -418,9 +414,6 @@ public struct OverviewDashboardView: View {
                 
                 // Dual KPI Cards: Balance & Save
                 dualKpiCards
-                
-                // ✦ AI Assistant Interactive Voice Banner
-                aiAssistantBanner
                 
                 // Action Bar: Solid Black "+ Add money" + 3 Action Buttons
                 quickActionBar
@@ -589,47 +582,6 @@ public struct OverviewDashboardView: View {
             }
             .whiteCard(cornerRadius: 22, padding: 16)
         }
-    }
-    
-    private var aiAssistantBanner: some View {
-        Button {
-            MoneHaptics.impact(.medium)
-            showAIModal = true
-        } label: {
-            HStack {
-                HStack(spacing: 10) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary(isDark: isDarkMode))
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("AI Voice Assistant")
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary(isDark: isDarkMode))
-                        Text("Tap to speak or activate Siri logger")
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : MoneTheme.textSecondary(isDark: isDarkMode))
-                    }
-                }
-                
-                Spacer()
-                
-                ZStack {
-                    Circle()
-                        .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
-                }
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.04), radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
     }
     
     private var quickActionBar: some View {
@@ -2013,56 +1965,69 @@ public struct SettingsView: View {
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
             }
             
-            Text("1-tap recipes for Siri, Action Button, or Home Screen icons:")
+            Text("1-tap automations for Action Button, Back Tap, or Home Screen:")
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
             
-            shortcutCopyButton(
-                title: "1-Tap In-App Account Choice",
-                subtitle: "mone://log?...&account=choose",
-                urlText: "mone://log?type=[Type]&amount=[Amount]&category=[Category]&merchant=[Merchant]&account=choose"
-            )
+            // Direct Button to Launch Apple Shortcuts App
+            Button {
+                MoneHaptics.impact(.medium)
+                if let url = URL(string: "shortcuts://create-shortcut"), UIApplication.shared.canOpenURL(url) {
+                    UIApplication.shared.open(url)
+                } else if let generalUrl = URL(string: "shortcuts://") {
+                    UIApplication.shared.open(generalUrl)
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "square.badge.plus")
+                        .font(.system(size: 16, weight: .bold))
+                    Text("Open Apple Shortcuts App")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                    Spacer()
+                    Image(systemName: "arrow.up.forward.app.fill")
+                        .font(.system(size: 13))
+                }
+                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .padding(.horizontal, 16)
+                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
             
-            shortcutCopyButton(
-                title: "Direct Shortcut Template",
-                subtitle: "mone://log?...&account=[Account]",
-                urlText: "mone://log?type=[Type]&amount=[Amount]&category=[Category]&account=[Account]&merchant=[Merchant]"
-            )
-            
-            shortcutCopyButton(
-                title: "1-Tap Interactive Keypad",
-                subtitle: "mone://log",
-                urlText: "mone://log"
-            )
+            // 1-Tap Ready URL Copier with Direct Open
+            Button {
+                MoneHaptics.notification(.success)
+                UIPasteboard.general.string = "mone://log"
+                if let url = URL(string: "shortcuts://") {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "link.badge.plus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color(hex: "0284C7"))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Copy 'mone://log' & Launch Shortcuts")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("Pastes URL into an 'Open URL' action")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                .padding(12)
+                .background(MoneTheme.bgCanvas(isDark: isDarkMode))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
         }
         .whiteCard(cornerRadius: 24, padding: 18)
-    }
-    
-    private func shortcutCopyButton(title: String, subtitle: String, urlText: String) -> some View {
-        Button {
-            UIPasteboard.general.string = urlText
-            MoneHaptics.notification(.success)
-        } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                    Text(subtitle)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-                        .lineLimit(1)
-                }
-                Spacer()
-                Image(systemName: "doc.on.doc.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(Color(hex: "0284C7"))
-            }
-            .padding(12)
-            .background(MoneTheme.bgCanvas(isDark: isDarkMode))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
     
     private var dataManagementCard: some View {
@@ -2144,218 +2109,6 @@ public struct SettingsView: View {
     }
 }
 
-// MARK: - Interactive AI Assistant & Siri Voice Logger Modal
-public struct AIAssistantSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var database = MoneDatabase.shared
-    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
-    
-    @State private var inputText: String = ""
-    @State private var isListening: Bool = true
-    @State private var pulseScale: CGFloat = 1.0
-    @State private var parsedPreview: String? = nil
-    
-    public var body: some View {
-        ZStack {
-            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
-            
-            VStack(spacing: 20) {
-                // Top Header
-                HStack {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(Color(hex: "0284C7"))
-                        Text("AI Voice Logger")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                    }
-                    Spacer()
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-                            .padding(8)
-                            .background(isDarkMode ? Color(hex: "131722") : Color.white)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, 16)
-                
-                // Pulsating Voice Ring
-                ZStack {
-                    Circle()
-                        .stroke(Color(hex: "0284C7").opacity(0.2), lineWidth: 8)
-                        .frame(width: 110, height: 110)
-                        .scaleEffect(isListening ? pulseScale : 1.0)
-                    
-                    Circle()
-                        .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
-                        .frame(width: 76, height: 76)
-                        .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.3), radius: 10, y: 4)
-                    
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
-                }
-                .padding(.top, 10)
-                .onAppear {
-                    withAnimation(Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                        pulseScale = 1.25
-                    }
-                }
-                
-                Text(isListening ? "Listening in English / Hindi..." : "Ready to log")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(Color(hex: "0284C7"))
-                
-                // Natural Language Input Field
-                HStack(spacing: 10) {
-                    TextField("e.g. Spent ₹450 on Coffee from HDFC...", text: $inputText)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                        .onSubmit {
-                            parseAndLog(inputText)
-                        }
-                    
-                    Button {
-                        parseAndLog(inputText)
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 26))
-                            .foregroundColor(Color(hex: "0284C7"))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(14)
-                .background(isDarkMode ? Color(hex: "131722") : Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.05), radius: 8, y: 3)
-                
-                // 1-Tap Quick Voice Chips
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Try 1-Tap Voice Commands:")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-                    
-                    exampleVoiceChip("☕ Spent ₹250 on Starbucks from HDFC")
-                    exampleVoiceChip("🍕 Paid ₹850 to Zomato from ICICI")
-                    exampleVoiceChip("💼 Received ₹45,000 Salary to SBI")
-                    exampleVoiceChip("🚗 Uber ride ₹380 from Cash")
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
-                Spacer()
-                
-                // Siri Voice Setup Button
-                Button {
-                    UIPasteboard.general.string = "mone://log"
-                    MoneHaptics.notification(.success)
-                    dismiss()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bolt.fill")
-                        Text("Copy Siri Voice Shortcut URL (mone://log)")
-                    }
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 16)
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-    
-    private func exampleVoiceChip(_ text: String) -> some View {
-        Button {
-            MoneHaptics.selection()
-            parseAndLog(text)
-        } label: {
-            Text(text)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(isDarkMode ? Color(hex: "131722") : Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
-        }
-        .buttonStyle(.plain)
-    }
-    
-    private func parseAndLog(_ input: String) {
-        guard !input.isEmpty else { return }
-        let lower = input.lowercased()
-        
-        // Extract Amount
-        var amt: Double = 250.0
-        let numbers = input.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }
-        if let firstNum = numbers.first, let d = Double(firstNum) {
-            amt = d
-        }
-        
-        // Extract Type
-        let isIncome = lower.contains("salary") || lower.contains("received") || lower.contains("income") || lower.contains("credit")
-        let type = isIncome ? "INCOME" : "EXPENSE"
-        
-        // Extract Category
-        var cat = "Food & Dining"
-        if lower.contains("starbucks") || lower.contains("coffee") || lower.contains("zomato") || lower.contains("swiggy") || lower.contains("dinner") {
-            cat = "Food & Dining"
-        } else if lower.contains("uber") || lower.contains("ola") || lower.contains("ride") || lower.contains("fuel") {
-            cat = "Transport"
-        } else if lower.contains("salary") {
-            cat = "Salary"
-        } else if lower.contains("shopping") || lower.contains("amazon") {
-            cat = "Shopping"
-        }
-        
-        // Extract Merchant
-        var merchant = cat
-        if lower.contains("starbucks") { merchant = "Starbucks" }
-        else if lower.contains("zomato") { merchant = "Zomato" }
-        else if lower.contains("uber") { merchant = "Uber" }
-        else if lower.contains("salary") { merchant = "Monthly Salary" }
-        
-        // Match Account
-        var accId: Int64? = nil
-        for acc in database.accounts {
-            if lower.contains(acc.name.lowercased()) || lower.contains(acc.bankName.lowercased()) || lower.contains(acc.bankCode.lowercased()) {
-                accId = acc.id
-                break
-            }
-        }
-        if accId == nil { accId = database.accounts.first?.id }
-        let matchedAcc = database.accounts.first(where: { $0.id == accId }) ?? database.accounts.first
-        
-        database.addTransaction(MoneTransaction(
-            merchant: merchant,
-            category: cat,
-            amount: amt,
-            type: type,
-            date: Date(),
-            accountId: accId
-        ))
-        
-        MoneHUDManager.shared.show(
-            title: "\(type == "INCOME" ? "+" : "-")₹\(String(format: "%.0f", amt)) Logged via Siri",
-            subtitle: "\(merchant) • \(matchedAcc?.name ?? "Account")",
-            bankId: matchedAcc?.bankInfo.id
-        )
-        
-        MoneHaptics.notification(.success)
-        dismiss()
-    }
-}
 
 // MARK: - Quick Control Menu Sheet (Hamburger Menu Action Drawer)
 public struct QuickControlMenuSheet: View {
