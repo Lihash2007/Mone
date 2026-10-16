@@ -182,6 +182,146 @@ public struct DynamicIslandToastView: View {
     }
 }
 
+// MARK: - Biometric Security Lock Screen (Apple Face ID)
+public struct FaceIDLockScreenView: View {
+    public let onUnlock: () -> Void
+    public let isDark: Bool
+    public let userName: String
+    public let userProfilePhotoData: Data
+    
+    @State private var isAuthenticating: Bool = false
+    @State private var errorMessage: String? = nil
+    @State private var pulseAnimation: Bool = false
+    
+    public init(onUnlock: @escaping () -> Void, isDark: Bool, userName: String, userProfilePhotoData: Data) {
+        self.onUnlock = onUnlock
+        self.isDark = isDark
+        self.userName = userName
+        self.userProfilePhotoData = userProfilePhotoData
+    }
+    
+    public var body: some View {
+        ZStack {
+            MoneTheme.bgCanvasGradient(isDark: isDark).ignoresSafeArea()
+            
+            VStack(spacing: 28) {
+                Spacer()
+                
+                // User Avatar / Monogram with Pulsing Halo
+                ZStack {
+                    Circle()
+                        .stroke(Color(hex: "0284C7").opacity(pulseAnimation ? 0.35 : 0.08), lineWidth: pulseAnimation ? 10 : 3)
+                        .frame(width: 96, height: 96)
+                        .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: pulseAnimation)
+                    
+                    if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                        Image(uiImage: uiImg)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 80, height: 80)
+                            .clipShape(Circle())
+                    } else {
+                        Circle()
+                            .fill(Color(hex: "D9E6EF"))
+                            .frame(width: 80, height: 80)
+                        Text(String(userName.prefix(1)).uppercased())
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .foregroundColor(Color(hex: "335C7A"))
+                    }
+                }
+                
+                VStack(spacing: 8) {
+                    Text("Welcome back, \(userName)")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDark))
+                    
+                    Text("mone is locked to protect your finances")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDark))
+                }
+                
+                if let err = errorMessage {
+                    Text(err)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(MoneTheme.badgeRedText)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(MoneTheme.badgeRedBg)
+                        .clipShape(Capsule())
+                }
+                
+                Spacer()
+                
+                // Unlock with Face ID Button
+                Button {
+                    triggerAuthentication()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "faceid")
+                            .font(.system(size: 22, weight: .bold))
+                        Text(isAuthenticating ? "Verifying Face ID..." : "Unlock with Face ID")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(isDark ? Color(hex: "10141D") : .white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(isDark ? Color.white : MoneTheme.deepBlack)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: Color.black.opacity(isDark ? 0.35 : 0.12), radius: 10, y: 4)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 36)
+            }
+        }
+        .onAppear {
+            pulseAnimation = true
+            triggerAuthentication()
+        }
+    }
+    
+    private func triggerAuthentication() {
+        guard !isAuthenticating else { return }
+        isAuthenticating = true
+        errorMessage = nil
+        
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+        var error: NSError?
+        
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Unlock mone to view financial records") { success, _ in
+                DispatchQueue.main.async {
+                    isAuthenticating = false
+                    if success {
+                        MoneHaptics.notification(.success)
+                        onUnlock()
+                    } else {
+                        MoneHaptics.notification(.error)
+                        errorMessage = "Authentication failed. Tap to try again."
+                    }
+                }
+            }
+        } else if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock mone to view financial records") { success, _ in
+                DispatchQueue.main.async {
+                    isAuthenticating = false
+                    if success {
+                        MoneHaptics.notification(.success)
+                        onUnlock()
+                    } else {
+                        MoneHaptics.notification(.error)
+                        errorMessage = "Passcode authentication failed."
+                    }
+                }
+            }
+        } else {
+            isAuthenticating = false
+            errorMessage = error?.localizedDescription ?? "Face ID unavailable."
+        }
+    }
+}
+
 // MARK: - Root Mone SwiftUI Application View
 public struct MoneAppView: View {
     @StateObject private var database = MoneDatabase.shared
@@ -190,6 +330,10 @@ public struct MoneAppView: View {
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     @AppStorage("userName") private var userName: String = "Lihash"
     @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
+    @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled: Bool = false
+    
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isAppUnlocked: Bool = false
     
     @State private var selectedTab: Int = 0
     @State private var showMenuDrawer: Bool = false
@@ -208,65 +352,87 @@ public struct MoneAppView: View {
     
     public var body: some View {
         ZStack(alignment: .top) {
-            ZStack(alignment: .bottom) {
-                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
-                
-                // Tab Content
-                Group {
-                    switch selectedTab {
-                    case 0:
-                        OverviewDashboardView(
-                            selectedTab: $selectedTab,
-                            showMenuDrawer: $showMenuDrawer,
-                            showAllTransactions: $showAllTransactions,
-                            showProfileModal: $showProfileModal,
-                            editingTransaction: $editingTransaction,
-                            showAddAccountSheet: $showAddAccountSheet,
-                            editingAccount: $editingAccount,
-                            showManageFamilySheet: $showManageFamilySheet
-                        )
-                    case 1:
-                        AnalyticsTrendsView(
-                            showMenuDrawer: $showMenuDrawer,
-                            showAllTransactions: $showAllTransactions,
-                            showProfileModal: $showProfileModal,
-                            editingTransaction: $editingTransaction
-                        )
-                    case 2:
-                        AccountsDirectoryView(
-                            showAddAccountSheet: $showAddAccountSheet,
-                            editingAccount: $editingAccount
-                        )
-                    case 3:
-                        SettingsView(
-                            showProfileModal: $showProfileModal,
-                            showShareSheet: $showShareSheet,
-                            csvFileURLToShare: $csvFileURLToShare,
-                            showManageFamilySheet: $showManageFamilySheet
-                        )
-                    default:
-                        OverviewDashboardView(
-                            selectedTab: $selectedTab,
-                            showMenuDrawer: $showMenuDrawer,
-                            showAllTransactions: $showAllTransactions,
-                            showProfileModal: $showProfileModal,
-                            editingTransaction: $editingTransaction,
-                            showAddAccountSheet: $showAddAccountSheet,
-                            editingAccount: $editingAccount,
-                            showManageFamilySheet: $showManageFamilySheet
-                        )
+            if isFaceIDEnabled && !isAppUnlocked {
+                FaceIDLockScreenView(
+                    onUnlock: {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
+                            isAppUnlocked = true
+                        }
+                    },
+                    isDark: isDarkMode,
+                    userName: userName,
+                    userProfilePhotoData: userProfilePhotoData
+                )
+                .zIndex(999)
+                .transition(.opacity)
+            } else {
+                ZStack(alignment: .bottom) {
+                    MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                    
+                    // Tab Content
+                    Group {
+                        switch selectedTab {
+                        case 0:
+                            OverviewDashboardView(
+                                selectedTab: $selectedTab,
+                                showMenuDrawer: $showMenuDrawer,
+                                showAllTransactions: $showAllTransactions,
+                                showProfileModal: $showProfileModal,
+                                editingTransaction: $editingTransaction,
+                                showAddAccountSheet: $showAddAccountSheet,
+                                editingAccount: $editingAccount,
+                                showManageFamilySheet: $showManageFamilySheet
+                            )
+                        case 1:
+                            AnalyticsTrendsView(
+                                showMenuDrawer: $showMenuDrawer,
+                                showAllTransactions: $showAllTransactions,
+                                showProfileModal: $showProfileModal,
+                                editingTransaction: $editingTransaction
+                            )
+                        case 2:
+                            AccountsDirectoryView(
+                                showAddAccountSheet: $showAddAccountSheet,
+                                editingAccount: $editingAccount
+                            )
+                        case 3:
+                            SettingsView(
+                                showProfileModal: $showProfileModal,
+                                showShareSheet: $showShareSheet,
+                                csvFileURLToShare: $csvFileURLToShare,
+                                showManageFamilySheet: $showManageFamilySheet
+                            )
+                        default:
+                            OverviewDashboardView(
+                                selectedTab: $selectedTab,
+                                showMenuDrawer: $showMenuDrawer,
+                                showAllTransactions: $showAllTransactions,
+                                showProfileModal: $showProfileModal,
+                                editingTransaction: $editingTransaction,
+                                showAddAccountSheet: $showAddAccountSheet,
+                                editingAccount: $editingAccount,
+                                showManageFamilySheet: $showManageFamilySheet
+                            )
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    
+                    // Floating Bespoke Capsule Dock (Formal Symbols)
+                    floatingDock
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
-                // Floating Bespoke Capsule Dock (Formal Symbols)
-                floatingDock
+                // Dynamic Island / Top HUD Toast Pill
+                DynamicIslandToastView()
             }
-            
-            // Dynamic Island / Top HUD Toast Pill
-            DynamicIslandToastView()
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .background {
+                if isFaceIDEnabled {
+                    isAppUnlocked = false
+                }
+            }
+        }
         .sheet(isPresented: $routeManager.showAddTransaction) {
             AddTransactionSheet(
                 prefillMerchant: routeManager.prefillMerchant,
@@ -532,11 +698,11 @@ public struct AppleWalletCardView: View {
                         )
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 14)
+                .padding(.bottom, 16)
             }
         }
-        .frame(height: 160)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(height: 195)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: Color.black.opacity(isDarkMode ? 0.45 : 0.20), radius: isFocused ? 14 : 6, y: isFocused ? 6 : 3)
     }
     
@@ -601,13 +767,13 @@ public struct AppleWalletCardsSection: View {
     private var dynamicPeekHeight: CGFloat {
         let count = displayedAccounts.count
         if count <= 1 { return 0 }
-        if count == 2 { return 40 }
-        if count == 3 { return 34 }
-        return 28
+        if count == 2 { return 55 }
+        if count == 3 { return 50 }
+        return 44
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             // Section Header
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -671,9 +837,9 @@ public struct AppleWalletCardsSection: View {
                 }
             } else if isStackExpanded {
                 // Expanded list of cards with smart spacing
-                VStack(spacing: 12) {
+                VStack(spacing: 14) {
                     ForEach(displayedAccounts) { acc in
-                        VStack(spacing: 6) {
+                        VStack(spacing: 8) {
                             AppleWalletCardView(account: acc, isFocused: true, isDarkMode: isDarkMode)
                                 .onTapGesture {
                                     MoneHaptics.selection()
@@ -685,28 +851,28 @@ public struct AppleWalletCardsSection: View {
                     }
                 }
             } else {
-                // Apple Wallet Smart Adaptive Overlapping Stack
+                // Apple Wallet Smart Adaptive Overlapping Stack (Full Real Card Size)
                 walletStackContainer
             }
         }
-        .padding(.bottom, 6)
+        .padding(.bottom, 16)
     }
     
     private var walletStackContainer: some View {
         let accounts = displayedAccounts
-        let cardHeight: CGFloat = 160
+        let cardHeight: CGFloat = 195
         let peekHeight = dynamicPeekHeight
         
         let totalHeight: CGFloat = {
             guard let fId = focusedCardId, let fIdx = accounts.firstIndex(where: { $0.id == fId }) else {
-                return cardHeight + CGFloat(max(0, accounts.count - 1)) * peekHeight + 6
+                return cardHeight + CGFloat(max(0, accounts.count - 1)) * peekHeight + 8
             }
             if fIdx < accounts.count - 1 {
-                let lastCardTop = CGFloat(fIdx) * 20 + cardHeight + 50 + CGFloat(accounts.count - 2 - fIdx) * 26
-                return lastCardTop + cardHeight + 10
+                let lastCardTop = CGFloat(fIdx) * 24 + cardHeight + 58 + CGFloat(accounts.count - 2 - fIdx) * 32
+                return lastCardTop + cardHeight + 14
             } else {
-                let focusedTotal = CGFloat(fIdx) * 20 + cardHeight + 56
-                return focusedTotal + 10
+                let focusedTotal = CGFloat(fIdx) * 24 + cardHeight + 64
+                return focusedTotal + 14
             }
         }()
         
@@ -716,9 +882,9 @@ public struct AppleWalletCardsSection: View {
                 let yOffset: CGFloat = {
                     if let fId = focusedCardId, let fIdx = accounts.firstIndex(where: { $0.id == fId }) {
                         if index <= fIdx {
-                            return CGFloat(index) * 20
+                            return CGFloat(index) * 24
                         } else {
-                            return CGFloat(fIdx) * 20 + cardHeight + 50 + CGFloat(index - fIdx - 1) * 26
+                            return CGFloat(fIdx) * 24 + cardHeight + 58 + CGFloat(index - fIdx - 1) * 32
                         }
                     } else {
                         return CGFloat(index) * peekHeight
@@ -1697,123 +1863,163 @@ public struct MonthPickerSheet: View {
     }
     
     public var body: some View {
-        NavigationStack {
-            ZStack {
-                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+        ZStack {
+            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Sheet Grabber Indicator
+                Capsule()
+                    .fill(Color.gray.opacity(0.35))
+                    .frame(width: 36, height: 4)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
                 
-                VStack(spacing: 20) {
-                    // Year Stepper Header
-                    HStack {
-                        Button {
-                            MoneHaptics.selection()
-                            pickerYear -= 1
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                                .frame(width: 40, height: 40)
-                                .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Spacer()
-                        
-                        Text(String(pickerYear))
-                            .font(.system(size: 26, weight: .black, design: .rounded))
+                // Pinned Top Header (Clear Title & Prominent Done Button)
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Select Month")
+                            .font(.system(size: 20, weight: .black, design: .rounded))
                             .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                        
-                        Spacer()
-                        
-                        Button {
-                            MoneHaptics.selection()
-                            pickerYear += 1
-                        } label: {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                                .frame(width: 40, height: 40)
-                                .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
+                        Text("Pick a period or view yearly analytics")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
-                    
-                    // 12-Month Grid
-                    let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
-                    LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(months, id: \.0) { mNum, mShort, mFull in
-                            monthCell(monthNumber: mNum, shortName: mShort, fullName: mFull)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // Full Year & Jump to Current Month Actions
-                    VStack(spacing: 10) {
-                        Button {
-                            MoneHaptics.impact(.medium)
-                            var comps = DateComponents()
-                            comps.year = pickerYear
-                            comps.month = 1
-                            comps.day = 1
-                            if let newDate = Calendar.current.date(from: comps) {
-                                selectedDate = newDate
-                                selectedTimeframe = 2 // Year mode
-                            }
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chart.bar.doc.horizontal")
-                                    .font(.system(size: 13, weight: .bold))
-                                Text("View Entire Year \(String(pickerYear)) Summary")
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                            }
-                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Button {
-                            MoneHaptics.impact(.medium)
-                            selectedDate = Date()
-                            selectedTimeframe = 1 // Month mode
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.system(size: 13, weight: .bold))
-                                Text("Jump to Current Month (\(currentMonthTitle))")
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                            }
-                            .foregroundColor(Color(hex: "0284C7"))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(MoneTheme.badgeBlueBg)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 20)
                     
                     Spacer()
+                    
+                    Button {
+                        MoneHaptics.selection()
+                        dismiss()
+                    } label: {
+                        Text("Done")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 7)
+                            .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-            }
-            .navigationTitle("Select Month")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundColor(Color(hex: "0284C7"))
-                        .font(.system(size: 15, weight: .bold))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                
+                Divider()
+                    .background(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
+                    .padding(.bottom, 4)
+                
+                // Scrollable Content
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // Year Stepper Header
+                        HStack {
+                            Button {
+                                MoneHaptics.selection()
+                                pickerYear -= 1
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                    .frame(width: 40, height: 40)
+                                    .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Spacer()
+                            
+                            VStack(spacing: 2) {
+                                Text(String(pickerYear))
+                                    .font(.system(size: 26, weight: .black, design: .rounded))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                Text("Year")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .foregroundColor(Color(hex: "0284C7"))
+                            }
+                            
+                            Spacer()
+                            
+                            Button {
+                                MoneHaptics.selection()
+                                pickerYear += 1
+                            } label: {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                    .frame(width: 40, height: 40)
+                                    .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 10)
+                        
+                        // 12-Month Grid
+                        let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(months, id: \.0) { mNum, mShort, mFull in
+                                monthCell(monthNumber: mNum, shortName: mShort, fullName: mFull)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        
+                        // Full Year & Jump to Current Month Actions
+                        VStack(spacing: 10) {
+                            Button {
+                                MoneHaptics.impact(.medium)
+                                var comps = DateComponents()
+                                comps.year = pickerYear
+                                comps.month = 1
+                                comps.day = 1
+                                if let newDate = Calendar.current.date(from: comps) {
+                                    selectedDate = newDate
+                                    selectedTimeframe = 2 // Year mode
+                                }
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "chart.bar.doc.horizontal")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text("View Entire Year \(String(pickerYear)) Summary")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                }
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button {
+                                MoneHaptics.impact(.medium)
+                                selectedDate = Date()
+                                selectedTimeframe = 1 // Month mode
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text("Jump to Current Month (\(currentMonthTitle))")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                }
+                                .foregroundColor(Color(hex: "0284C7"))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(MoneTheme.badgeBlueBg)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
+                    }
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.fraction(0.85), .large])
+        .presentationDragIndicator(.visible)
     }
     
     private var currentMonthTitle: String {
@@ -3361,6 +3567,7 @@ public struct SettingsView: View {
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     @AppStorage("userName") private var userName: String = "Lihash"
     @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
+    @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled: Bool = false
     
     @Binding public var showProfileModal: Bool
     @Binding public var showShareSheet: Bool
@@ -3399,7 +3606,10 @@ public struct SettingsView: View {
                 // 3. Appearance Card (Dark / Light)
                 appearanceCard
                 
-                // 3. Monthly Budget Control
+                // 4. Security & Privacy Card (Apple Face ID App Lock)
+                securityCard
+                
+                // 5. Monthly Budget Control
                 monthlyBudgetCard
                 
                 // 4. Category Limits & Category Directory
@@ -3551,6 +3761,64 @@ public struct SettingsView: View {
             
             Toggle("", isOn: $isDarkMode)
                 .labelsHidden()
+        }
+        .whiteCard(cornerRadius: 20, padding: 16)
+    }
+    
+    private var securityCard: some View {
+        HStack {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "0284C7").opacity(0.14))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "faceid")
+                        .foregroundColor(Color(hex: "0284C7"))
+                        .font(.system(size: 18, weight: .semibold))
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Face ID App Lock")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text(isFaceIDEnabled ? "Protected upon launch & resume" : "Disabled (Direct Access)")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: Binding(
+                get: { isFaceIDEnabled },
+                set: { newValue in
+                    if newValue {
+                        let context = LAContext()
+                        var error: NSError?
+                        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) ||
+                           context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+                            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Authenticate to enable Face ID App Lock") { success, _ in
+                                DispatchQueue.main.async {
+                                    if success {
+                                        MoneHaptics.notification(.success)
+                                        isFaceIDEnabled = true
+                                    } else {
+                                        MoneHaptics.notification(.error)
+                                        isFaceIDEnabled = false
+                                    }
+                                }
+                            }
+                        } else {
+                            MoneHaptics.notification(.error)
+                            isFaceIDEnabled = false
+                        }
+                    } else {
+                        MoneHaptics.selection()
+                        isFaceIDEnabled = false
+                    }
+                }
+            ))
+            .labelsHidden()
         }
         .whiteCard(cornerRadius: 20, padding: 16)
     }
@@ -3830,6 +4098,7 @@ public struct SettingsView: View {
 public struct QuickControlMenuSheet: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled: Bool = false
     @ObservedObject private var database = MoneDatabase.shared
     
     @Binding public var selectedTab: Int
@@ -3871,6 +4140,13 @@ public struct QuickControlMenuSheet: View {
                     
                     menuRow(icon: isDarkMode ? "sun.max.fill" : "moon.fill", title: isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode", subtitle: "Toggle appearance") {
                         withAnimation { isDarkMode.toggle() }
+                    }
+                    
+                    menuRow(icon: "faceid", title: "Face ID Protection", subtitle: isFaceIDEnabled ? "Enabled • Protected on exit" : "Disabled • Direct access") {
+                        withAnimation {
+                            isFaceIDEnabled.toggle()
+                            MoneHaptics.selection()
+                        }
                     }
                     
                     menuRow(icon: "square.and.arrow.up.fill", title: "Export Statement (CSV)", subtitle: "Share transaction history") {
