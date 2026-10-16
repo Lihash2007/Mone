@@ -16,6 +16,7 @@ public struct AddTransactionSheet: View {
     @State private var date: Date = Date()
     @State private var showAccountPickerModal: Bool = false
     @State private var showDatePickerModal: Bool = false
+    @State private var showAddAccountSheet: Bool = false
     @State private var pickingTransferTarget: TransferTarget = .from
     
     public var prefillMerchant: String? = nil
@@ -94,6 +95,17 @@ public struct AddTransactionSheet: View {
         .sheet(isPresented: $showAccountPickerModal) {
             accountSelectionModal
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showAddAccountSheet, onDismiss: {
+            if selectedAccountId == nil, let first = database.accounts.first {
+                selectedAccountId = first.id
+            }
+            if database.accounts.count > 1 && targetAccountId == nil {
+                targetAccountId = database.accounts.first(where: { $0.id != selectedAccountId })?.id
+            }
+        }) {
+            AddAccountSheet()
+                .presentationDetents([.fraction(0.85), .large])
         }
         .sheet(isPresented: $showDatePickerModal) {
             datePickerSheet
@@ -676,48 +688,93 @@ public struct AddTransactionSheet: View {
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(database.accounts) { acc in
-                            let isSelected = (pickingTransferTarget == .to ? targetAccountId == acc.id : selectedAccountId == acc.id)
-                            Button {
-                                MoneHaptics.selection()
-                                if pickingTransferTarget == .to {
-                                    targetAccountId = acc.id
-                                } else {
-                                    selectedAccountId = acc.id
-                                }
-                                showAccountPickerModal = false
-                            } label: {
-                                HStack(spacing: 12) {
-                                    acc.bankInfo.badgeView(size: 38)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(acc.name)
-                                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                                        Text(acc.bankName)
-                                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Text(acc.formattedBalance)
-                                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                                    
-                                    if isSelected {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(Color(hex: "0284C7"))
-                                    }
-                                }
-                                .whiteCard(cornerRadius: 16, padding: 12)
+                if database.accounts.isEmpty {
+                    VStack(spacing: 16) {
+                        Spacer()
+                        
+                        Image(systemName: "creditcard.and.123")
+                            .font(.system(size: 38))
+                            .foregroundColor(Color(hex: "0284C7"))
+                            .frame(width: 72, height: 72)
+                            .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+                            .clipShape(Circle())
+                        
+                        Text("No Bank Accounts Linked")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        
+                        Text("Link your bank account or cash wallet to begin tracking your balances and spending.")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                        
+                        Button {
+                            MoneHaptics.impact(.medium)
+                            showAccountPickerModal = false
+                            showAddAccountSheet = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 15, weight: .bold))
+                                Text("Add Bank Account")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
                             }
-                            .buttonStyle(.plain)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(Color(hex: "0284C7"))
+                            .clipShape(Capsule())
                         }
+                        .buttonStyle(.plain)
+                        
+                        Spacer()
                     }
                     .padding(.horizontal, 20)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(database.accounts) { acc in
+                                let isSelected = (pickingTransferTarget == .to ? targetAccountId == acc.id : selectedAccountId == acc.id)
+                                Button {
+                                    MoneHaptics.selection()
+                                    if pickingTransferTarget == .to {
+                                        targetAccountId = acc.id
+                                    } else {
+                                        selectedAccountId = acc.id
+                                    }
+                                    showAccountPickerModal = false
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        acc.bankInfo.badgeView(size: 38)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(acc.name)
+                                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                            Text(acc.bankName)
+                                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text(acc.formattedBalance)
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                        
+                                        if isSelected {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(Color(hex: "0284C7"))
+                                        }
+                                    }
+                                    .whiteCard(cornerRadius: 16, padding: 12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
                 }
             }
         }
@@ -726,12 +783,25 @@ public struct AddTransactionSheet: View {
     // MARK: - Save Action
     private func saveTransaction() {
         guard let amt = Double(amountString), amt > 0 else { return }
+        
+        if type == "TRANSFER" && database.accounts.count < 2 {
+            MoneHUDManager.shared.show(
+                title: "Cannot Transfer",
+                subtitle: "You need at least 2 bank accounts to transfer funds.",
+                bankId: nil
+            )
+            MoneHaptics.notification(.warning)
+            return
+        }
+        
         var cleanMerchant = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleanMerchant.isEmpty {
             cleanMerchant = type == "TRANSFER" ? "Account Transfer" : selectedCategory
         }
         
-        if type == "TRANSFER", let fromId = selectedAccountId, let toId = targetAccountId {
+        let effectiveAccountId = selectedAccountId ?? database.accounts.first?.id
+        
+        if type == "TRANSFER", let fromId = effectiveAccountId, let toId = targetAccountId {
             database.addTransaction(MoneTransaction(
                 merchant: "Transfer to \(targetAccount?.name ?? "Account")",
                 category: "Transfer",
@@ -757,7 +827,7 @@ public struct AddTransactionSheet: View {
                 amount: amt,
                 type: type,
                 date: date,
-                accountId: selectedAccountId,
+                accountId: effectiveAccountId,
                 memberId: selectedAccount?.memberId
             )
             database.addTransaction(tx)
@@ -766,7 +836,7 @@ public struct AddTransactionSheet: View {
         let prefix = type == "INCOME" ? "+" : (type == "TRANSFER" ? "⇄" : "-")
         MoneHUDManager.shared.show(
             title: "\(prefix)₹\(String(format: "%.0f", amt)) Recorded",
-            subtitle: "\(cleanMerchant) • \(selectedAccount?.name ?? "Account")",
+            subtitle: "\(cleanMerchant) • \(selectedAccount?.name ?? "General")",
             bankId: bankId
         )
         
@@ -1505,44 +1575,58 @@ public struct EditTransactionSheet: View {
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(database.accounts) { acc in
-                            let isSelected = (selectedAccountId == acc.id)
-                            Button {
-                                MoneHaptics.selection()
-                                selectedAccountId = acc.id
-                                showAccountPickerModal = false
-                            } label: {
-                                HStack(spacing: 12) {
-                                    acc.bankInfo.badgeView(size: 38)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(acc.name)
-                                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                                        Text(acc.bankName)
-                                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Text(acc.formattedBalance)
-                                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                                    
-                                    if isSelected {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(Color(hex: "0284C7"))
-                                    }
-                                }
-                                .whiteCard(cornerRadius: 16, padding: 12)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                if database.accounts.isEmpty {
+                    VStack(spacing: 12) {
+                        Spacer()
+                        Image(systemName: "creditcard.and.123")
+                            .font(.system(size: 32))
+                            .foregroundColor(Color(hex: "0284C7"))
+                        Text("No Accounts Linked")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Spacer()
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.vertical, 20)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(database.accounts) { acc in
+                                let isSelected = (selectedAccountId == acc.id)
+                                Button {
+                                    MoneHaptics.selection()
+                                    selectedAccountId = acc.id
+                                    showAccountPickerModal = false
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        acc.bankInfo.badgeView(size: 38)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(acc.name)
+                                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                            Text(acc.bankName)
+                                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text(acc.formattedBalance)
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                        
+                                        if isSelected {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(Color(hex: "0284C7"))
+                                        }
+                                    }
+                                    .whiteCard(cornerRadius: 16, padding: 12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
                 }
             }
         }

@@ -418,7 +418,7 @@ public struct AppleWalletCardView: View {
             // Subtle Luxury Glass / Metallic Sheen
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.28),
+                    Color.white.opacity(0.26),
                     Color.white.opacity(0.08),
                     Color.clear,
                     Color.black.opacity(0.12)
@@ -428,119 +428,122 @@ public struct AppleWalletCardView: View {
             )
             
             // Card Inner Rim
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.white.opacity(0.22), lineWidth: 1.2)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.24), lineWidth: 1.0)
             
             // Card Contents
             VStack(alignment: .leading, spacing: 0) {
                 // Top Header Row
                 HStack(alignment: .center) {
-                    HStack(spacing: 8) {
-                        account.bankInfo.badgeView(size: 28)
+                    HStack(spacing: 7) {
+                        account.bankInfo.badgeView(size: 24)
                         Text(account.bankName.isEmpty ? account.name : account.bankName)
-                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .font(.system(size: 12, weight: .black, design: .rounded))
                             .foregroundColor(.white)
                             .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                     
-                    Spacer()
+                    Spacer(minLength: 8)
                     
                     // Option A: Member Owner Pill
                     if let mId = account.memberId,
                        let member = database.familyMembers.first(where: { $0.id == mId }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Text(member.avatarEmoji)
-                                .font(.system(size: 10))
+                                .font(.system(size: 9))
                             Text(member.name)
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3.5)
-                        .background(Color.white.opacity(0.20))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.white.opacity(0.22))
                         .clipShape(Capsule())
                         .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 0.8))
                     }
                     
                     // Contactless Wave Symbol
                     Image(systemName: "wave.3.right")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundColor(Color.white.opacity(0.85))
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
                 
-                Spacer()
+                Spacer(minLength: 4)
                 
                 // Middle Row: EMV Chip & Balance
-                HStack(alignment: .center, spacing: 14) {
+                HStack(alignment: .center, spacing: 12) {
                     // Realistic Gold EMV Chip
                     emvChipView
                     
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(account.type.uppercased() + " BALANCE")
-                            .font(.system(size: 9, weight: .heavy, design: .rounded))
-                            .tracking(1.2)
+                            .font(.system(size: 8.5, weight: .heavy, design: .rounded))
+                            .tracking(1.0)
                             .foregroundColor(Color.white.opacity(0.75))
                         
                         Text(String(format: "₹ %.2f", account.balance))
-                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .font(.system(size: 20, weight: .heavy, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()
-                            .shadow(color: Color.black.opacity(0.4), radius: 3, y: 1.5)
+                            .shadow(color: Color.black.opacity(0.35), radius: 2.5, y: 1)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .minimumScaleFactor(0.75)
                     }
                     
                     Spacer()
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 
-                Spacer()
+                Spacer(minLength: 4)
                 
                 // Bottom Row: Account Name, Masked Number & Card Network
                 HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(account.name)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                         
                         Text(account.accountNumber.isEmpty ? "•••• •••• •••• 0000" : account.maskedNumber)
-                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
                             .foregroundColor(Color.white.opacity(0.85))
+                            .lineLimit(1)
                     }
                     
-                    Spacer()
+                    Spacer(minLength: 8)
                     
                     // Network / Type Pill
                     Text(account.type.uppercased())
-                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .font(.system(size: 9, weight: .black, design: .rounded))
                         .tracking(0.8)
                         .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
                         .background(Color.white.opacity(0.2))
                         .clipShape(Capsule())
                         .overlay(
                             Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.8)
                         )
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 18)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
             }
         }
-        .frame(height: 195)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.black.opacity(isDarkMode ? 0.45 : 0.22), radius: isFocused ? 16 : 8, y: isFocused ? 8 : 4)
+        .frame(height: 160)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color.black.opacity(isDarkMode ? 0.45 : 0.20), radius: isFocused ? 14 : 6, y: isFocused ? 6 : 3)
     }
     
     // Realistic Gold EMV Chip Graphic
     private var emvChipView: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [Color(hex: "F7D788"), Color(hex: "C9993B"), Color(hex: "F3CE7B")],
@@ -548,23 +551,23 @@ public struct AppleWalletCardView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 34, height: 26)
+                .frame(width: 30, height: 22)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .stroke(Color(hex: "8C6218"), lineWidth: 0.6)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color(hex: "8C6218"), lineWidth: 0.5)
                 )
             
             // Microchip circuit grid lines
-            VStack(spacing: 3) {
-                Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 24, height: 0.6)
-                HStack(spacing: 4) {
-                    Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 0.6, height: 10)
-                    Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 0.6, height: 10)
+            VStack(spacing: 2.5) {
+                Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 20, height: 0.5)
+                HStack(spacing: 3) {
+                    Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 0.5, height: 8)
+                    Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 0.5, height: 8)
                 }
-                Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 24, height: 0.6)
+                Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 20, height: 0.5)
             }
         }
-        .shadow(color: Color.black.opacity(0.2), radius: 2, y: 1)
+        .shadow(color: Color.black.opacity(0.18), radius: 1.5, y: 1)
     }
 }
 
@@ -595,15 +598,23 @@ public struct AppleWalletCardsSection: View {
         return nil
     }
     
+    private var dynamicPeekHeight: CGFloat {
+        let count = displayedAccounts.count
+        if count <= 1 { return 0 }
+        if count == 2 { return 40 }
+        if count == 3 { return 34 }
+        return 28
+    }
+    
     public var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             // Section Header
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(activeMember != nil ? "\(activeMember!.name)'s Bank Cards" : "Bank Accounts & Cards")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                    Text(activeMember != nil ? "\(activeMember!.name)'s Cards" : "Accounts & Cards")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                    Text(activeMember != nil ? "\(displayedAccounts.count) Cards • \(activeMember!.role) Member" : "\(database.accounts.count) Linked • Apple Wallet Stack")
+                    Text(activeMember != nil ? "\(displayedAccounts.count) Cards • \(activeMember!.role)" : "\(database.accounts.count) Linked • Apple Wallet Stack")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 }
@@ -659,10 +670,10 @@ public struct AppleWalletCardsSection: View {
                     emptyWalletCard
                 }
             } else if isStackExpanded {
-                // Expanded list of cards
-                VStack(spacing: 14) {
+                // Expanded list of cards with smart spacing
+                VStack(spacing: 12) {
                     ForEach(displayedAccounts) { acc in
-                        VStack(spacing: 8) {
+                        VStack(spacing: 6) {
                             AppleWalletCardView(account: acc, isFocused: true, isDarkMode: isDarkMode)
                                 .onTapGesture {
                                     MoneHaptics.selection()
@@ -674,21 +685,28 @@ public struct AppleWalletCardsSection: View {
                     }
                 }
             } else {
-                // Apple Wallet Vertical Overlapping Stack
+                // Apple Wallet Smart Adaptive Overlapping Stack
                 walletStackContainer
             }
         }
+        .padding(.bottom, 6)
     }
     
     private var walletStackContainer: some View {
         let accounts = displayedAccounts
-        let peekHeight: CGFloat = 58
-        let cardHeight: CGFloat = 195
+        let cardHeight: CGFloat = 160
+        let peekHeight = dynamicPeekHeight
+        
         let totalHeight: CGFloat = {
-            if let fId = focusedCardId, let fIdx = accounts.firstIndex(where: { $0.id == fId }) {
-                return cardHeight + 60 + CGFloat(max(0, accounts.count - 1)) * 36
+            guard let fId = focusedCardId, let fIdx = accounts.firstIndex(where: { $0.id == fId }) else {
+                return cardHeight + CGFloat(max(0, accounts.count - 1)) * peekHeight + 6
+            }
+            if fIdx < accounts.count - 1 {
+                let lastCardTop = CGFloat(fIdx) * 20 + cardHeight + 50 + CGFloat(accounts.count - 2 - fIdx) * 26
+                return lastCardTop + cardHeight + 10
             } else {
-                return cardHeight + CGFloat(max(0, accounts.count - 1)) * peekHeight + 10
+                let focusedTotal = CGFloat(fIdx) * 20 + cardHeight + 56
+                return focusedTotal + 10
             }
         }()
         
@@ -697,23 +715,21 @@ public struct AppleWalletCardsSection: View {
                 let isFocused = focusedCardId == acc.id
                 let yOffset: CGFloat = {
                     if let fId = focusedCardId, let fIdx = accounts.firstIndex(where: { $0.id == fId }) {
-                        if index == fIdx {
-                            return 0
-                        } else if index < fIdx {
-                            return CGFloat(index) * 22
+                        if index <= fIdx {
+                            return CGFloat(index) * 20
                         } else {
-                            return cardHeight + 55 + CGFloat(index - fIdx - 1) * 36
+                            return CGFloat(fIdx) * 20 + cardHeight + 50 + CGFloat(index - fIdx - 1) * 26
                         }
                     } else {
                         return CGFloat(index) * peekHeight
                     }
                 }()
                 
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     AppleWalletCardView(account: acc, isFocused: isFocused, isDarkMode: isDarkMode)
                         .onTapGesture {
                             MoneHaptics.impact(.medium)
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.76)) {
+                            withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
                                 if focusedCardId == acc.id {
                                     focusedCardId = nil
                                 } else {
@@ -729,8 +745,8 @@ public struct AppleWalletCardsSection: View {
                 }
                 .offset(y: yOffset)
                 .zIndex(isFocused ? 100 : Double(index))
-                .scaleEffect(isFocused ? 1.02 : 1.0)
-                .animation(.spring(response: 0.45, dampingFraction: 0.76), value: focusedCardId)
+                .scaleEffect(isFocused ? 1.015 : 1.0)
+                .animation(.spring(response: 0.42, dampingFraction: 0.78), value: focusedCardId)
             }
         }
         .frame(height: totalHeight)
@@ -754,8 +770,8 @@ public struct AppleWalletCardsSection: View {
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(Color(hex: "0284C7"))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
                 .background(MoneTheme.badgeBlueBg)
                 .clipShape(Capsule())
             }
@@ -772,8 +788,8 @@ public struct AppleWalletCardsSection: View {
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
                 .background(MoneTheme.bgCanvas(isDark: isDarkMode))
                 .clipShape(Capsule())
             }
@@ -788,13 +804,13 @@ public struct AppleWalletCardsSection: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 16))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
     }
     
     private func emptyMemberCard(member: MoneFamilyMember) -> some View {
@@ -802,31 +818,32 @@ public struct AppleWalletCardsSection: View {
             MoneHaptics.impact(.medium)
             showAddAccountSheet = true
         } label: {
-            VStack(spacing: 12) {
+            VStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(member.accentColor.opacity(0.16))
-                        .frame(width: 52, height: 52)
+                        .fill(member.accentColor.opacity(0.14))
+                        .frame(width: 44, height: 44)
                     Text(member.avatarEmoji)
-                        .font(.system(size: 26))
+                        .font(.system(size: 22))
                 }
-                Text("No Bank Accounts Linked for \(member.name)")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                Text("Tap here to assign an HDFC, SBI, ICICI, or Cash Wallet to \(member.name)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
+                
+                VStack(spacing: 2) {
+                    Text("No Bank Cards Linked for \(member.name)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text("Tap here to assign an account to \(member.name)")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 32)
+            .padding(.vertical, 22)
             .background(MoneTheme.bgCanvas(isDark: isDarkMode))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
-                    .foregroundColor(member.accentColor.opacity(0.45))
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(style: StrokeStyle(lineWidth: 1.2, dash: [5, 5]))
+                    .foregroundColor(member.accentColor.opacity(0.40))
             )
         }
         .buttonStyle(.plain)
@@ -837,25 +854,46 @@ public struct AppleWalletCardsSection: View {
             MoneHaptics.impact(.medium)
             showAddAccountSheet = true
         } label: {
-            VStack(spacing: 12) {
-                Image(systemName: "wallet.pass.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(Color(hex: "0284C7"))
-                Text("No Bank Accounts in Apple Wallet")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                Text("Tap here to link HDFC, SBI, ICICI, or Cash Wallet")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "0284C7").opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "wallet.pass.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(Color(hex: "0284C7"))
+                }
+                
+                VStack(spacing: 3) {
+                    Text("No Bank Cards Linked Yet")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text("Tap here to link HDFC, SBI, ICICI, Axis or Cash Wallet")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Link First Account")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                .clipShape(Capsule())
+                .padding(.top, 2)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 36)
+            .padding(.vertical, 22)
             .background(MoneTheme.bgCanvas(isDark: isDarkMode))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
-                    .foregroundColor(Color(hex: "0284C7").opacity(0.4))
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(style: StrokeStyle(lineWidth: 1.2, dash: [5, 5]))
+                    .foregroundColor(Color(hex: "0284C7").opacity(0.35))
             )
         }
         .buttonStyle(.plain)
@@ -1141,10 +1179,12 @@ public struct OverviewDashboardView: View {
         
         let netFlow = monthlyIncome - monthlySpent
         let hasAllowance = (selectedMember?.monthlyAllowance ?? 0) > 0
-        let budgetTarget = hasAllowance ? selectedMember!.monthlyAllowance : max(database.totalMonthlyBudget, 1000.0)
-        let isOverBudget = monthlySpent > budgetTarget
-        let unspent = max(budgetTarget - monthlySpent, 0.0)
-        let dailySafeSpend = unspent / Double(daysLeft)
+        let budgetTarget = hasAllowance ? selectedMember!.monthlyAllowance : database.totalMonthlyBudget
+        let hasBudget = budgetTarget > 0
+        let isOverBudget = hasBudget && (monthlySpent > budgetTarget)
+        let unspent = hasBudget ? max(budgetTarget - monthlySpent, 0.0) : 0.0
+        let dailySafeSpend = hasBudget ? (unspent / Double(daysLeft)) : 0.0
+        let pctLeft = hasBudget ? Int(round((unspent / budgetTarget) * 100)) : 0
         
         return HStack(spacing: 12) {
             // Balance Card
@@ -1153,7 +1193,7 @@ public struct OverviewDashboardView: View {
                     HStack(spacing: 3) {
                         Image(systemName: netFlow >= 0 ? "arrow.up.right" : "arrow.down.right")
                             .font(.system(size: 8, weight: .black))
-                        Text(netFlow >= 0 ? String(format: "+₹%.0f", netFlow) : String(format: "-₹%.0f", abs(netFlow)))
+                        Text(netFlow == 0 ? "₹0 Net" : (netFlow > 0 ? String(format: "+₹%.0f", netFlow) : String(format: "-₹%.0f", abs(netFlow))))
                             .font(.system(size: 10, weight: .black, design: .rounded))
                     }
                     .foregroundColor(netFlow >= 0 ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText)
@@ -1190,34 +1230,48 @@ public struct OverviewDashboardView: View {
             // Remaining Budget / Allowance Card
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    let pctLeft = Int(round((unspent / budgetTarget) * 100))
-                    HStack(spacing: 3) {
-                        Image(systemName: isOverBudget ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                            .font(.system(size: 8, weight: .black))
-                        Text(isOverBudget ? (hasAllowance ? "Allowance Over" : "Over Budget") : "\(pctLeft)% Left")
-                            .font(.system(size: 10, weight: .black, design: .rounded))
+                    if hasBudget {
+                        HStack(spacing: 3) {
+                            Image(systemName: isOverBudget ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                                .font(.system(size: 8, weight: .black))
+                            Text(isOverBudget ? (hasAllowance ? "Allowance Over" : "Over Budget") : "\(pctLeft)% Left")
+                                .font(.system(size: 10, weight: .black, design: .rounded))
+                        }
+                        .foregroundColor(isOverBudget ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(isOverBudget ? MoneTheme.badgeRedBg : MoneTheme.badgeGreenBg)
+                        .clipShape(Capsule())
+                    } else {
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(Color(hex: "0284C7"))
+                                .frame(width: 5, height: 5)
+                            Text("No Budget Set")
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(Color(hex: "0284C7"))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(MoneTheme.badgeBlueBg)
+                        .clipShape(Capsule())
                     }
-                    .foregroundColor(isOverBudget ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(isOverBudget ? MoneTheme.badgeRedBg : MoneTheme.badgeGreenBg)
-                    .clipShape(Capsule())
                     
                     Spacer()
                 }
                 
-                Text(hasAllowance ? (isOverBudget ? "Allowance Exceeded" : "Remaining Allowance") : (isOverBudget ? "Budget Exceeded" : "Remaining Budget"))
+                Text(hasAllowance ? (isOverBudget ? "Allowance Exceeded" : "Remaining Allowance") : (hasBudget ? (isOverBudget ? "Budget Exceeded" : "Remaining Budget") : "Monthly Budget"))
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     .lineLimit(1)
                 
-                Text(String(format: "₹%.2f", isOverBudget ? (monthlySpent - budgetTarget) : unspent))
+                Text(hasBudget ? String(format: "₹%.2f", isOverBudget ? (monthlySpent - budgetTarget) : unspent) : "₹0.00")
                     .font(.system(size: 20, weight: .black, design: .rounded))
                     .foregroundColor(isOverBudget ? MoneTheme.badgeRedText : MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
                 
-                Text(isOverBudget ? "₹\(Int(round(monthlySpent))) spent of ₹\(Int(round(budgetTarget)))" : "Safe: ₹\(Int(round(dailySafeSpend)))/day (\(daysLeft)d left)")
+                Text(hasBudget ? (isOverBudget ? "₹\(Int(round(monthlySpent))) spent of ₹\(Int(round(budgetTarget)))" : "Safe: ₹\(Int(round(dailySafeSpend)))/day (\(daysLeft)d left)") : "Tap to set in Settings")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
                     .lineLimit(1)
@@ -1285,7 +1339,9 @@ public struct OverviewDashboardView: View {
     }
     
     private var featureGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+        let netFlow = database.monthlyIncome - database.monthlySpent
+        
+        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
             // 1. Optimize Budget
             Button {
                 MoneHaptics.selection()
@@ -1312,13 +1368,9 @@ public struct OverviewDashboardView: View {
                             .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                             .lineLimit(2)
                         
-                        HStack(spacing: 2) {
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 8, weight: .bold))
-                            Text("+0.8% Monthly")
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                        }
-                        .foregroundColor(MoneTheme.badgeGreenText)
+                        Text(database.totalMonthlyBudget > 0 ? "₹\(Int(database.totalMonthlyBudget)) Limit" : "No Limit Set")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(database.totalMonthlyBudget > 0 ? MoneTheme.badgeGreenText : MoneTheme.textSecondary(isDark: isDarkMode))
                     }
                 }
                 .whiteCard(cornerRadius: 22, padding: 16)
@@ -1340,18 +1392,18 @@ public struct OverviewDashboardView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Smart\nSaving")
+                    Text("Net\nCashflow")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .lineLimit(2)
                     
                     HStack(spacing: 2) {
-                        Image(systemName: "arrow.up.right")
+                        Image(systemName: netFlow >= 0 ? "arrow.up.right" : "arrow.down.right")
                             .font(.system(size: 8, weight: .bold))
-                        Text("+1.8% Weekly")
+                        Text(netFlow == 0 ? "₹0 Net" : (netFlow > 0 ? "+₹\(Int(netFlow))" : "-₹\(Int(abs(netFlow)))"))
                             .font(.system(size: 10, weight: .bold, design: .rounded))
                     }
-                    .foregroundColor(MoneTheme.badgeGreenText)
+                    .foregroundColor(netFlow >= 0 ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText)
                 }
             }
             .whiteCard(cornerRadius: 22, padding: 16)
@@ -1411,9 +1463,9 @@ public struct OverviewDashboardView: View {
                         .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .lineLimit(2)
                     
-                    Text("Safe Burn Rate")
+                    Text(database.todaySpent > 0 ? "₹\(Int(database.todaySpent)) Today" : "₹0 Spent Today")
                         .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.badgeGreenText)
+                        .foregroundColor(database.todaySpent > 0 ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
                 }
             }
             .whiteCard(cornerRadius: 22, padding: 16)
@@ -2148,7 +2200,8 @@ public struct AnalyticsTrendsView: View {
     
     private var totalBalanceAndTrajectoryCard: some View {
         let trends = computeMonthlyTrends()
-        let peakExpense = trends.map { $0.expenseTotal }.max() ?? 2457.50
+        let peakExpense = trends.map { $0.expenseTotal }.max() ?? 0.0
+        let net = database.monthlyIncome - database.monthlySpent
         
         return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
@@ -2163,33 +2216,35 @@ public struct AnalyticsTrendsView: View {
                         .monospacedDigit()
                     
                     HStack(spacing: 2) {
-                        Image(systemName: "arrow.up.right")
+                        Image(systemName: net >= 0 ? "arrow.up.right" : "arrow.down.right")
                             .font(.system(size: 8, weight: .black))
-                        Text("+1.8%")
+                        Text(net == 0 ? "₹0 Net" : (net > 0 ? String(format: "+₹%.0f", net) : String(format: "-₹%.0f", abs(net))))
                             .font(.system(size: 11, weight: .black, design: .rounded))
                     }
-                    .foregroundColor(MoneTheme.badgeGreenText)
+                    .foregroundColor(net >= 0 ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(MoneTheme.badgeGreenBg)
+                    .background(net >= 0 ? MoneTheme.badgeGreenBg : MoneTheme.badgeRedBg)
                     .clipShape(Capsule())
                 }
             }
             
-            // Peak Tooltip Badge
-            HStack {
-                Spacer()
-                HStack(spacing: 3) {
-                    Text(String(format: "₹%.2f", peakExpense))
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(Color(hex: "0284C7"))
+            // Peak Tooltip Badge (only if peak > 0)
+            if peakExpense > 0 {
+                HStack {
+                    Spacer()
+                    HStack(spacing: 3) {
+                        Text(String(format: "Peak: ₹%.0f", peakExpense))
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(hex: "0284C7"))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(MoneTheme.badgeBlueBg)
+                    .clipShape(Capsule())
+                    .offset(y: 4)
+                    Spacer()
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(MoneTheme.badgeBlueBg)
-                .clipShape(Capsule())
-                .offset(y: 4)
-                Spacer()
             }
             
             // Apple Swift Charts: Vertical Bars + Line Trajectory Curve
@@ -3106,8 +3161,9 @@ public struct SettingsView: View {
     @Binding public var csvFileURLToShare: URL?
     @Binding public var showManageFamilySheet: Bool
     
-    @State private var budgetString: String = "50000"
+    @State private var budgetString: String = "0"
     @State private var showClearAlert: Bool = false
+    @State private var showResetAllAlert: Bool = false
     @State private var showCategoryLimitSheet: Bool = false
     @State private var showManageCategoriesSheet: Bool = false
     
@@ -3173,6 +3229,16 @@ public struct SettingsView: View {
             }
         } message: {
             Text("This will permanently delete all transaction history.")
+        }
+        .alert("Reset All Records to Zero?", isPresented: $showResetAllAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset Everything", role: .destructive) {
+                MoneHaptics.notification(.warning)
+                database.resetAllDataToZero()
+                budgetString = "0"
+            }
+        } message: {
+            Text("This will purge all bank accounts, delete all transactions, reset monthly budget to zero, and restore a completely fresh zero state.")
         }
     }
     
@@ -3294,14 +3360,14 @@ public struct SettingsView: View {
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 
-                TextField("50000", text: $budgetString)
+                TextField("0", text: $budgetString)
                     .keyboardType(.numberPad)
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                 
                 Button("Save") {
-                    if let val = Double(budgetString), val > 0 {
+                    if let val = Double(budgetString), val >= 0 {
                         database.setTotalBudget(val)
                         MoneHaptics.notification(.success)
                     }
@@ -3512,6 +3578,29 @@ public struct SettingsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
+            
+            // Reset All Records to Zero
+            Button {
+                showResetAllAlert = true
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                        .foregroundColor(MoneTheme.badgeRedText)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Reset All Records to Zero")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.badgeRedText)
+                        Text("Purges accounts & transactions, resets budget to ₹0")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(MoneTheme.badgeRedBg)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
         }
         .whiteCard(cornerRadius: 22, padding: 18)
     }
@@ -3521,7 +3610,7 @@ public struct SettingsView: View {
             Text("mone • iOS 26 FinTech")
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-            Text("Pure native SwiftUI • Local SQLite v8 • Zero Telemetry")
+            Text("Pure native SwiftUI • Local SQLite v9 • Zero Telemetry")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
         }

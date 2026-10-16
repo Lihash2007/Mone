@@ -36,12 +36,12 @@ public struct MoneTimelineProvider: TimelineProvider {
     public func placeholder(in context: Context) -> MoneWidgetEntry {
         MoneWidgetEntry(
             date: Date(),
-            balance: "₹ 34,500",
-            todaySpent: "₹ 450",
-            recentMerchant: "Swiggy",
-            recentAmount: "-₹350",
-            recentBank: "HDFC Bank",
-            recentTime: "10:30 PM",
+            balance: "₹ 0",
+            todaySpent: "₹ 0",
+            recentMerchant: "mone OS",
+            recentAmount: "Ready",
+            recentBank: "Wallet",
+            recentTime: "--",
             isPrivate: false
         )
     }

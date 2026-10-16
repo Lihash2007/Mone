@@ -15,7 +15,7 @@ public final class MoneDatabase: ObservableObject {
     @Published public var todaySpent: Double = 0.0
     @Published public var monthlySpent: Double = 0.0
     @Published public var monthlyIncome: Double = 0.0
-    @Published public var totalMonthlyBudget: Double = 50000.0
+    @Published public var totalMonthlyBudget: Double = 0.0
     @Published public var familyMembers: [MoneFamilyMember] = []
     
     private var db: OpaquePointer?
@@ -37,8 +37,8 @@ public final class MoneDatabase: ObservableObject {
     // MARK: - Path Resolution
     private static func resolveDatabaseURL() -> URL {
         let fm = FileManager.default
-        let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("money_os_v8.db")
-        if let groupURL = fm.containerURL(forSecurityApplicationGroupIdentifier: "group.com.personalmoneyos.frontend")?.appendingPathComponent("money_os_v8.db") {
+        let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("money_os_v9.db")
+        if let groupURL = fm.containerURL(forSecurityApplicationGroupIdentifier: "group.com.personalmoneyos.frontend")?.appendingPathComponent("money_os_v9.db") {
             if !fm.fileExists(atPath: groupURL.path) && fm.fileExists(atPath: docs.path) {
                 try? fm.copyItem(at: docs, to: groupURL)
             }
@@ -149,26 +149,7 @@ public final class MoneDatabase: ObservableObject {
     
     // MARK: - Default Data Seeding
     private func seedDefaultsIfNeeded() {
-        let existingAccounts = fetchAccountsInternal()
-        if existingAccounts.isEmpty {
-            let _ = insertAccountInternal(MoneAccount(
-                name: "Primary HDFC",
-                bankName: "HDFC Bank",
-                bankCode: "hdfc",
-                accountNumber: "4821",
-                balance: 34500.0,
-                type: "SAVINGS"
-            ))
-            let _ = insertAccountInternal(MoneAccount(
-                name: "Cash Wallet",
-                bankName: "Cash",
-                bankCode: "cash",
-                accountNumber: "",
-                balance: 2450.0,
-                type: "CASH"
-            ))
-        }
-        
+        // Initially zero accounts and zero records
         let existingCategories = fetchCategoriesInternal()
         if existingCategories.isEmpty {
             let defaults: [(String, String)] = [
@@ -201,12 +182,7 @@ public final class MoneDatabase: ObservableObject {
                 colorHex: "0284C7",
                 monthlyAllowance: 0.0
             )
-            let pId = insertFamilyMemberInternal(primary)
-            execute(sql: "UPDATE accounts SET member_id = \(pId) WHERE member_id IS NULL;")
-            execute(sql: "UPDATE transactions SET member_id = \(pId) WHERE member_id IS NULL;")
-        } else if let first = existingMembers.first, let fId = first.id {
-            execute(sql: "UPDATE accounts SET member_id = \(fId) WHERE member_id IS NULL;")
-            execute(sql: "UPDATE transactions SET member_id = \(fId) WHERE member_id IS NULL;")
+            let _ = insertFamilyMemberInternal(primary)
         }
     }
     
@@ -222,7 +198,7 @@ public final class MoneDatabase: ObservableObject {
             let cats = self.fetchCategoriesInternal()
             let bdgs = self.fetchBudgetsInternal()
             let fams = self.fetchFamilyMembersInternal()
-            let budgetSetting = self.fetchSettingInternal(key: "total_budget") ?? 50000.0
+            let budgetSetting = self.fetchSettingInternal(key: "total_budget") ?? 0.0
             
             // Calculate stats
             let now = Date()
@@ -463,6 +439,19 @@ public final class MoneDatabase: ObservableObject {
         queue.async { [weak self] in
             guard let self = self else { return }
             self.execute(sql: "DELETE FROM transactions;")
+            self.reloadAllData()
+        }
+    }
+    
+    public func resetAllDataToZero() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.execute(sql: "DELETE FROM transactions;")
+            self.execute(sql: "DELETE FROM accounts;")
+            self.execute(sql: "DELETE FROM budgets;")
+            self.execute(sql: "DELETE FROM settings;")
+            self.execute(sql: "DELETE FROM family_members WHERE role != 'Primary';")
+            self.execute(sql: "UPDATE family_members SET monthly_allowance = 0.0;")
             self.reloadAllData()
         }
     }
