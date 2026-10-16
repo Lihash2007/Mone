@@ -217,7 +217,6 @@ public struct MoneAppView: View {
                         OverviewDashboardView(
                             selectedTab: $selectedTab,
                             showMenuDrawer: $showMenuDrawer,
-                            showAIModal: $showAIModal,
                             showAllTransactions: $showAllTransactions,
                             showProfileModal: $showProfileModal,
                             editingTransaction: $editingTransaction
@@ -244,7 +243,6 @@ public struct MoneAppView: View {
                         OverviewDashboardView(
                             selectedTab: $selectedTab,
                             showMenuDrawer: $showMenuDrawer,
-                            showAIModal: $showAIModal,
                             showAllTransactions: $showAllTransactions,
                             showProfileModal: $showProfileModal,
                             editingTransaction: $editingTransaction
@@ -390,7 +388,6 @@ public struct MoneAppView: View {
 public struct OverviewDashboardView: View {
     @Binding public var selectedTab: Int
     @Binding public var showMenuDrawer: Bool
-    @Binding public var showAIModal: Bool
     @Binding public var showAllTransactions: Bool
     @Binding public var showProfileModal: Bool
     @Binding public var editingTransaction: MoneTransaction?
