@@ -921,33 +921,35 @@ public struct OverviewDashboardView: View {
     private var dualKpiCards: some View {
         let budget = max(database.totalMonthlyBudget, 1000.0)
         let spent = database.monthlySpent
+        let isOverBudget = spent > budget
         let unspent = max(budget - spent, 0.0)
         let calendar = Calendar.current
         let range = calendar.range(of: .day, in: .month, for: Date())?.count ?? 30
         let day = calendar.component(.day, from: Date())
         let daysLeft = max(range - day + 1, 1)
         let dailySafeSpend = unspent / Double(daysLeft)
+        let netFlow = database.monthlyIncome - database.monthlySpent
         
         return HStack(spacing: 12) {
             // Balance Card
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     HStack(spacing: 3) {
-                        Image(systemName: "arrow.up.right")
+                        Image(systemName: netFlow >= 0 ? "arrow.up.right" : "arrow.down.right")
                             .font(.system(size: 8, weight: .black))
-                        Text("+0.8%")
+                        Text(netFlow >= 0 ? String(format: "+₹%.0f", netFlow) : String(format: "-₹%.0f", abs(netFlow)))
                             .font(.system(size: 10, weight: .black, design: .rounded))
                     }
-                    .foregroundColor(MoneTheme.badgeGreenText)
+                    .foregroundColor(netFlow >= 0 ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(MoneTheme.badgeGreenBg)
+                    .background(netFlow >= 0 ? MoneTheme.badgeGreenBg : MoneTheme.badgeRedBg)
                     .clipShape(Capsule())
                     
                     Spacer()
                 }
                 
-                Text("Balance")
+                Text("Total Balance")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 
@@ -956,38 +958,48 @@ public struct OverviewDashboardView: View {
                     .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
+                
+                Text("\(database.accounts.count) linked accounts")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
             }
-            .whiteCard(cornerRadius: 22, padding: 16)
+            .whiteCard(cornerRadius: 22, padding: 14)
             
-            // Save / Safe Spend Card
-            VStack(alignment: .leading, spacing: 10) {
+            // Remaining Budget Card
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
+                    let pctLeft = Int(round((unspent / budget) * 100))
                     HStack(spacing: 3) {
-                        Image(systemName: "arrow.up.right")
+                        Image(systemName: isOverBudget ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
                             .font(.system(size: 8, weight: .black))
-                        Text("+0.8%")
+                        Text(isOverBudget ? "Over Budget" : "\(pctLeft)% Left")
                             .font(.system(size: 10, weight: .black, design: .rounded))
                     }
-                    .foregroundColor(MoneTheme.badgeGreenText)
+                    .foregroundColor(isOverBudget ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(MoneTheme.badgeGreenBg)
+                    .background(isOverBudget ? MoneTheme.badgeRedBg : MoneTheme.badgeGreenBg)
                     .clipShape(Capsule())
                     
                     Spacer()
                 }
                 
-                Text("Save")
+                Text(isOverBudget ? "Budget Exceeded" : "Remaining Budget")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 
-                Text(String(format: "₹%.2f", dailySafeSpend))
+                Text(String(format: "₹%.2f", isOverBudget ? (spent - budget) : unspent))
                     .font(.system(size: 20, weight: .black, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    .foregroundColor(isOverBudget ? MoneTheme.badgeRedText : MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
+                
+                Text(isOverBudget ? "₹\(Int(round(spent))) spent of ₹\(Int(round(budget)))" : "Safe: ₹\(Int(round(dailySafeSpend)))/day (\(daysLeft)d left)")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+                    .lineLimit(1)
             }
-            .whiteCard(cornerRadius: 22, padding: 16)
+            .whiteCard(cornerRadius: 22, padding: 14)
         }
     }
     
@@ -1189,9 +1201,11 @@ public struct OverviewDashboardView: View {
         let filteredTxs: [MoneTransaction] = {
             switch selectedFilter {
             case "EXPENSE":
-                return database.transactions.filter { $0.isExpense }
+                return database.transactions.filter { $0.type == "EXPENSE" }
             case "INCOME":
-                return database.transactions.filter { !$0.isExpense }
+                return database.transactions.filter { $0.type == "INCOME" }
+            case "TRANSFER":
+                return database.transactions.filter { $0.isTransfer }
             default:
                 return database.transactions
             }
@@ -1309,10 +1323,10 @@ public struct TransactionRowView: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(tx.formattedAmount)
                         .font(.system(size: 13, weight: .black, design: .rounded))
-                        .foregroundColor(tx.isExpense ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
+                        .foregroundColor(tx.isExpense ? MoneTheme.badgeRedText : (tx.isTransfer ? MoneTheme.badgeBlueText : MoneTheme.badgeGreenText))
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
-                        .background(tx.isExpense ? MoneTheme.badgeRedBg : MoneTheme.badgeGreenBg)
+                        .background(tx.isExpense ? MoneTheme.badgeRedBg : (tx.isTransfer ? MoneTheme.badgeBlueBg : MoneTheme.badgeGreenBg))
                         .clipShape(Capsule())
                     
                     if let acc = database.accounts.first(where: { $0.id == tx.accountId }) {
@@ -1847,8 +1861,8 @@ public struct AnalyticsTrendsView: View {
     
     private var dualMetricExpensesIncomeCard: some View {
         let periodTxs = filteredPeriodTransactions
-        let expenses = periodTxs.filter { $0.isExpense }.reduce(0.0) { $0 + $1.amount }
-        let income = periodTxs.filter { !$0.isExpense }.reduce(0.0) { $0 + $1.amount }
+        let expenses = periodTxs.filter { $0.type == "EXPENSE" }.reduce(0.0) { $0 + $1.amount }
+        let income = periodTxs.filter { $0.type == "INCOME" }.reduce(0.0) { $0 + $1.amount }
         
         return HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
@@ -2272,7 +2286,8 @@ public struct AllTransactionsView: View {
                         items: [
                             FluidSegmentItem(id: "ALL", title: "All"),
                             FluidSegmentItem(id: "EXPENSE", title: "Expense"),
-                            FluidSegmentItem(id: "INCOME", title: "Income")
+                            FluidSegmentItem(id: "INCOME", title: "Income"),
+                            FluidSegmentItem(id: "TRANSFER", title: "Transfer")
                         ],
                         selection: $selectedFilter
                     )
@@ -2397,8 +2412,9 @@ public struct AllTransactionsView: View {
                 if !matchesMerchant && !matchesCategory && !matchesAmount { return false }
             }
             // Type filter
-            if selectedFilter == "EXPENSE" && !tx.isExpense { return false }
-            if selectedFilter == "INCOME" && tx.isExpense { return false }
+            if selectedFilter == "EXPENSE" && tx.type != "EXPENSE" { return false }
+            if selectedFilter == "INCOME" && tx.type != "INCOME" { return false }
+            if selectedFilter == "TRANSFER" && !tx.isTransfer { return false }
             // Bank filter
             if selectedBankFilter != "ALL" {
                 if String(tx.accountId ?? -1) != selectedBankFilter { return false }

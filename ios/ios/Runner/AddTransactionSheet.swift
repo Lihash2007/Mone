@@ -736,7 +736,7 @@ public struct AddTransactionSheet: View {
                 merchant: "Transfer to \(targetAccount?.name ?? "Account")",
                 category: "Transfer",
                 amount: amt,
-                type: "EXPENSE",
+                type: "TRANSFER_OUT",
                 date: date,
                 accountId: fromId
             ))
@@ -744,7 +744,7 @@ public struct AddTransactionSheet: View {
                 merchant: "Transfer from \(selectedAccount?.name ?? "Account")",
                 category: "Transfer",
                 amount: amt,
-                type: "INCOME",
+                type: "TRANSFER_IN",
                 date: date,
                 accountId: toId
             ))

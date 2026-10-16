@@ -36,12 +36,25 @@ public struct MoneTransaction: Identifiable, Hashable {
     }
     
     public var isExpense: Bool {
-        return type == "EXPENSE" || type == "TRANSFER_OUT"
+        return type == "EXPENSE"
+    }
+    
+    public var isIncome: Bool {
+        return type == "INCOME"
+    }
+    
+    public var isTransfer: Bool {
+        return type == "TRANSFER" || type == "TRANSFER_OUT" || type == "TRANSFER_IN"
     }
     
     public var formattedAmount: String {
-        let prefix = isExpense ? "-₹" : "+₹"
-        return String(format: "%@%.0f", prefix, amount)
+        if type == "EXPENSE" || type == "TRANSFER_OUT" {
+            return String(format: "-₹%.0f", amount)
+        } else if type == "INCOME" || type == "TRANSFER_IN" {
+            return String(format: "+₹%.0f", amount)
+        } else {
+            return String(format: "₹%.0f", amount)
+        }
     }
     
     public var formattedTime: String {

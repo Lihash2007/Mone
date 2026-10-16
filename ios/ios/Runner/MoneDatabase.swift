@@ -14,6 +14,7 @@ public final class MoneDatabase: ObservableObject {
     @Published public var totalBalance: Double = 0.0
     @Published public var todaySpent: Double = 0.0
     @Published public var monthlySpent: Double = 0.0
+    @Published public var monthlyIncome: Double = 0.0
     @Published public var totalMonthlyBudget: Double = 50000.0
     
     private var db: OpaquePointer?
@@ -119,6 +120,8 @@ public final class MoneDatabase: ObservableObject {
         for sql in queries {
             execute(sql: sql)
         }
+        execute(sql: "ALTER TABLE accounts ADD COLUMN initial_balance REAL;")
+        execute(sql: "UPDATE accounts SET initial_balance = balance WHERE initial_balance IS NULL;")
     }
     
     private func execute(sql: String) {
@@ -181,6 +184,9 @@ public final class MoneDatabase: ObservableObject {
     public func reloadAllData() {
         queue.async { [weak self] in
             guard let self = self else { return }
+            // Recalculate true account balances from source of truth first
+            self.recalculateAllAccountBalancesInternal()
+            
             let txs = self.fetchTransactionsInternal()
             let accs = self.fetchAccountsInternal()
             let cats = self.fetchCategoriesInternal()
@@ -194,19 +200,26 @@ public final class MoneDatabase: ObservableObject {
             
             var todaySpentCalc: Double = 0.0
             var monthlySpentCalc: Double = 0.0
+            var monthlyIncomeCalc: Double = 0.0
             let currentMonth = calendar.component(.month, from: now)
             let currentYear = calendar.component(.year, from: now)
             
             for t in txs {
-                let isExpense = t.type == "EXPENSE" || t.type == "TRANSFER_OUT"
-                if isExpense {
+                let tMonth = calendar.component(.month, from: t.date)
+                let tYear = calendar.component(.year, from: t.date)
+                let isCurrentMonth = (tMonth == currentMonth && tYear == currentYear)
+                
+                // Only actual living expenses (internal transfers are excluded)
+                if t.type == "EXPENSE" {
                     if t.date >= todayStart {
                         todaySpentCalc += t.amount
                     }
-                    let tMonth = calendar.component(.month, from: t.date)
-                    let tYear = calendar.component(.year, from: t.date)
-                    if tMonth == currentMonth && tYear == currentYear {
+                    if isCurrentMonth {
                         monthlySpentCalc += t.amount
+                    }
+                } else if t.type == "INCOME" {
+                    if isCurrentMonth {
+                        monthlyIncomeCalc += t.amount
                     }
                 }
             }
@@ -221,6 +234,7 @@ public final class MoneDatabase: ObservableObject {
                 self.totalBalance = totalBalCalc
                 self.todaySpent = todaySpentCalc
                 self.monthlySpent = monthlySpentCalc
+                self.monthlyIncome = monthlyIncomeCalc
                 self.totalMonthlyBudget = budgetSetting
                 self.syncToWidgets(accs: accs, totalBal: totalBalCalc, todaySpent: todaySpentCalc, txs: txs)
             }
@@ -233,16 +247,13 @@ public final class MoneDatabase: ObservableObject {
             guard let self = self else { return }
             _ = self.insertTransactionInternal(tx)
             
-            // Update account balance
-            if let accId = tx.accountId {
-                let delta = (tx.type == "INCOME" || tx.type == "TRANSFER_IN") ? tx.amount : -tx.amount
-                self.updateAccountBalanceInternal(id: accId, delta: delta)
-            }
+            // Recompute exact account balances
+            self.recalculateAllAccountBalancesInternal()
             self.reloadAllData()
             
             // Post dynamic island & notification if available
             if #available(iOS 16.1, *) {
-                let isDebit = tx.type != "INCOME"
+                let isDebit = tx.type != "INCOME" && tx.type != "TRANSFER_IN"
                 let bankName = self.accounts.first(where: { $0.id == tx.accountId })?.name ?? "Account"
                 MoneLiveActivityManager.showTransactionActivity(
                     amount: tx.amount,
@@ -258,12 +269,8 @@ public final class MoneDatabase: ObservableObject {
     public func deleteTransaction(id: Int64) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            // Revert account balance
-            if let target = self.transactions.first(where: { $0.id == id }), let accId = target.accountId {
-                let revertDelta = (target.type == "INCOME" || target.type == "TRANSFER_IN") ? -target.amount : target.amount
-                self.updateAccountBalanceInternal(id: accId, delta: revertDelta)
-            }
             self.execute(sql: "DELETE FROM transactions WHERE id = \(id);")
+            self.recalculateAllAccountBalancesInternal()
             self.reloadAllData()
         }
     }
@@ -272,18 +279,6 @@ public final class MoneDatabase: ObservableObject {
         guard let id = tx.id else { return }
         queue.async { [weak self] in
             guard let self = self else { return }
-            // Revert previous transaction balance effect
-            if let existing = self.transactions.first(where: { $0.id == id }), let oldAccId = existing.accountId {
-                let revertDelta = (existing.type == "INCOME" || existing.type == "TRANSFER_IN") ? -existing.amount : existing.amount
-                self.updateAccountBalanceInternal(id: oldAccId, delta: revertDelta)
-            }
-            
-            // Apply new transaction balance effect
-            if let newAccId = tx.accountId {
-                let applyDelta = (tx.type == "INCOME" || tx.type == "TRANSFER_IN") ? tx.amount : -tx.amount
-                self.updateAccountBalanceInternal(id: newAccId, delta: applyDelta)
-            }
-            
             let iso = ISO8601DateFormatter().string(from: tx.date)
             let sql = """
             UPDATE transactions SET 
@@ -296,6 +291,7 @@ public final class MoneDatabase: ObservableObject {
             WHERE id = \(id);
             """
             self.execute(sql: sql)
+            self.recalculateAllAccountBalancesInternal()
             self.reloadAllData()
         }
     }
@@ -313,6 +309,8 @@ public final class MoneDatabase: ObservableObject {
         guard let id = acc.id else { return }
         queue.async { [weak self] in
             guard let self = self else { return }
+            let txDelta = self.calculateAccountTxDeltaInternal(id: id)
+            let newInitial = acc.balance - txDelta
             let sql = """
             UPDATE accounts SET 
                 name = '\(acc.name.replacingOccurrences(of: "'", with: "''"))',
@@ -320,11 +318,13 @@ public final class MoneDatabase: ObservableObject {
                 bank_code = '\(acc.bankCode)',
                 account_number = '\(acc.accountNumber)',
                 balance = \(acc.balance),
+                initial_balance = \(newInitial),
                 type = '\(acc.type)',
                 include_in_total = \(acc.includeInTotal ? 1 : 0)
             WHERE id = \(id);
             """
             self.execute(sql: sql)
+            self.recalculateAllAccountBalancesInternal()
             self.reloadAllData()
         }
     }
@@ -541,6 +541,48 @@ public final class MoneDatabase: ObservableObject {
         """
         execute(sql: sql)
         return sqlite3_last_insert_rowid(db)
+    }
+    
+    public func calculateAccountTxDeltaInternal(id: Int64) -> Double {
+        var delta: Double = 0.0
+        let sql = """
+        SELECT SUM(CASE 
+            WHEN type IN ('INCOME', 'TRANSFER_IN') THEN amount 
+            WHEN type IN ('EXPENSE', 'TRANSFER_OUT') THEN -amount 
+            ELSE 0.0 
+        END) FROM transactions WHERE account_id = \(id);
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                delta = sqlite3_column_double(stmt, 0)
+            }
+        }
+        sqlite3_finalize(stmt)
+        return delta
+    }
+    
+    public func recalculateAllAccountBalancesInternal() {
+        execute(sql: "ALTER TABLE accounts ADD COLUMN initial_balance REAL;")
+        execute(sql: "UPDATE accounts SET initial_balance = balance WHERE initial_balance IS NULL;")
+        
+        let sql = "SELECT id, initial_balance FROM accounts;"
+        var stmt: OpaquePointer?
+        var accountsToUpdate: [(Int64, Double)] = []
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = sqlite3_column_int64(stmt, 0)
+                let initial = sqlite3_column_double(stmt, 1)
+                accountsToUpdate.append((id, initial))
+            }
+        }
+        sqlite3_finalize(stmt)
+        
+        for (id, initial) in accountsToUpdate {
+            let txDelta = calculateAccountTxDeltaInternal(id: id)
+            let current = initial + txDelta
+            execute(sql: "UPDATE accounts SET balance = \(current) WHERE id = \(id);")
+        }
     }
     
     private func updateAccountBalanceInternal(id: Int64, delta: Double) {
