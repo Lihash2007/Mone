@@ -104,6 +104,84 @@ public final class MoneRouteManager: ObservableObject {
     }
 }
 
+// MARK: - Dynamic Island / Top HUD Toast Notification View
+public struct DynamicIslandToastView: View {
+    @ObservedObject private var hud = MoneHUDManager.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    public var body: some View {
+        if hud.isVisible {
+            HStack(spacing: 12) {
+                // Bank Logo or Status Icon
+                if let bId = hud.bankId, let bank = IndianBankDirectory.allBanks.first(where: { $0.id == bId }) {
+                    bank.badgeView(size: 32)
+                } else {
+                    ZStack {
+                        Circle()
+                            .fill(hud.isSuccess ? MoneTheme.badgeGreenBg : MoneTheme.badgeRedBg)
+                            .frame(width: 32, height: 32)
+                        Image(systemName: hud.isSuccess ? "checkmark" : "exclamationmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(hud.isSuccess ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(hud.title)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        .lineLimit(1)
+                    
+                    Text(hud.subtitle)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                Button {
+                    hud.dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        .frame(width: 24, height: 24)
+                        .background(isDarkMode ? Color.white.opacity(0.12) : Color.black.opacity(0.06))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(isDarkMode ? Color(hex: "151926") : Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(isDarkMode ? Color.white.opacity(0.12) : Color.black.opacity(0.06), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.4 : 0.12), radius: 18, x: 0, y: 6)
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .transition(.asymmetric(
+                insertion: .move(edge: .top).combined(with: .opacity),
+                removal: .move(edge: .top).combined(with: .opacity)
+            ))
+            .gesture(
+                DragGesture(minimumDistance: 10)
+                    .onEnded { value in
+                        if value.translation.height < 0 {
+                            hud.dismiss()
+                        }
+                    }
+            )
+            .zIndex(9999)
+        }
+    }
+}
+
 // MARK: - Root Mone SwiftUI Application View
 public struct MoneAppView: View {
     @StateObject private var database = MoneDatabase.shared
@@ -129,54 +207,59 @@ public struct MoneAppView: View {
     public init() {}
     
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
-            
-            // Tab Content
-            Group {
-                switch selectedTab {
-                case 0:
-                    OverviewDashboardView(
-                        selectedTab: $selectedTab,
-                        showMenuDrawer: $showMenuDrawer,
-                        showAIModal: $showAIModal,
-                        showAllTransactions: $showAllTransactions,
-                        showProfileModal: $showProfileModal,
-                        editingTransaction: $editingTransaction
-                    )
-                case 1:
-                    AnalyticsTrendsView(
-                        showMenuDrawer: $showMenuDrawer,
-                        showAllTransactions: $showAllTransactions,
-                        showProfileModal: $showProfileModal,
-                        editingTransaction: $editingTransaction
-                    )
-                case 2:
-                    AccountsDirectoryView(
-                        showAddAccountSheet: $showAddAccountSheet,
-                        editingAccount: $editingAccount
-                    )
-                case 3:
-                    SettingsView(
-                        showProfileModal: $showProfileModal,
-                        showShareSheet: $showShareSheet,
-                        csvToShare: $csvToShare
-                    )
-                default:
-                    OverviewDashboardView(
-                        selectedTab: $selectedTab,
-                        showMenuDrawer: $showMenuDrawer,
-                        showAIModal: $showAIModal,
-                        showAllTransactions: $showAllTransactions,
-                        showProfileModal: $showProfileModal,
-                        editingTransaction: $editingTransaction
-                    )
+        ZStack(alignment: .top) {
+            ZStack(alignment: .bottom) {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                // Tab Content
+                Group {
+                    switch selectedTab {
+                    case 0:
+                        OverviewDashboardView(
+                            selectedTab: $selectedTab,
+                            showMenuDrawer: $showMenuDrawer,
+                            showAIModal: $showAIModal,
+                            showAllTransactions: $showAllTransactions,
+                            showProfileModal: $showProfileModal,
+                            editingTransaction: $editingTransaction
+                        )
+                    case 1:
+                        AnalyticsTrendsView(
+                            showMenuDrawer: $showMenuDrawer,
+                            showAllTransactions: $showAllTransactions,
+                            showProfileModal: $showProfileModal,
+                            editingTransaction: $editingTransaction
+                        )
+                    case 2:
+                        AccountsDirectoryView(
+                            showAddAccountSheet: $showAddAccountSheet,
+                            editingAccount: $editingAccount
+                        )
+                    case 3:
+                        SettingsView(
+                            showProfileModal: $showProfileModal,
+                            showShareSheet: $showShareSheet,
+                            csvToShare: $csvToShare
+                        )
+                    default:
+                        OverviewDashboardView(
+                            selectedTab: $selectedTab,
+                            showMenuDrawer: $showMenuDrawer,
+                            showAIModal: $showAIModal,
+                            showAllTransactions: $showAllTransactions,
+                            showProfileModal: $showProfileModal,
+                            editingTransaction: $editingTransaction
+                        )
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+                // Floating Bespoke Capsule Dock (Formal Symbols)
+                floatingDock
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Floating Bespoke Capsule Dock (Formal Symbols)
-            floatingDock
+            // Dynamic Island / Top HUD Toast Pill
+            DynamicIslandToastView()
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
         .sheet(isPresented: $routeManager.showAddTransaction) {
@@ -797,6 +880,7 @@ public struct TransactionRowView: View {
     
     @ObservedObject private var database = MoneDatabase.shared
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @State private var showDigitalReceiptSlip: Bool = false
     
     public init(tx: MoneTransaction, onEdit: (() -> Void)? = nil) {
         self.tx = tx
@@ -809,8 +893,8 @@ public struct TransactionRowView: View {
             onEdit?()
         } label: {
             HStack(spacing: 12) {
-                // Category Icon or Bank Badge
-                ZStack {
+                // Category Icon with Overlapping Bank Emblem Badge
+                ZStack(alignment: .bottomTrailing) {
                     Circle()
                         .fill(tx.categoryColor.opacity(0.14))
                         .frame(width: 44, height: 44)
@@ -818,6 +902,12 @@ public struct TransactionRowView: View {
                     Image(systemName: tx.categoryIcon)
                         .font(.system(size: 17, weight: .bold))
                         .foregroundColor(tx.categoryColor)
+                        .frame(width: 44, height: 44)
+                    
+                    if let acc = database.accounts.first(where: { $0.id == tx.accountId }) {
+                        acc.bankInfo.badgeView(size: 18)
+                            .offset(x: 3, y: 3)
+                    }
                 }
                 
                 // Title & Info
@@ -866,6 +956,12 @@ public struct TransactionRowView: View {
             }
             
             Button {
+                showDigitalReceiptSlip = true
+            } label: {
+                Label("View Digital Slip", systemImage: "doc.text.fill")
+            }
+            
+            Button {
                 // Duplicate transaction
                 var copy = tx
                 copy.id = nil
@@ -884,6 +980,9 @@ public struct TransactionRowView: View {
             } label: {
                 Label("Delete Record", systemImage: "trash")
             }
+        }
+        .sheet(isPresented: $showDigitalReceiptSlip) {
+            DigitalReceiptSlipSheet(tx: tx)
         }
     }
 }
@@ -1270,7 +1369,7 @@ public struct AllTransactionsView: View {
                         HStack(spacing: 8) {
                             bankChip(title: "All Banks", id: "ALL")
                             ForEach(database.accounts) { acc in
-                                bankChip(title: acc.name, id: String(acc.id ?? 0))
+                                bankChip(title: acc.name, id: String(acc.id ?? 0), bankInfo: acc.bankInfo)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -1299,7 +1398,7 @@ public struct AllTransactionsView: View {
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
                                         if let id = tx.id {
-                                            MoneHaptics.notification(.warning)
+                                             MoneHaptics.notification(.warning)
                                             database.deleteTransaction(id: id)
                                         }
                                     } label: {
@@ -1332,20 +1431,25 @@ public struct AllTransactionsView: View {
         }
     }
     
-    private func bankChip(title: String, id: String) -> some View {
+    private func bankChip(title: String, id: String, bankInfo: BankInfo? = nil) -> some View {
         let isSelected = selectedBankFilter == id
         return Button {
             MoneHaptics.selection()
             selectedBankFilter = id
         } label: {
-            Text(title)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
-                .clipShape(Capsule())
-                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+            HStack(spacing: 6) {
+                if let b = bankInfo {
+                    b.badgeView(size: 16)
+                }
+                Text(title)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+            }
+            .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+            .clipShape(Capsule())
+            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -2231,6 +2335,7 @@ public struct AIAssistantSheet: View {
             }
         }
         if accId == nil { accId = database.accounts.first?.id }
+        let matchedAcc = database.accounts.first(where: { $0.id == accId }) ?? database.accounts.first
         
         database.addTransaction(MoneTransaction(
             merchant: merchant,
@@ -2240,6 +2345,12 @@ public struct AIAssistantSheet: View {
             date: Date(),
             accountId: accId
         ))
+        
+        MoneHUDManager.shared.show(
+            title: "\(type == "INCOME" ? "+" : "-")₹\(String(format: "%.0f", amt)) Logged via Siri",
+            subtitle: "\(merchant) • \(matchedAcc?.name ?? "Account")",
+            bankId: matchedAcc?.bankInfo.id
+        )
         
         MoneHaptics.notification(.success)
         dismiss()
@@ -2532,6 +2643,11 @@ public struct AccountChoiceSheet: View {
                                     date: Date(),
                                     accountId: acc.id
                                 ))
+                                MoneHUDManager.shared.show(
+                                    title: "\(type == "INCOME" ? "+" : "-")₹\(String(format: "%.0f", amount)) Logged",
+                                    subtitle: "\(merchant) • \(acc.name)",
+                                    bankId: acc.bankInfo.id
+                                )
                                 dismiss()
                             } label: {
                                 HStack(spacing: 12) {

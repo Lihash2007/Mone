@@ -32,27 +32,27 @@ public struct BankInfo: Identifiable, Hashable {
     public func badgeView(size: CGFloat = 34) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: isCash ? size / 2 : size * 0.28, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: gradientColors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(Color.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: isCash ? size / 2 : size * 0.28, style: .continuous)
-                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
                 )
-                .shadow(color: gradientColors.first?.opacity(0.35) ?? .clear, radius: 4, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
             
             if isCash {
                 Image(systemName: "banknote.fill")
                     .font(.system(size: size * 0.46, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Color(hex: "10B981"))
+            } else if let uiImage = UIImage(named: "bank_\(id)") {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size * 0.76, height: size * 0.76)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
             } else {
                 Text(shortName.prefix(3).uppercased())
                     .font(.system(size: size * 0.32, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(gradientColors.first ?? .black)
                     .minimumScaleFactor(0.6)
                     .padding(2)
             }

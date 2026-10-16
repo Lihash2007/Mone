@@ -399,3 +399,46 @@ public struct FluidSegmentedControl<T: Hashable>: View {
     }
 }
 
+// MARK: - Dynamic Island / Top HUD Toast Notification Manager
+public final class MoneHUDManager: ObservableObject {
+    public static let shared = MoneHUDManager()
+    
+    @Published public var isVisible: Bool = false
+    @Published public var title: String = ""
+    @Published public var subtitle: String = ""
+    @Published public var bankId: String? = nil
+    @Published public var isSuccess: Bool = true
+    
+    private var dismissWorkItem: DispatchWorkItem?
+    
+    public func show(title: String, subtitle: String, bankId: String? = nil, isSuccess: Bool = true) {
+        DispatchQueue.main.async {
+            self.dismissWorkItem?.cancel()
+            
+            self.title = title
+            self.subtitle = subtitle
+            self.bankId = bankId
+            self.isSuccess = isSuccess
+            
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+                self.isVisible = true
+            }
+            MoneHaptics.notification(isSuccess ? .success : .warning)
+            
+            let work = DispatchWorkItem { [weak self] in
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    self?.isVisible = false
+                }
+            }
+            self.dismissWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.4, execute: work)
+        }
+    }
+    
+    public func dismiss() {
+        dismissWorkItem?.cancel()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            isVisible = false
+        }
+    }
+}
