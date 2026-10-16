@@ -272,6 +272,18 @@ public final class MoneDatabase: ObservableObject {
         guard let id = tx.id else { return }
         queue.async { [weak self] in
             guard let self = self else { return }
+            // Revert previous transaction balance effect
+            if let existing = self.transactions.first(where: { $0.id == id }), let oldAccId = existing.accountId {
+                let revertDelta = (existing.type == "INCOME" || existing.type == "TRANSFER_IN") ? -existing.amount : existing.amount
+                self.updateAccountBalanceInternal(id: oldAccId, delta: revertDelta)
+            }
+            
+            // Apply new transaction balance effect
+            if let newAccId = tx.accountId {
+                let applyDelta = (tx.type == "INCOME" || tx.type == "TRANSFER_IN") ? tx.amount : -tx.amount
+                self.updateAccountBalanceInternal(id: newAccId, delta: applyDelta)
+            }
+            
             let iso = ISO8601DateFormatter().string(from: tx.date)
             let sql = """
             UPDATE transactions SET 
@@ -333,6 +345,62 @@ public final class MoneDatabase: ObservableObject {
             self.execute(sql: sql)
             self.reloadAllData()
         }
+    }
+    
+    // MARK: - Data Management & Reset
+    public func clearAllTransactions() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.execute(sql: "DELETE FROM transactions;")
+            self.reloadAllData()
+        }
+    }
+    
+    public func resetToDemoData() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.execute(sql: "DELETE FROM transactions;")
+            self.execute(sql: "DELETE FROM accounts;")
+            
+            let hdfcId = self.insertAccountInternal(MoneAccount(name: "HDFC Salary", bankName: "HDFC Bank", bankCode: "hdfc", accountNumber: "4821", balance: 45200.0, type: "SAVINGS"))
+            let sbiId = self.insertAccountInternal(MoneAccount(name: "SBI Savings", bankName: "State Bank of India", bankCode: "sbi", accountNumber: "9102", balance: 18500.0, type: "SAVINGS"))
+            let iciciId = self.insertAccountInternal(MoneAccount(name: "ICICI Amazon Pay", bankName: "ICICI Bank", bankCode: "icici", accountNumber: "3184", balance: 8400.0, type: "CREDIT"))
+            let cashId = self.insertAccountInternal(MoneAccount(name: "Cash Wallet", bankName: "Cash", bankCode: "cash", accountNumber: "", balance: 2500.0, type: "CASH"))
+            
+            let now = Date()
+            let cal = Calendar.current
+            let demoTxs: [(String, String, Double, String, Int, Int64?)] = [
+                ("Creator payments", "Salary", 5710.20, "INCOME", 0, hdfcId),
+                ("Binance", "Investment", 714.00, "INCOME", 0, sbiId),
+                ("Henrik Jansen", "Freelance", 428.00, "INCOME", -1, hdfcId),
+                ("Multiplex Cinema", "Entertainment", 124.55, "EXPENSE", -1, iciciId),
+                ("Nike Store", "Shopping", 328.96, "EXPENSE", -1, iciciId),
+                ("Matteo Ricci", "Freelance", 548.00, "INCOME", -2, sbiId),
+                ("Megogo Subscription", "Subscription payments", 847.20, "EXPENSE", -2, hdfcId),
+                ("Emilia Costa", "Other", 147.00, "INCOME", -3, hdfcId),
+                ("Swiggy Gourmet", "Food & Dining", 640.00, "EXPENSE", 0, hdfcId),
+                ("Uber Premier", "Transport", 380.00, "EXPENSE", 0, iciciId)
+            ]
+            
+            for (merchant, cat, amt, type, dayOffset, accId) in demoTxs {
+                let txDate = cal.date(byAdding: .day, value: dayOffset, to: now) ?? now
+                _ = self.insertTransactionInternal(MoneTransaction(merchant: merchant, category: cat, amount: amt, type: type, date: txDate, accountId: accId))
+            }
+            
+            self.reloadAllData()
+        }
+    }
+    
+    public func exportCSV() -> String {
+        var csv = "ID,Date,Type,Merchant,Category,Amount,Account\n"
+        let f = ISO8601DateFormatter()
+        for t in transactions {
+            let accName = accounts.first(where: { $0.id == t.accountId })?.name ?? "None"
+            let cleanMerchant = t.merchant.replacingOccurrences(of: "\"", with: "\"\"")
+            let cleanCat = t.category.replacingOccurrences(of: "\"", with: "\"\"")
+            csv += "\(t.id ?? 0),\(f.string(from: t.date)),\(t.type),\"\(cleanMerchant)\",\"\(cleanCat)\",\(t.amount),\"\(accName)\"\n"
+        }
+        return csv
     }
     
     private func columnText(_ stmt: OpaquePointer?, _ index: Int32, default defaultVal: String = "") -> String {

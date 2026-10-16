@@ -1,6 +1,7 @@
 import SwiftUI
 import Charts
 import LocalAuthentication
+import PhotosUI
 
 // MARK: - Deep Link & Route Dispatcher
 public final class MoneRouteManager: ObservableObject {
@@ -63,13 +64,11 @@ public final class MoneRouteManager: ObservableObject {
                                     rawAccount!.lowercased() == "select"
             
             if let amt = parsedAmount, amt > 0 {
-                // If account is specified, try to match it
                 if !isChoiceRequested {
                     let q = rawAccount!.lowercased()
                     if let matched = MoneDatabase.shared.accounts.first(where: {
                         $0.name.lowercased().contains(q) || $0.bankName.lowercased().contains(q) || $0.bankCode.lowercased() == q
                     }) {
-                        // Log directly!
                         MoneDatabase.shared.addTransaction(MoneTransaction(
                             merchant: rawMerchant,
                             category: rawCat,
@@ -83,7 +82,6 @@ public final class MoneRouteManager: ObservableObject {
                     }
                 }
                 
-                // Show choice sheet
                 DispatchQueue.main.async {
                     self.accountChoiceAmount = amt
                     self.accountChoiceType = rawType
@@ -93,7 +91,6 @@ public final class MoneRouteManager: ObservableObject {
                     MoneHaptics.impact(.medium)
                 }
             } else {
-                // Open add transaction modal
                 DispatchQueue.main.async {
                     self.prefillAmount = nil
                     self.prefillType = rawType
@@ -112,43 +109,76 @@ public struct MoneAppView: View {
     @StateObject private var database = MoneDatabase.shared
     @StateObject private var routeManager = MoneRouteManager.shared
     
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @AppStorage("userName") private var userName: String = "Lihash"
+    @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
+    
     @State private var selectedTab: Int = 0
-    @State private var isPrivacyActive: Bool = false
+    @State private var showMenuDrawer: Bool = false
+    @State private var showAIModal: Bool = false
+    @State private var showAllTransactions: Bool = false
+    @State private var showProfileModal: Bool = false
+    @State private var showAddAccountSheet: Bool = false
+    @State private var editingTransaction: MoneTransaction? = nil
+    @State private var editingAccount: MoneAccount? = nil
+    @State private var showShareSheet: Bool = false
+    @State private var csvToShare: String = ""
+    
     @Namespace private var dockAnimation
     
     public init() {}
     
     public var body: some View {
         ZStack(alignment: .bottom) {
-            MoneTheme.bgCanvasGradient.ignoresSafeArea()
+            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
             
             // Tab Content
             Group {
                 switch selectedTab {
                 case 0:
                     OverviewDashboardView(
-                        isPrivacyActive: $isPrivacyActive,
-                        selectedTab: $selectedTab
+                        selectedTab: $selectedTab,
+                        showMenuDrawer: $showMenuDrawer,
+                        showAIModal: $showAIModal,
+                        showAllTransactions: $showAllTransactions,
+                        showProfileModal: $showProfileModal,
+                        editingTransaction: $editingTransaction
                     )
                 case 1:
-                    AnalyticsTrendsView()
+                    AnalyticsTrendsView(
+                        showMenuDrawer: $showMenuDrawer,
+                        showAllTransactions: $showAllTransactions,
+                        showProfileModal: $showProfileModal,
+                        editingTransaction: $editingTransaction
+                    )
                 case 2:
-                    AccountsDirectoryView()
+                    AccountsDirectoryView(
+                        showAddAccountSheet: $showAddAccountSheet,
+                        editingAccount: $editingAccount
+                    )
                 case 3:
-                    SettingsAndShortcutsView()
+                    SettingsView(
+                        showProfileModal: $showProfileModal,
+                        showShareSheet: $showShareSheet,
+                        csvToShare: $csvToShare
+                    )
                 default:
                     OverviewDashboardView(
-                        isPrivacyActive: $isPrivacyActive,
-                        selectedTab: $selectedTab
+                        selectedTab: $selectedTab,
+                        showMenuDrawer: $showMenuDrawer,
+                        showAIModal: $showAIModal,
+                        showAllTransactions: $showAllTransactions,
+                        showProfileModal: $showProfileModal,
+                        editingTransaction: $editingTransaction
                     )
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Floating Bespoke Capsule Dock (Exact Image 2 Replication)
+            // Floating Bespoke Capsule Dock (Formal Symbols)
             floatingDock
         }
-        .preferredColorScheme(.light)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
         .sheet(isPresented: $routeManager.showAddTransaction) {
             AddTransactionSheet(
                 prefillMerchant: routeManager.prefillMerchant,
@@ -157,6 +187,35 @@ public struct MoneAppView: View {
                 prefillType: routeManager.prefillType,
                 prefillAccountId: routeManager.prefillAccountId
             )
+        }
+        .sheet(item: $editingTransaction) { tx in
+            EditTransactionSheet(tx: tx)
+        }
+        .sheet(item: $editingAccount) { acc in
+            EditAccountSheet(acc: acc)
+        }
+        .sheet(isPresented: $showAIModal) {
+            AIAssistantSheet()
+        }
+        .sheet(isPresented: $showMenuDrawer) {
+            QuickControlMenuSheet(
+                selectedTab: $selectedTab,
+                showAllTransactions: $showAllTransactions,
+                showAddAccountSheet: $showAddAccountSheet,
+                showShareSheet: $showShareSheet,
+                csvToShare: $csvToShare
+            )
+            .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showAllTransactions) {
+            AllTransactionsView(editingTransaction: $editingTransaction)
+        }
+        .sheet(isPresented: $showProfileModal) {
+            ProfileCustomizationSheet()
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ActivityViewController(activityItems: [csvToShare])
         }
         .sheet(isPresented: $routeManager.showAccountChoiceSheet) {
             AccountChoiceSheet(
@@ -175,20 +234,24 @@ public struct MoneAppView: View {
     // MARK: - Floating Capsule Dock
     private var floatingDock: some View {
         HStack(spacing: 0) {
-            dockTabButton(index: 0, icon: "sparkles", title: "Insights")
-            dockTabButton(index: 1, icon: "chart.line.uptrend.xyaxis", title: "Trends")
+            dockTabButton(index: 0, icon: "house.fill", title: "Insights")
+            dockTabButton(index: 1, icon: "chart.bar.xaxis", title: "Trends")
             
             // Center Action Button (+)
             centerAddButton
             
             dockTabButton(index: 2, icon: "creditcard.fill", title: "Accounts")
-            dockTabButton(index: 3, icon: "bolt.fill", title: "Shortcuts")
+            dockTabButton(index: 3, icon: "gearshape.fill", title: "Settings")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Color.white)
+        .background(isDarkMode ? Color(hex: "131722") : Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-        .shadow(color: Color(hex: "0D2040").opacity(0.10), radius: 22, x: 0, y: 8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1)
+        )
+        .shadow(color: isDarkMode ? Color.black.opacity(0.40) : Color(hex: "0D2040").opacity(0.10), radius: 22, x: 0, y: 8)
         .padding(.horizontal, 22)
         .padding(.bottom, 16)
     }
@@ -204,15 +267,15 @@ public struct MoneAppView: View {
             ZStack {
                 if isSelected {
                     Circle()
-                        .fill(MoneTheme.deepBlack)
+                        .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
                         .frame(width: 44, height: 44)
                         .matchedGeometryEffect(id: "DOCK_ACTIVE_CIRCLE", in: dockAnimation)
-                        .shadow(color: MoneTheme.deepBlack.opacity(0.28), radius: 6, y: 3)
+                        .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.28), radius: 6, y: 3)
                 }
                 
                 Image(systemName: icon)
                     .font(.system(size: 17, weight: isSelected ? .bold : .medium))
-                    .foregroundColor(isSelected ? .white : Color(hex: "788496"))
+                    .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : (isDarkMode ? Color(hex: "8E9DAE") : Color(hex: "788496")))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 48)
@@ -230,13 +293,13 @@ public struct MoneAppView: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(MoneTheme.deepBlack)
+                    .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
                     .frame(width: 50, height: 50)
-                    .shadow(color: MoneTheme.deepBlack.opacity(0.3), radius: 10, y: 4)
+                    .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.3), radius: 10, y: 4)
                 
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
             }
         }
         .buttonStyle(.plain)
@@ -244,37 +307,45 @@ public struct MoneAppView: View {
     }
 }
 
-// MARK: - 1. Overview Dashboard (Screen 2: "Your financial insights" Cockpit)
+// MARK: - 1. Overview Dashboard (Screen 2: Cockpit)
 public struct OverviewDashboardView: View {
-    @Binding public var isPrivacyActive: Bool
     @Binding public var selectedTab: Int
+    @Binding public var showMenuDrawer: Bool
+    @Binding public var showAIModal: Bool
+    @Binding public var showAllTransactions: Bool
+    @Binding public var showProfileModal: Bool
+    @Binding public var editingTransaction: MoneTransaction?
+    
     @ObservedObject private var database = MoneDatabase.shared
     @ObservedObject private var routeManager = MoneRouteManager.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @AppStorage("userName") private var userName: String = "Lihash"
+    @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
     @State private var selectedFilter: String = "ALL"
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Header (Avatar + Circular Menu & Privacy buttons)
+                // Header (Avatar + Appearance Toggle & Menu Drawer)
                 headerRow
                     .padding(.top, 12)
                 
-                // Display Headline: "Your financial insights"
+                // Display Headline with dynamic greeting
                 headlineSection
                 
                 // Dual KPI Cards: Balance & Save
                 dualKpiCards
                 
-                // ✦ AI Assistant Banner with Black Mic Button
+                // ✦ AI Assistant Interactive Voice Banner
                 aiAssistantBanner
                 
-                // Action Row: Solid Black "+ Add money" + 3 White Action Buttons
+                // Action Bar: Solid Black "+ Add money" + 3 Action Buttons
                 quickActionBar
                 
                 // 2x2 Feature Grid: Optimize Budget, Smart Saving, Active Banks, Expense Flow
                 featureGrid
                 
-                // Recent Transactions List
+                // Recent Transactions List (with tap-to-edit)
                 recentActivitySection
                 
                 Spacer(minLength: 110)
@@ -285,47 +356,65 @@ public struct OverviewDashboardView: View {
     
     private var headerRow: some View {
         HStack {
-            // Profile Avatar
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "D9E6EF"))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 42))
-                    .foregroundColor(Color(hex: "7C9CB3"))
+            // Profile Avatar (Tap to change photo & name)
+            Button {
+                MoneHaptics.impact(.light)
+                showProfileModal = true
+            } label: {
+                if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                    Image(uiImage: uiImg)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1.5))
+                        .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.08), radius: 6, y: 2)
+                } else {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: "D9E6EF"))
+                            .frame(width: 44, height: 44)
+                        Text(String(userName.prefix(1)).uppercased())
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                            .foregroundColor(Color(hex: "335C7A"))
+                    }
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.08), radius: 6, y: 2)
+                }
             }
+            .buttonStyle(.plain)
             
             Spacer()
             
             HStack(spacing: 10) {
-                // Privacy Toggle
+                // Dark Mode / Light Mode Switch
                 Button {
-                    MoneHaptics.impact(.light)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        isPrivacyActive.toggle()
+                    MoneHaptics.impact(.medium)
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        isDarkMode.toggle()
                     }
                 } label: {
-                    Image(systemName: isPrivacyActive ? "eye.slash.fill" : "eye.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(MoneTheme.textPrimary)
+                    Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(isDarkMode ? Color(hex: "F59E0B") : MoneTheme.textPrimary(isDark: isDarkMode))
                         .frame(width: 40, height: 40)
-                        .background(Color.white)
+                        .background(isDarkMode ? Color(hex: "1B212D") : Color.white)
                         .clipShape(Circle())
-                        .shadow(color: Color(hex: "0D2040").opacity(0.06), radius: 6, y: 2)
+                        .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.06), radius: 6, y: 2)
                 }
                 .buttonStyle(.plain)
                 
-                // Menu Button
+                // Functional Menu Button
                 Button {
                     MoneHaptics.impact(.light)
+                    showMenuDrawer = true
                 } label: {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(MoneTheme.textPrimary)
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .frame(width: 40, height: 40)
-                        .background(Color.white)
+                        .background(isDarkMode ? Color(hex: "1B212D") : Color.white)
                         .clipShape(Circle())
-                        .shadow(color: Color(hex: "0D2040").opacity(0.06), radius: 6, y: 2)
+                        .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.06), radius: 6, y: 2)
                 }
                 .buttonStyle(.plain)
             }
@@ -333,11 +422,17 @@ public struct OverviewDashboardView: View {
     }
     
     private var headlineSection: some View {
-        Text("Your financial\ninsights")
-            .font(.system(size: 32, weight: .bold, design: .rounded))
-            .foregroundColor(MoneTheme.textPrimary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .lineSpacing(-2)
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Hi, \(userName)!")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            
+            Text("Your financial\ninsights")
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                .lineSpacing(-2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private var dualKpiCards: some View {
@@ -371,11 +466,11 @@ public struct OverviewDashboardView: View {
                 
                 Text("Balance")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary)
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 
-                Text(isPrivacyActive ? "••••••" : String(format: "₹%.2f", database.totalBalance))
+                Text(String(format: "₹%.2f", database.totalBalance))
                     .font(.system(size: 20, weight: .black, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
             }
@@ -401,11 +496,11 @@ public struct OverviewDashboardView: View {
                 
                 Text("Save")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary)
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 
-                Text(isPrivacyActive ? "••••••" : String(format: "₹%.2f", dailySafeSpend))
+                Text(String(format: "₹%.2f", dailySafeSpend))
                     .font(.system(size: 20, weight: .black, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
             }
@@ -414,44 +509,44 @@ public struct OverviewDashboardView: View {
     }
     
     private var aiAssistantBanner: some View {
-        HStack {
-            HStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(MoneTheme.textPrimary)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("AI Assistant")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary)
-                    Text("Ask Siri or quick voice log")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary)
+        Button {
+            MoneHaptics.impact(.medium)
+            showAIModal = true
+        } label: {
+            HStack {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary(isDark: isDarkMode))
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("AI Voice Assistant")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("Tap to speak or activate Siri logger")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
                 }
-            }
-            
-            Spacer()
-            
-            Button {
-                MoneHaptics.impact(.medium)
-                routeManager.showAddTransaction = true
-            } label: {
+                
+                Spacer()
+                
                 ZStack {
                     Circle()
-                        .fill(MoneTheme.deepBlack)
+                        .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
                         .frame(width: 44, height: 44)
                     Image(systemName: "mic.fill")
                         .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
                 }
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.04), radius: 8, y: 3)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(MoneTheme.bgCardBlue)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color(hex: "0D2040").opacity(0.04), radius: 8, y: 3)
+        .buttonStyle(.plain)
     }
     
     private var quickActionBar: some View {
@@ -470,24 +565,24 @@ public struct OverviewDashboardView: View {
                     Text("Add money")
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(.white)
+                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(MoneTheme.deepBlack)
+                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: MoneTheme.deepBlack.opacity(0.22), radius: 8, y: 3)
+                .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.22), radius: 8, y: 3)
             }
             .buttonStyle(.plain)
             
-            // 3 White Square Buttons
+            // 3 Action Buttons with formal icons
             actionSquareButton(icon: "creditcard.fill") {
                 withAnimation { selectedTab = 2 }
             }
-            actionSquareButton(icon: "paperplane.fill") {
-                withAnimation { selectedTab = 3 }
-            }
-            actionSquareButton(icon: "square.grid.2x2.fill") {
+            actionSquareButton(icon: "chart.bar.xaxis") {
                 withAnimation { selectedTab = 1 }
+            }
+            actionSquareButton(icon: "list.bullet.rectangle.portrait.fill") {
+                showAllTransactions = true
             }
         }
     }
@@ -499,11 +594,15 @@ public struct OverviewDashboardView: View {
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(MoneTheme.textPrimary)
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 .frame(width: 48, height: 48)
-                .background(Color.white)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: Color(hex: "0D2040").opacity(0.06), radius: 8, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(isDarkMode ? Color.white.opacity(0.08) : Color.clear, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.06), radius: 8, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -516,18 +615,18 @@ public struct OverviewDashboardView: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(Color(hex: "F3F6FA"))
+                            .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
                             .frame(width: 36, height: 36)
                         Image(systemName: "chart.pie.fill")
                             .font(.system(size: 15))
-                            .foregroundColor(MoneTheme.textPrimary)
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Optimize\nBudget")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary)
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .lineLimit(2)
                     
                     HStack(spacing: 2) {
@@ -547,18 +646,18 @@ public struct OverviewDashboardView: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(Color(hex: "F3F6FA"))
+                            .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
                             .frame(width: 36, height: 36)
                         Image(systemName: "indianrupeesign.circle.fill")
                             .font(.system(size: 16))
-                            .foregroundColor(MoneTheme.textPrimary)
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Smart\nSaving")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary)
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .lineLimit(2)
                     
                     HStack(spacing: 2) {
@@ -578,18 +677,18 @@ public struct OverviewDashboardView: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(Color(hex: "F3F6FA"))
+                            .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
                             .frame(width: 36, height: 36)
                         Image(systemName: "building.columns.fill")
                             .font(.system(size: 15))
-                            .foregroundColor(MoneTheme.textPrimary)
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Linked\nAccounts")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary)
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .lineLimit(2)
                     
                     Text("\(database.accounts.count) Banks Active")
@@ -605,18 +704,18 @@ public struct OverviewDashboardView: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(Color(hex: "F3F6FA"))
+                            .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
                             .frame(width: 36, height: 36)
-                        Image(systemName: "chart.line.uptrend.xyaxis")
+                        Image(systemName: "waveform.path.ecg")
                             .font(.system(size: 15))
-                            .foregroundColor(MoneTheme.textPrimary)
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Expense\nVelocity")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary)
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .lineLimit(2)
                     
                     Text("Safe Burn Rate")
@@ -644,11 +743,16 @@ public struct OverviewDashboardView: View {
             HStack {
                 Text("Recent Activity")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 Spacer()
-                Text("\(filteredTxs.count) records")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary)
+                Button {
+                    MoneHaptics.selection()
+                    showAllTransactions = true
+                } label: {
+                    Text("See all")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(hex: "0284C7"))
+                }
             }
             
             // Black Pill Segmented Control
@@ -665,18 +769,20 @@ public struct OverviewDashboardView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "tray.fill")
                         .font(.system(size: 32))
-                        .foregroundColor(MoneTheme.textMuted)
+                        .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
                     Text("No transactions logged yet")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary)
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
                 .whiteCard(cornerRadius: 22, padding: 16)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(filteredTxs.prefix(15)) { tx in
-                        TransactionRowView(tx: tx)
+                    ForEach(filteredTxs.prefix(10)) { tx in
+                        TransactionRowView(tx: tx) {
+                            editingTransaction = tx
+                        }
                     }
                 }
             }
@@ -684,61 +790,92 @@ public struct OverviewDashboardView: View {
     }
 }
 
-// MARK: - Transaction Row View (Exact Screen 1 & Image 2 White Card Style)
+// MARK: - Transaction Row View (Tap to Edit & Swipe to Delete)
 public struct TransactionRowView: View {
     public let tx: MoneTransaction
+    public var onEdit: (() -> Void)? = nil
+    
     @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    public init(tx: MoneTransaction, onEdit: (() -> Void)? = nil) {
+        self.tx = tx
+        self.onEdit = onEdit
+    }
     
     public var body: some View {
-        HStack(spacing: 12) {
-            // Category Icon or Bank Badge
-            ZStack {
-                Circle()
-                    .fill(tx.categoryColor.opacity(0.14))
-                    .frame(width: 44, height: 44)
-                
-                Image(systemName: tx.categoryIcon)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(tx.categoryColor)
-            }
-            
-            // Title & Info
-            VStack(alignment: .leading, spacing: 3) {
-                Text(tx.merchant)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
-                    .lineLimit(1)
-                
-                HStack(spacing: 4) {
-                    Text(tx.category)
-                    Text("•")
-                    Text(tx.formattedTime)
+        Button {
+            MoneHaptics.selection()
+            onEdit?()
+        } label: {
+            HStack(spacing: 12) {
+                // Category Icon or Bank Badge
+                ZStack {
+                    Circle()
+                        .fill(tx.categoryColor.opacity(0.14))
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: tx.categoryIcon)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(tx.categoryColor)
                 }
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(MoneTheme.textSecondary)
-            }
-            
-            Spacer()
-            
-            // Amount Pill Badge
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(tx.formattedAmount)
-                    .font(.system(size: 13, weight: .black, design: .rounded))
-                    .foregroundColor(tx.isExpense ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(tx.isExpense ? MoneTheme.badgeRedBg : MoneTheme.badgeGreenBg)
-                    .clipShape(Capsule())
                 
-                if let acc = database.accounts.first(where: { $0.id == tx.accountId }) {
-                    Text(acc.name)
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary)
+                // Title & Info
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(tx.merchant)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        Text(tx.category)
+                        Text("•")
+                        Text(tx.formattedTime)
+                    }
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
+                Spacer()
+                
+                // Amount Pill Badge
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(tx.formattedAmount)
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .foregroundColor(tx.isExpense ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(tx.isExpense ? MoneTheme.badgeRedBg : MoneTheme.badgeGreenBg)
+                        .clipShape(Capsule())
+                    
+                    if let acc = database.accounts.first(where: { $0.id == tx.accountId }) {
+                        Text(acc.name)
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
                 }
             }
+            .whiteCard(cornerRadius: 18, padding: 12, shadowRadius: 8)
         }
-        .whiteCard(cornerRadius: 18, padding: 12, shadowRadius: 8)
+        .buttonStyle(.plain)
         .contextMenu {
+            Button {
+                onEdit?()
+            } label: {
+                Label("Edit Record", systemImage: "pencil")
+            }
+            
+            Button {
+                // Duplicate transaction
+                var copy = tx
+                copy.id = nil
+                copy.date = Date()
+                database.addTransaction(copy)
+                MoneHaptics.notification(.success)
+            } label: {
+                Label("Duplicate Record", systemImage: "doc.on.doc")
+            }
+            
             Button(role: .destructive) {
                 if let id = tx.id {
                     MoneHaptics.notification(.warning)
@@ -751,39 +888,80 @@ public struct TransactionRowView: View {
     }
 }
 
-// MARK: - 2. Analytics & Historical Trends View (Exact Screen 1 Replication)
+// MARK: - 2. Analytics & Historical Trends View (Screen 1)
 public struct AnalyticsTrendsView: View {
+    @Binding public var showMenuDrawer: Bool
+    @Binding public var showAllTransactions: Bool
+    @Binding public var showProfileModal: Bool
+    @Binding public var editingTransaction: MoneTransaction?
+    
     @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @AppStorage("userName") private var userName: String = "Lihash"
+    @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
     @State private var selectedTimeframe: Int = 1 // Month default
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Header (Avatar + Menu)
+                // Header (Avatar + Appearance Toggle & Menu)
                 HStack {
-                    ZStack {
-                        Circle()
-                            .fill(Color(hex: "D9E6EF"))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 42))
-                            .foregroundColor(Color(hex: "7C9CB3"))
+                    Button {
+                        MoneHaptics.impact(.light)
+                        showProfileModal = true
+                    } label: {
+                        if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                            Image(uiImage: uiImg)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 44, height: 44)
+                                .clipShape(Circle())
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .fill(Color(hex: "D9E6EF"))
+                                    .frame(width: 44, height: 44)
+                                Text(String(userName.prefix(1)).uppercased())
+                                    .font(.system(size: 18, weight: .black, design: .rounded))
+                                    .foregroundColor(Color(hex: "335C7A"))
+                            }
+                        }
                     }
+                    .buttonStyle(.plain)
                     
                     Spacer()
                     
-                    Button {
-                        MoneHaptics.impact(.light)
-                    } label: {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(MoneTheme.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .background(Color.white)
-                            .clipShape(Circle())
-                            .shadow(color: Color(hex: "0D2040").opacity(0.06), radius: 6, y: 2)
+                    HStack(spacing: 10) {
+                        Button {
+                            MoneHaptics.impact(.medium)
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                isDarkMode.toggle()
+                            }
+                        } label: {
+                            Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(isDarkMode ? Color(hex: "F59E0B") : MoneTheme.textPrimary(isDark: isDarkMode))
+                                .frame(width: 40, height: 40)
+                                .background(isDarkMode ? Color(hex: "1B212D") : Color.white)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.06), radius: 6, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button {
+                            MoneHaptics.impact(.light)
+                            showMenuDrawer = true
+                        } label: {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                .frame(width: 40, height: 40)
+                                .background(isDarkMode ? Color(hex: "1B212D") : Color.white)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.06), radius: 6, y: 2)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.top, 12)
                 
@@ -820,35 +998,35 @@ public struct AnalyticsTrendsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Expenses")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary)
+                    .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : MoneTheme.textSecondary(isDark: isDarkMode))
                 Text(String(format: "₹%.2f", expenses))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
             Rectangle()
-                .fill(Color(hex: "BCE0F5"))
+                .fill(Color(hex: "BCE0F5").opacity(isDarkMode ? 0.25 : 1.0))
                 .frame(width: 1, height: 36)
                 .padding(.horizontal, 16)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Income")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary)
+                    .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : MoneTheme.textSecondary(isDark: isDarkMode))
                 Text(String(format: "₹%.2f", income))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(MoneTheme.bgCardBlue)
+        .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color(hex: "0D2040").opacity(0.04), radius: 8, y: 3)
+        .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.04), radius: 8, y: 3)
     }
     
     private var totalBalanceAndTrajectoryCard: some View {
@@ -856,16 +1034,15 @@ public struct AnalyticsTrendsView: View {
         let peakExpense = trends.map { $0.expenseTotal }.max() ?? 2457.50
         
         return VStack(alignment: .leading, spacing: 16) {
-            // Header: Total Balance & +1.8% Badge
             VStack(alignment: .leading, spacing: 4) {
                 Text("Total Balance")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary)
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 
                 HStack(spacing: 8) {
                     Text(String(format: "₹%.2f", database.totalBalance))
                         .font(.system(size: 26, weight: .black, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary)
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         .monospacedDigit()
                     
                     HStack(spacing: 2) {
@@ -898,7 +1075,7 @@ public struct AnalyticsTrendsView: View {
                 Spacer()
             }
             
-            // Apple Swift Charts: Vertical Bars + Black Line Trajectory Curve
+            // Apple Swift Charts: Vertical Bars + Line Trajectory Curve
             if #available(iOS 16.0, *), !trends.isEmpty {
                 Chart {
                     ForEach(Array(trends.enumerated()), id: \.element.id) { index, item in
@@ -906,7 +1083,7 @@ public struct AnalyticsTrendsView: View {
                             x: .value("Month", item.monthLabel),
                             y: .value("Expense", item.expenseTotal)
                         )
-                        .foregroundStyle(index % 2 == 0 ? Color(hex: "2E333D") : Color(hex: "C8D7E3"))
+                        .foregroundStyle(index % 2 == 0 ? (isDarkMode ? Color(hex: "384257") : Color(hex: "2E333D")) : (isDarkMode ? Color(hex: "1F2737") : Color(hex: "C8D7E3")))
                     }
                     
                     ForEach(trends) { item in
@@ -914,7 +1091,7 @@ public struct AnalyticsTrendsView: View {
                             x: .value("Month", item.monthLabel),
                             y: .value("Expense", item.expenseTotal)
                         )
-                        .foregroundStyle(Color(hex: "10141D"))
+                        .foregroundStyle(isDarkMode ? Color(hex: "60A5FA") : Color(hex: "10141D"))
                         .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                         .interpolationMethod(.catmullRom)
                         
@@ -922,7 +1099,7 @@ public struct AnalyticsTrendsView: View {
                             x: .value("Month", item.monthLabel),
                             y: .value("Expense", item.expenseTotal)
                         )
-                        .foregroundStyle(Color(hex: "10141D"))
+                        .foregroundStyle(isDarkMode ? Color(hex: "60A5FA") : Color(hex: "10141D"))
                         .symbolSize(item.expenseTotal == peakExpense ? 36 : 16)
                     }
                 }
@@ -930,12 +1107,12 @@ public struct AnalyticsTrendsView: View {
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
                         AxisGridLine()
-                            .foregroundStyle(Color.black.opacity(0.04))
+                            .foregroundStyle(Color.gray.opacity(0.12))
                         AxisValueLabel {
                             if let intVal = value.as(Double.self) {
                                 Text("₹\(Int(intVal / 1000))k")
                                     .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                    .foregroundColor(MoneTheme.textSecondary)
+                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                             }
                         }
                     }
@@ -946,7 +1123,7 @@ public struct AnalyticsTrendsView: View {
                             if let str = value.as(String.self) {
                                 Text(str)
                                     .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                    .foregroundColor(MoneTheme.textSecondary)
+                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                             }
                         }
                     }
@@ -955,10 +1132,10 @@ public struct AnalyticsTrendsView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.bar.xaxis")
                         .font(.system(size: 28))
-                        .foregroundColor(MoneTheme.textMuted)
+                        .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
                     Text("Chart will display as transactions accumulate.")
                         .font(.system(size: 12))
-                        .foregroundColor(MoneTheme.textSecondary)
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
@@ -972,27 +1149,30 @@ public struct AnalyticsTrendsView: View {
             HStack {
                 Text("Transactions")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 Spacer()
                 Button {
-                    // See all
+                    MoneHaptics.selection()
+                    showAllTransactions = true
                 } label: {
                     Text("See all")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(hex: "0284C7"))
                 }
             }
             
             if database.transactions.isEmpty {
                 Text("No transactions logged yet.")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary)
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 24)
             } else {
                 VStack(spacing: 10) {
                     ForEach(database.transactions.prefix(10)) { tx in
-                        TransactionRowView(tx: tx)
+                        TransactionRowView(tx: tx) {
+                            editingTransaction = tx
+                        }
                     }
                 }
             }
@@ -1012,7 +1192,6 @@ public struct AnalyticsTrendsView: View {
             grouped[key, default: 0.0] += t.amount
         }
         
-        // Ensure standard months if empty or few
         if grouped.isEmpty {
             let cal = Calendar.current
             let now = Date()
@@ -1036,10 +1215,170 @@ public struct AnalyticsTrendsView: View {
     }
 }
 
-// MARK: - 3. Accounts Directory View (Exact Image 2 Clean Card Style)
-public struct AccountsDirectoryView: View {
+// MARK: - Full Screen "See All" Transactions Manager
+public struct AllTransactionsView: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var database = MoneDatabase.shared
-    @State private var showAddAccountSheet: Bool = false
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @Binding public var editingTransaction: MoneTransaction?
+    
+    @State private var searchText: String = ""
+    @State private var selectedFilter: String = "ALL"
+    @State private var selectedBankFilter: String = "ALL"
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                VStack(spacing: 14) {
+                    // Search Bar
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        TextField("Search payee, category, amount...", text: $searchText)
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    
+                    // Filter Pill Segment
+                    BlackPillSegmentedControl(
+                        items: [
+                            FluidSegmentItem(id: "ALL", title: "All"),
+                            FluidSegmentItem(id: "EXPENSE", title: "Expense"),
+                            FluidSegmentItem(id: "INCOME", title: "Income")
+                        ],
+                        selection: $selectedFilter
+                    )
+                    .padding(.horizontal, 20)
+                    
+                    // Bank Filter Chips
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            bankChip(title: "All Banks", id: "ALL")
+                            ForEach(database.accounts) { acc in
+                                bankChip(title: acc.name, id: String(acc.id ?? 0))
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    
+                    // Transactions List Grouped by Timeline
+                    let filtered = filteredTransactions
+                    if filtered.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "tray.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+                            Text("No transactions match criteria")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        List {
+                            ForEach(filtered) { tx in
+                                TransactionRowView(tx: tx) {
+                                    editingTransaction = tx
+                                }
+                                .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
+                                .listRowBackground(Color.clear)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        if let id = tx.id {
+                                            MoneHaptics.notification(.warning)
+                                            database.deleteTransaction(id: id)
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash.fill")
+                                    }
+                                }
+                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                    Button {
+                                        editingTransaction = tx
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    .tint(Color(hex: "0284C7"))
+                                }
+                            }
+                        }
+                        .listStyle(.plain)
+                    }
+                }
+            }
+            .navigationTitle("All Transactions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(Color(hex: "0284C7"))
+                        .font(.system(size: 15, weight: .bold))
+                }
+            }
+        }
+    }
+    
+    private func bankChip(title: String, id: String) -> some View {
+        let isSelected = selectedBankFilter == id
+        return Button {
+            MoneHaptics.selection()
+            selectedBankFilter = id
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var filteredTransactions: [MoneTransaction] {
+        database.transactions.filter { tx in
+            // Search filter
+            if !searchText.isEmpty {
+                let q = searchText.lowercased()
+                let matchesMerchant = tx.merchant.lowercased().contains(q)
+                let matchesCategory = tx.category.lowercased().contains(q)
+                let matchesAmount = String(format: "%.0f", tx.amount).contains(q)
+                if !matchesMerchant && !matchesCategory && !matchesAmount { return false }
+            }
+            // Type filter
+            if selectedFilter == "EXPENSE" && !tx.isExpense { return false }
+            if selectedFilter == "INCOME" && tx.isExpense { return false }
+            // Bank filter
+            if selectedBankFilter != "ALL" {
+                if String(tx.accountId ?? -1) != selectedBankFilter { return false }
+            }
+            return true
+        }
+    }
+}
+
+// MARK: - 3. Accounts Directory View (Screen 2 & Image 2)
+public struct AccountsDirectoryView: View {
+    @Binding public var showAddAccountSheet: Bool
+    @Binding public var editingAccount: MoneAccount?
+    
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     @State private var selectedAccountType: String = "ALL"
     
     public var body: some View {
@@ -1057,10 +1396,10 @@ public struct AccountsDirectoryView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Accounts & Banks")
                             .font(.system(size: 24, weight: .black, design: .rounded))
-                            .foregroundColor(MoneTheme.textPrimary)
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         Text("Indian banking directories & account balances")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(MoneTheme.textSecondary)
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     }
                     Spacer()
                     
@@ -1074,12 +1413,12 @@ public struct AccountsDirectoryView: View {
                             Text("Add Bank")
                                 .font(.system(size: 12, weight: .bold, design: .rounded))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(MoneTheme.deepBlack)
+                        .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
                         .clipShape(Capsule())
-                        .shadow(color: MoneTheme.deepBlack.opacity(0.2), radius: 6, y: 2)
+                        .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.2), radius: 6, y: 2)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1101,10 +1440,10 @@ public struct AccountsDirectoryView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "creditcard")
                             .font(.system(size: 32))
-                            .foregroundColor(MoneTheme.textMuted)
+                            .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
                         Text("No accounts in this category")
                             .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(MoneTheme.textSecondary)
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 40)
@@ -1127,44 +1466,56 @@ public struct AccountsDirectoryView: View {
     }
     
     private func accountCard(_ acc: MoneAccount) -> some View {
-        HStack(spacing: 14) {
-            acc.bankInfo.badgeView(size: 42)
-            
-            VStack(alignment: .leading, spacing: 3) {
-                Text(acc.name)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+        Button {
+            MoneHaptics.selection()
+            editingAccount = acc
+        } label: {
+            HStack(spacing: 14) {
+                acc.bankInfo.badgeView(size: 42)
                 
-                HStack(spacing: 6) {
-                    Text(acc.bankName.isEmpty ? "Account" : acc.bankName)
-                    if !acc.accountNumber.isEmpty {
-                        Text("•")
-                        Text(acc.maskedNumber)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(acc.name)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    
+                    HStack(spacing: 6) {
+                        Text(acc.bankName.isEmpty ? "Account" : acc.bankName)
+                        if !acc.accountNumber.isEmpty {
+                            Text("•")
+                            Text(acc.maskedNumber)
+                        }
                     }
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 }
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundColor(MoneTheme.textSecondary)
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(acc.formattedBalance)
-                    .font(.system(size: 16, weight: .black, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
-                    .monospacedDigit()
                 
-                Text(acc.type)
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.badgeBlueText)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(MoneTheme.badgeBlueBg)
-                    .clipShape(Capsule())
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(acc.formattedBalance)
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        .monospacedDigit()
+                    
+                    Text(acc.type)
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.badgeBlueText)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(MoneTheme.badgeBlueBg)
+                        .clipShape(Capsule())
+                }
             }
+            .whiteCard(cornerRadius: 20, padding: 16)
         }
-        .whiteCard(cornerRadius: 20, padding: 16)
+        .buttonStyle(.plain)
         .contextMenu {
+            Button {
+                editingAccount = acc
+            } label: {
+                Label("Edit Account", systemImage: "pencil")
+            }
+            
             Button(role: .destructive) {
                 if let id = acc.id {
                     MoneHaptics.notification(.warning)
@@ -1177,35 +1528,240 @@ public struct AccountsDirectoryView: View {
     }
 }
 
-// MARK: - 4. Settings & Apple Shortcuts Hub
-public struct SettingsAndShortcutsView: View {
+// MARK: - Edit Account Sheet (Full Account Edit & Delete)
+public struct EditAccountSheet: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    public let acc: MoneAccount
+    
+    @State private var name: String = ""
+    @State private var accountNumber: String = ""
+    @State private var balanceString: String = ""
+    @State private var selectedBank: BankInfo = IndianBankDirectory.hdfc
+    @State private var type: String = "SAVINGS"
+    @State private var showDeleteConfirmation: Bool = false
+    
+    public init(acc: MoneAccount) {
+        self.acc = acc
+    }
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 18) {
+                        // Bank Selection
+                        bankSelector
+                        
+                        // Account Nickname
+                        inputField(title: "Account Nickname", text: $name, placeholder: "e.g. Salary Account")
+                        
+                        // Masked / Last 4 Digits
+                        inputField(title: "Account Number / Last 4 Digits", text: $accountNumber, placeholder: "e.g. 4821")
+                        
+                        // Current Balance
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Current Balance")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            
+                            HStack {
+                                Text("₹")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                TextField("0.0", text: $balanceString)
+                                    .keyboardType(.numberPad)
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            }
+                            .padding(14)
+                            .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+                        }
+                        
+                        // Save Button
+                        Button {
+                            let bal = Double(balanceString) ?? 0.0
+                            let accName = name.isEmpty ? "\(selectedBank.shortName) Account" : name
+                            var updated = acc
+                            updated.name = accName
+                            updated.bankName = selectedBank.name
+                            updated.bankCode = selectedBank.id
+                            updated.accountNumber = accountNumber
+                            updated.balance = bal
+                            updated.type = type
+                            
+                            database.updateAccount(updated)
+                            MoneHaptics.notification(.success)
+                            dismiss()
+                        } label: {
+                            Text("Save Changes")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.25), radius: 8, y: 3)
+                        }
+                        .padding(.top, 6)
+                        
+                        // Delete Button
+                        Button {
+                            MoneHaptics.notification(.warning)
+                            showDeleteConfirmation = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text("Delete Bank Account")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                            }
+                            .foregroundColor(MoneTheme.badgeRedText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(MoneTheme.badgeRedBg)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("Edit Bank Account")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+            }
+            .alert("Delete Bank Account?", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    if let id = acc.id {
+                        MoneHaptics.notification(.warning)
+                        database.deleteAccount(id: id)
+                        dismiss()
+                    }
+                }
+            } message: {
+                Text("Are you sure? Removing this bank account will not delete previously recorded transactions.")
+            }
+            .onAppear {
+                name = acc.name
+                accountNumber = acc.accountNumber
+                balanceString = String(format: "%.0f", acc.balance)
+                type = acc.type
+                if let b = IndianBankDirectory.allBanks.first(where: { $0.id == acc.bankCode }) {
+                    selectedBank = b
+                }
+            }
+        }
+    }
+    
+    private var bankSelector: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Select Bank")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(IndianBankDirectory.allBanks) { b in
+                        let isSelected = selectedBank.id == b.id
+                        Button {
+                            MoneHaptics.selection()
+                            selectedBank = b
+                        } label: {
+                            HStack(spacing: 6) {
+                                b.badgeView(size: 20)
+                                Text(b.shortName)
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                            .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                            .clipShape(Capsule())
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.05), radius: 5, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func inputField(title: String, text: Binding<String>, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            TextField(placeholder, text: text)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                .padding(14)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+        }
+    }
+}
+
+// MARK: - 4. Full Settings Screen (Replacing Tab 3)
+public struct SettingsView: View {
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @AppStorage("userName") private var userName: String = "Lihash"
+    @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
+    
+    @Binding public var showProfileModal: Bool
+    @Binding public var showShareSheet: Bool
+    @Binding public var csvToShare: String
+    
     @State private var budgetString: String = "50000"
+    @State private var showResetAlert: Bool = false
+    @State private var showClearAlert: Bool = false
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
+                // Header
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Shortcuts & Engine")
-                            .font(.system(size: 24, weight: .black, design: .rounded))
-                            .foregroundColor(MoneTheme.textPrimary)
-                        Text("Apple Shortcuts recipe, URL schemes, and engine")
+                        Text("Settings")
+                            .font(.system(size: 26, weight: .black, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("Profile, Appearance, Shortcuts & Engine")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(MoneTheme.textSecondary)
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     }
                     Spacer()
                 }
                 .padding(.top, 16)
                 
-                // Shortcuts Recipe Hub
+                // 1. Profile & Avatar Card
+                profileCard
+                
+                // 2. Appearance Card (Dark / Light)
+                appearanceCard
+                
+                // 3. Monthly Budget Control
+                monthlyBudgetCard
+                
+                // 4. Apple Shortcuts Recipes
                 shortcutsHubCard
                 
-                // Registered Accounts Fast Copy
-                accountsCopyCard
+                // 5. Data Management (Export, Reset, Clear)
+                dataManagementCard
                 
-                // Monthly Budget Control
-                monthlyBudgetCard
+                // 6. About Card
+                aboutCard
                 
                 Spacer(minLength: 110)
             }
@@ -1214,122 +1770,94 @@ public struct SettingsAndShortcutsView: View {
         .onAppear {
             budgetString = String(format: "%.0f", database.totalMonthlyBudget)
         }
-    }
-    
-    private var shortcutsHubCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "bolt.fill")
-                    .foregroundColor(MoneTheme.indigo)
-                Text("Apple Shortcuts Quick Logger")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+        .alert("Reset to Demo Data?", isPresented: $showResetAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset", role: .destructive) {
+                MoneHaptics.notification(.success)
+                database.resetToDemoData()
             }
-            
-            Text("Set up a 1-tap shortcut on your Home Screen or Action Button that prompts for Amount & Category, then logs directly into mone.")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(MoneTheme.textSecondary)
-                .lineSpacing(2)
-            
-            VStack(spacing: 10) {
-                shortcutCopyButton(
-                    title: "Copy URL with In-App Account Choice",
-                    subtitle: "mone://log?...&account=choose (Prompts account picker in app)",
-                    urlText: "mone://log?type=[Type]&amount=[Amount]&category=[Category]&merchant=[Merchant]&account=choose",
-                    accent: MoneTheme.indigo
-                )
-                
-                shortcutCopyButton(
-                    title: "Copy Direct Shortcut URL Template",
-                    subtitle: "mone://log?...&account=[Account] (Logs directly without screens)",
-                    urlText: "mone://log?type=[Type]&amount=[Amount]&category=[Category]&account=[Account]&merchant=[Merchant]",
-                    accent: MoneTheme.deepBlack
-                )
-                
-                shortcutCopyButton(
-                    title: "Copy 1-Tap Interactive Prompt URL",
-                    subtitle: "mone://log (Opens app with empty on-screen keypad)",
-                    urlText: "mone://log",
-                    accent: MoneTheme.badgeBlueText
-                )
-            }
+        } message: {
+            Text("This will replace current transactions and accounts with realistic sample demo records.")
         }
-        .whiteCard(cornerRadius: 24, padding: 18)
+        .alert("Clear All Transactions?", isPresented: $showClearAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear All", role: .destructive) {
+                MoneHaptics.notification(.warning)
+                database.clearAllTransactions()
+            }
+        } message: {
+            Text("This will permanently delete all transaction history.")
+        }
     }
     
-    private func shortcutCopyButton(title: String, subtitle: String, urlText: String, accent: Color) -> some View {
+    private var profileCard: some View {
         Button {
-            UIPasteboard.general.string = urlText
-            MoneHaptics.notification(.success)
+            MoneHaptics.impact(.light)
+            showProfileModal = true
         } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary)
-                    Text(subtitle)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundColor(MoneTheme.textSecondary)
-                        .lineLimit(1)
+            HStack(spacing: 14) {
+                if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                    Image(uiImage: uiImg)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 50, height: 50)
+                        .clipShape(Circle())
+                } else {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: "D9E6EF"))
+                            .frame(width: 50, height: 50)
+                        Text(String(userName.prefix(1)).uppercased())
+                            .font(.system(size: 20, weight: .black, design: .rounded))
+                            .foregroundColor(Color(hex: "335C7A"))
+                    }
                 }
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(userName)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text("Tap to change name or profile photo")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
                 Spacer()
-                Image(systemName: "doc.on.doc.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(accent)
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
             }
-            .padding(12)
-            .background(MoneTheme.bgCanvas)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .whiteCard(cornerRadius: 22, padding: 16)
         }
         .buttonStyle(.plain)
     }
     
-    private var accountsCopyCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your Registered Accounts:")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(MoneTheme.textPrimary)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(database.accounts) { acc in
-                        Button {
-                            UIPasteboard.general.string = acc.name
-                            MoneHaptics.selection()
-                        } label: {
-                            HStack(spacing: 6) {
-                                acc.bankInfo.badgeView(size: 18)
-                                Text(acc.name)
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(MoneTheme.bgCanvas)
-                            .foregroundColor(MoneTheme.textPrimary)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
+    private var appearanceCard: some View {
+        HStack {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(isDarkMode ? Color(hex: "1F293D") : Color(hex: "F3F4F6"))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: isDarkMode ? "moon.fill" : "sun.max.fill")
+                        .foregroundColor(isDarkMode ? Color(hex: "F59E0B") : Color(hex: "0284C7"))
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Dark Mode")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text(isDarkMode ? "Enabled" : "Disabled (Light Frost)")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 }
             }
             
-            Button {
-                let names = database.accounts.map { $0.name }.joined(separator: "\n")
-                UIPasteboard.general.string = names
-                MoneHaptics.notification(.success)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "list.bullet.clipboard.fill")
-                    Text("Copy All Account Names for Shortcuts 'Choose from List'")
-                }
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundColor(MoneTheme.deepBlack)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(MoneTheme.bgSegmentContainer)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
+            Spacer()
+            
+            Toggle("", isOn: $isDarkMode)
+                .labelsHidden()
         }
         .whiteCard(cornerRadius: 20, padding: 16)
     }
@@ -1337,18 +1865,18 @@ public struct SettingsAndShortcutsView: View {
     private var monthlyBudgetCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Monthly Budget Target")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(MoneTheme.textPrimary)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
             
             HStack {
                 Text("₹")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 
                 TextField("50000", text: $budgetString)
                     .keyboardType(.numberPad)
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary)
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                     .monospacedDigit()
                 
                 Button("Save") {
@@ -1358,24 +1886,592 @@ public struct SettingsAndShortcutsView: View {
                     }
                 }
                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(MoneTheme.deepBlack)
+                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
                 .clipShape(Capsule())
             }
             .padding(12)
-            .background(MoneTheme.bgCanvas)
+            .background(MoneTheme.bgCanvas(isDark: isDarkMode))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .whiteCard(cornerRadius: 20, padding: 16)
     }
+    
+    private var shortcutsHubCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "bolt.fill")
+                    .foregroundColor(Color(hex: "0284C7"))
+                Text("Apple Shortcuts Engine")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+            }
+            
+            Text("1-tap recipes for Siri, Action Button, or Home Screen icons:")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            
+            shortcutCopyButton(
+                title: "1-Tap In-App Account Choice",
+                subtitle: "mone://log?...&account=choose",
+                urlText: "mone://log?type=[Type]&amount=[Amount]&category=[Category]&merchant=[Merchant]&account=choose"
+            )
+            
+            shortcutCopyButton(
+                title: "Direct Shortcut Template",
+                subtitle: "mone://log?...&account=[Account]",
+                urlText: "mone://log?type=[Type]&amount=[Amount]&category=[Category]&account=[Account]&merchant=[Merchant]"
+            )
+            
+            shortcutCopyButton(
+                title: "1-Tap Interactive Keypad",
+                subtitle: "mone://log",
+                urlText: "mone://log"
+            )
+        }
+        .whiteCard(cornerRadius: 24, padding: 18)
+    }
+    
+    private func shortcutCopyButton(title: String, subtitle: String, urlText: String) -> some View {
+        Button {
+            UIPasteboard.general.string = urlText
+            MoneHaptics.notification(.success)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text(subtitle)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "doc.on.doc.fill")
+                    .font(.system(size: 13))
+                    .foregroundColor(Color(hex: "0284C7"))
+            }
+            .padding(12)
+            .background(MoneTheme.bgCanvas(isDark: isDarkMode))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var dataManagementCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Data Management")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+            
+            // Export CSV
+            Button {
+                MoneHaptics.impact(.medium)
+                csvToShare = database.exportCSV()
+                showShareSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "square.and.arrow.up.fill")
+                        .foregroundColor(Color(hex: "0284C7"))
+                    Text("Export All Transactions (CSV)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Spacer()
+                }
+                .padding(12)
+                .background(MoneTheme.bgCanvas(isDark: isDarkMode))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            
+            // Reset to Demo Data
+            Button {
+                showResetAlert = true
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                        .foregroundColor(MoneTheme.badgeBlueText)
+                    Text("Reset to Sample Demo Data")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Spacer()
+                }
+                .padding(12)
+                .background(MoneTheme.bgCanvas(isDark: isDarkMode))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            
+            // Clear All Data
+            Button {
+                showClearAlert = true
+            } label: {
+                HStack {
+                    Image(systemName: "trash.fill")
+                        .foregroundColor(MoneTheme.badgeRedText)
+                    Text("Clear All Transactions")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.badgeRedText)
+                    Spacer()
+                }
+                .padding(12)
+                .background(MoneTheme.badgeRedBg)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .whiteCard(cornerRadius: 22, padding: 18)
+    }
+    
+    private var aboutCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("mone • iOS 26 FinTech")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+            Text("Pure native SwiftUI • Local SQLite v8 • Zero Telemetry")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .whiteCard(cornerRadius: 18, padding: 14)
+    }
+}
+
+// MARK: - Interactive AI Assistant & Siri Voice Logger Modal
+public struct AIAssistantSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    @State private var inputText: String = ""
+    @State private var isListening: Bool = true
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var parsedPreview: String? = nil
+    
+    public var body: some View {
+        ZStack {
+            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                // Top Header
+                HStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Color(hex: "0284C7"))
+                        Text("AI Voice Logger")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    }
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            .padding(8)
+                            .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 16)
+                
+                // Pulsating Voice Ring
+                ZStack {
+                    Circle()
+                        .stroke(Color(hex: "0284C7").opacity(0.2), lineWidth: 8)
+                        .frame(width: 110, height: 110)
+                        .scaleEffect(isListening ? pulseScale : 1.0)
+                    
+                    Circle()
+                        .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                        .frame(width: 76, height: 76)
+                        .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.3), radius: 10, y: 4)
+                    
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                }
+                .padding(.top, 10)
+                .onAppear {
+                    withAnimation(Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                        pulseScale = 1.25
+                    }
+                }
+                
+                Text(isListening ? "Listening in English / Hindi..." : "Ready to log")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(hex: "0284C7"))
+                
+                // Natural Language Input Field
+                HStack(spacing: 10) {
+                    TextField("e.g. Spent ₹450 on Coffee from HDFC...", text: $inputText)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        .onSubmit {
+                            parseAndLog(inputText)
+                        }
+                    
+                    Button {
+                        parseAndLog(inputText)
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(Color(hex: "0284C7"))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(14)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.05), radius: 8, y: 3)
+                
+                // 1-Tap Quick Voice Chips
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Try 1-Tap Voice Commands:")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    
+                    exampleVoiceChip("☕ Spent ₹250 on Starbucks from HDFC")
+                    exampleVoiceChip("🍕 Paid ₹850 to Zomato from ICICI")
+                    exampleVoiceChip("💼 Received ₹45,000 Salary to SBI")
+                    exampleVoiceChip("🚗 Uber ride ₹380 from Cash")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Spacer()
+                
+                // Siri Voice Setup Button
+                Button {
+                    UIPasteboard.general.string = "mone://log"
+                    MoneHaptics.notification(.success)
+                    dismiss()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bolt.fill")
+                        Text("Copy Siri Voice Shortcut URL (mone://log)")
+                    }
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 16)
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    private func exampleVoiceChip(_ text: String) -> some View {
+        Button {
+            MoneHaptics.selection()
+            parseAndLog(text)
+        } label: {
+            Text(text)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func parseAndLog(_ input: String) {
+        guard !input.isEmpty else { return }
+        let lower = input.lowercased()
+        
+        // Extract Amount
+        var amt: Double = 250.0
+        let numbers = input.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }
+        if let firstNum = numbers.first, let d = Double(firstNum) {
+            amt = d
+        }
+        
+        // Extract Type
+        let isIncome = lower.contains("salary") || lower.contains("received") || lower.contains("income") || lower.contains("credit")
+        let type = isIncome ? "INCOME" : "EXPENSE"
+        
+        // Extract Category
+        var cat = "Food & Dining"
+        if lower.contains("starbucks") || lower.contains("coffee") || lower.contains("zomato") || lower.contains("swiggy") || lower.contains("dinner") {
+            cat = "Food & Dining"
+        } else if lower.contains("uber") || lower.contains("ola") || lower.contains("ride") || lower.contains("fuel") {
+            cat = "Transport"
+        } else if lower.contains("salary") {
+            cat = "Salary"
+        } else if lower.contains("shopping") || lower.contains("amazon") {
+            cat = "Shopping"
+        }
+        
+        // Extract Merchant
+        var merchant = cat
+        if lower.contains("starbucks") { merchant = "Starbucks" }
+        else if lower.contains("zomato") { merchant = "Zomato" }
+        else if lower.contains("uber") { merchant = "Uber" }
+        else if lower.contains("salary") { merchant = "Monthly Salary" }
+        
+        // Match Account
+        var accId: Int64? = nil
+        for acc in database.accounts {
+            if lower.contains(acc.name.lowercased()) || lower.contains(acc.bankName.lowercased()) || lower.contains(acc.bankCode.lowercased()) {
+                accId = acc.id
+                break
+            }
+        }
+        if accId == nil { accId = database.accounts.first?.id }
+        
+        database.addTransaction(MoneTransaction(
+            merchant: merchant,
+            category: cat,
+            amount: amt,
+            type: type,
+            date: Date(),
+            accountId: accId
+        ))
+        
+        MoneHaptics.notification(.success)
+        dismiss()
+    }
+}
+
+// MARK: - Quick Control Menu Sheet (Hamburger Menu Action Drawer)
+public struct QuickControlMenuSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @ObservedObject private var database = MoneDatabase.shared
+    
+    @Binding public var selectedTab: Int
+    @Binding public var showAllTransactions: Bool
+    @Binding public var showAddAccountSheet: Bool
+    @Binding public var showShareSheet: Bool
+    @Binding public var csvToShare: String
+    
+    public var body: some View {
+        ZStack {
+            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 40, height: 4)
+                    .padding(.top, 12)
+                
+                Text("Quick Control")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                
+                VStack(spacing: 10) {
+                    menuRow(icon: "list.bullet.rectangle.portrait.fill", title: "All Transactions", subtitle: "Search, filter & manage history") {
+                        dismiss()
+                        showAllTransactions = true
+                    }
+                    
+                    menuRow(icon: "building.columns.fill", title: "Add Bank Account", subtitle: "Link new Indian bank directory") {
+                        dismiss()
+                        showAddAccountSheet = true
+                    }
+                    
+                    menuRow(icon: isDarkMode ? "sun.max.fill" : "moon.fill", title: isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode", subtitle: "Toggle appearance") {
+                        withAnimation { isDarkMode.toggle() }
+                    }
+                    
+                    menuRow(icon: "square.and.arrow.up.fill", title: "Export Statement (CSV)", subtitle: "Share transaction history") {
+                        dismiss()
+                        csvToShare = database.exportCSV()
+                        showShareSheet = true
+                    }
+                    
+                    menuRow(icon: "gearshape.fill", title: "App Settings", subtitle: "Budget, Shortcuts, Profile") {
+                        dismiss()
+                        selectedTab = 3
+                    }
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+        }
+    }
+    
+    private func menuRow(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button {
+            MoneHaptics.selection()
+            action()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(isDarkMode ? Color(hex: "1F2737") : MoneTheme.bgCardBlue)
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .foregroundColor(Color(hex: "0284C7"))
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text(subtitle)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+            }
+            .whiteCard(cornerRadius: 16, padding: 12)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Profile Customization Sheet (Photo Picker & Name)
+public struct ProfileCustomizationSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    @AppStorage("userName") private var userName: String = "Lihash"
+    @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
+    
+    @State private var nameInput: String = ""
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    // Avatar with Photo Picker
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        ZStack(alignment: .bottomTrailing) {
+                            if !userProfilePhotoData.isEmpty, let uiImg = UIImage(data: userProfilePhotoData) {
+                                Image(uiImage: uiImg)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 90, height: 90)
+                                    .clipShape(Circle())
+                            } else {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: "D9E6EF"))
+                                        .frame(width: 90, height: 90)
+                                    Text(String(userName.prefix(1)).uppercased())
+                                        .font(.system(size: 36, weight: .black, design: .rounded))
+                                        .foregroundColor(Color(hex: "335C7A"))
+                                }
+                            }
+                            
+                            // Edit Badge
+                            ZStack {
+                                Circle()
+                                    .fill(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                                    .frame(width: 28, height: 28)
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .onChange(of: selectedPhotoItem) { newItem in
+                        Task {
+                            if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                                userProfilePhotoData = data
+                                MoneHaptics.notification(.success)
+                            }
+                        }
+                    }
+                    
+                    Text("Tap photo to change avatar")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color(hex: "0284C7"))
+                    
+                    // Name Input
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Your Name")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                        
+                        TextField("Name", text: $nameInput)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            .padding(14)
+                            .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    // Save Button
+                    Button {
+                        if !nameInput.trimmingCharacters(in: .whitespaces).isEmpty {
+                            userName = nameInput.trimmingCharacters(in: .whitespaces)
+                        }
+                        MoneHaptics.notification(.success)
+                        dismiss()
+                    } label: {
+                        Text("Save Profile")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    
+                    Spacer()
+                }
+                .padding(.top, 24)
+            }
+            .navigationTitle("Profile & Avatar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { dismiss() }
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+            }
+            .onAppear {
+                nameInput = userName
+            }
+        }
+    }
+}
+
+// MARK: - Native iOS Share Activity Sheet
+public struct ActivityViewController: UIViewControllerRepresentable {
+    public var activityItems: [Any]
+    public var applicationActivities: [UIActivity]? = nil
+
+    public func makeUIViewController(context: UIViewControllerRepresentableContext<ActivityViewController>) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+    }
+
+    public func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ActivityViewController>) {}
 }
 
 // MARK: - In-App Account Choice Sheet
 public struct AccountChoiceSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     
     public let amount: Double
     public let type: String
@@ -1384,11 +2480,11 @@ public struct AccountChoiceSheet: View {
     
     public var body: some View {
         ZStack {
-            MoneTheme.bgCanvasGradient.ignoresSafeArea()
+            MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
             
             VStack(spacing: 18) {
                 Capsule()
-                    .fill(Color.black.opacity(0.15))
+                    .fill(Color.gray.opacity(0.3))
                     .frame(width: 40, height: 4)
                     .padding(.top, 12)
                 
@@ -1397,10 +2493,10 @@ public struct AccountChoiceSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Choose Account")
                             .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundColor(MoneTheme.textPrimary)
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         Text("Select which account to log this shortcut to")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(MoneTheme.textSecondary)
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     }
                     Spacer()
                 }
@@ -1410,10 +2506,10 @@ public struct AccountChoiceSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(merchant)
                             .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(MoneTheme.textPrimary)
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                         Text(category)
                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(MoneTheme.textSecondary)
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                     }
                     Spacer()
                     Text(String(format: "%@₹%.0f", type == "INCOME" ? "+" : "-", amount))
@@ -1444,21 +2540,21 @@ public struct AccountChoiceSheet: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(acc.name)
                                             .font(.system(size: 14, weight: .bold, design: .rounded))
-                                            .foregroundColor(MoneTheme.textPrimary)
+                                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                                         Text(acc.bankName)
                                             .font(.system(size: 11, weight: .medium, design: .rounded))
-                                            .foregroundColor(MoneTheme.textSecondary)
+                                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                                     }
                                     
                                     Spacer()
                                     
                                     Text(acc.formattedBalance)
                                         .font(.system(size: 14, weight: .bold, design: .rounded))
-                                        .foregroundColor(MoneTheme.textPrimary)
+                                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                                     
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(MoneTheme.textMuted)
+                                        .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
                                 }
                                 .whiteCard(cornerRadius: 16, padding: 12)
                             }
@@ -1476,6 +2572,7 @@ public struct AccountChoiceSheet: View {
 public struct AddAccountSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     
     @State private var name: String = ""
     @State private var accountNumber: String = ""
@@ -1486,41 +2583,36 @@ public struct AddAccountSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                MoneTheme.bgCanvasGradient.ignoresSafeArea()
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 18) {
-                        // Bank Selection
                         bankSelector
                         
-                        // Account Nickname
                         inputField(title: "Account Nickname", text: $name, placeholder: "\(selectedBank.shortName) Primary")
                         
-                        // Masked / Last 4 Digits
                         inputField(title: "Account Number / Last 4 Digits", text: $accountNumber, placeholder: "e.g. 4821")
                         
-                        // Initial Balance
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Current Balance")
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(MoneTheme.textSecondary)
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                             
                             HStack {
                                 Text("₹")
                                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                                    .foregroundColor(MoneTheme.textPrimary)
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                                 TextField("0.0", text: $balanceString)
                                     .keyboardType(.numberPad)
                                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                                    .foregroundColor(MoneTheme.textPrimary)
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                             }
                             .padding(14)
-                            .background(Color.white)
+                            .background(isDarkMode ? Color(hex: "131722") : Color.white)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .shadow(color: Color(hex: "0D2040").opacity(0.04), radius: 6, y: 2)
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
                         }
                         
-                        // Save Button
                         Button {
                             let bal = Double(balanceString) ?? 0.0
                             let accName = name.isEmpty ? "\(selectedBank.shortName) Account" : name
@@ -1537,12 +2629,12 @@ public struct AddAccountSheet: View {
                         } label: {
                             Text("Save Account")
                                 .font(.system(size: 16, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
+                                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(MoneTheme.deepBlack)
+                                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
                                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                                .shadow(color: MoneTheme.deepBlack.opacity(0.25), radius: 8, y: 3)
+                                .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.25), radius: 8, y: 3)
                         }
                         .padding(.top, 10)
                     }
@@ -1554,7 +2646,7 @@ public struct AddAccountSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(MoneTheme.textSecondary)
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
                 }
             }
         }
@@ -1564,7 +2656,7 @@ public struct AddAccountSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Select Bank")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(MoneTheme.textSecondary)
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -1584,10 +2676,10 @@ public struct AddAccountSheet: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(isSelected ? MoneTheme.deepBlack : Color.white)
-                            .foregroundColor(isSelected ? .white : MoneTheme.textPrimary)
+                            .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                            .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
                             .clipShape(Capsule())
-                            .shadow(color: Color(hex: "0D2040").opacity(0.05), radius: 5, y: 2)
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.05), radius: 5, y: 2)
                         }
                         .buttonStyle(.plain)
                     }
@@ -1600,14 +2692,14 @@ public struct AddAccountSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(MoneTheme.textSecondary)
+                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
             TextField(placeholder, text: text)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(MoneTheme.textPrimary)
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
                 .padding(14)
-                .background(Color.white)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: Color(hex: "0D2040").opacity(0.04), radius: 6, y: 2)
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
         }
     }
 }
