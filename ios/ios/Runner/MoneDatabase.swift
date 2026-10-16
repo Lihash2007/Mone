@@ -347,6 +347,45 @@ public final class MoneDatabase: ObservableObject {
         }
     }
     
+    public func setCategoryBudget(category: String, limit: Double) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            let safeCat = category.replacingOccurrences(of: "'", with: "''")
+            let sql = "INSERT OR REPLACE INTO budgets (category, limit_amount) VALUES ('\(safeCat)', \(limit));"
+            self.execute(sql: sql)
+            self.reloadAllData()
+        }
+    }
+    
+    public func deleteCategoryBudget(category: String) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            let safeCat = category.replacingOccurrences(of: "'", with: "''")
+            let sql = "DELETE FROM budgets WHERE category = '\(safeCat)';"
+            self.execute(sql: sql)
+            self.reloadAllData()
+        }
+    }
+    
+    public func addCategory(name: String, type: String = "EXPENSE") {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            let safeName = name.replacingOccurrences(of: "'", with: "''")
+            let safeType = type.uppercased()
+            let sql = "INSERT INTO categories (name, type) VALUES ('\(safeName)', '\(safeType)');"
+            self.execute(sql: sql)
+            self.reloadAllData()
+        }
+    }
+    
+    public func deleteCategory(id: Int64) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.execute(sql: "DELETE FROM categories WHERE id = \(id);")
+            self.reloadAllData()
+        }
+    }
+    
     // MARK: - Data Management & Reset
     public func clearAllTransactions() {
         queue.async { [weak self] in

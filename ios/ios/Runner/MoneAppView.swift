@@ -642,35 +642,43 @@ public struct OverviewDashboardView: View {
     private var featureGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
             // 1. Optimize Budget
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Spacer()
-                    ZStack {
-                        Circle()
-                            .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: "chart.pie.fill")
-                            .font(.system(size: 15))
-                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                    }
+            Button {
+                MoneHaptics.selection()
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                    selectedTab = 1
                 }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Optimize\nBudget")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                        .lineLimit(2)
+            } label: {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Spacer()
+                        ZStack {
+                            Circle()
+                                .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "chart.pie.fill")
+                                .font(.system(size: 15))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        }
+                    }
                     
-                    HStack(spacing: 2) {
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 8, weight: .bold))
-                        Text("+0.8% Monthly")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Optimize\nBudget")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            .lineLimit(2)
+                        
+                        HStack(spacing: 2) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 8, weight: .bold))
+                            Text("+0.8% Monthly")
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(MoneTheme.badgeGreenText)
                     }
-                    .foregroundColor(MoneTheme.badgeGreenText)
                 }
+                .whiteCard(cornerRadius: 22, padding: 16)
             }
-            .whiteCard(cornerRadius: 22, padding: 16)
+            .buttonStyle(.plain)
             
             // 2. Smart Saving
             VStack(alignment: .leading, spacing: 14) {
@@ -948,6 +956,8 @@ public struct AnalyticsTrendsView: View {
     @AppStorage("userName") private var userName: String = "Lihash"
     @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
     @State private var selectedTimeframe: Int = 1 // Month default
+    @State private var showSetCategoryLimitSheet: Bool = false
+    @State private var selectedCategoryForLimit: String? = nil
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
@@ -1029,12 +1039,18 @@ public struct AnalyticsTrendsView: View {
                 // Total Balance & Trajectory Chart Card with Callout Tooltip
                 totalBalanceAndTrajectoryCard
                 
+                // Category Limits & Breakdown
+                categoryLimitsSection
+                
                 // Transactions Section with "See all"
                 transactionsSection
                 
                 Spacer(minLength: 110)
             }
             .padding(.horizontal, 20)
+        }
+        .sheet(isPresented: $showSetCategoryLimitSheet) {
+            SetCategoryLimitSheet(initialCategory: selectedCategoryForLimit)
         }
     }
     
@@ -1221,6 +1237,164 @@ public struct AnalyticsTrendsView: View {
                         TransactionRowView(tx: tx) {
                             editingTransaction = tx
                         }
+                    }
+                }
+            }
+        }
+    }
+    
+    private var categoryLimitsSection: some View {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        let filteredExpenses: [MoneTransaction] = database.transactions.filter { tx in
+            guard tx.isExpense else { return false }
+            switch selectedTimeframe {
+            case 0: // Week
+                return calendar.isDate(tx.date, equalTo: now, toGranularity: .weekOfYear)
+            case 2: // Year
+                return calendar.isDate(tx.date, equalTo: now, toGranularity: .year)
+            default: // Month
+                return calendar.isDate(tx.date, equalTo: now, toGranularity: .month)
+            }
+        }
+        
+        var spentByCat: [String: Double] = [:]
+        for tx in filteredExpenses {
+            spentByCat[tx.category, default: 0.0] += tx.amount
+        }
+        
+        let allCategories = database.categories.filter { $0.type == "EXPENSE" }.map { $0.name }
+        let budgetCategories = Array(database.budgets.keys)
+        let activeCategories = Array(Set(allCategories + budgetCategories + Array(spentByCat.keys))).sorted()
+        
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Category Limits")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text("Budget vs actual spending")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
+                Spacer()
+                
+                Button {
+                    MoneHaptics.impact(.light)
+                    selectedCategoryForLimit = nil
+                    showSetCategoryLimitSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Set Limit")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            
+            if activeCategories.isEmpty {
+                Text("No category data yet.")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 12)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(activeCategories, id: \.self) { cat in
+                        let spent = spentByCat[cat] ?? 0.0
+                        let limit = database.budgets[cat]
+                        let pct: Double = {
+                            if let lim = limit, lim > 0 {
+                                return spent / lim
+                            }
+                            let totalExp = filteredExpenses.reduce(0.0) { $0 + $1.amount }
+                            return totalExp > 0 ? (spent / totalExp) : 0.0
+                        }()
+                        let isOver = limit != nil && spent > limit!
+                        let catColor = MoneCategory.color(for: cat)
+                        
+                        Button {
+                            MoneHaptics.selection()
+                            selectedCategoryForLimit = cat
+                            showSetCategoryLimitSheet = true
+                        } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    HStack(spacing: 8) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(catColor.opacity(0.15))
+                                                .frame(width: 30, height: 30)
+                                            Image(systemName: MoneCategory.icon(for: cat))
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(catColor)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(cat)
+                                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                            
+                                            if let lim = limit, lim > 0 {
+                                                Text(String(format: "Spent: ₹%.0f / Limit: ₹%.0f", spent, lim))
+                                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                            } else {
+                                                Text(String(format: "Unbudgeted • Spent: ₹%.0f", spent))
+                                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                                    .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if let lim = limit, lim > 0 {
+                                        let pctInt = Int(pct * 100)
+                                        Text(isOver ? "\(pctInt)% OVER" : "\(pctInt)%")
+                                            .font(.system(size: 11, weight: .black, design: .rounded))
+                                            .foregroundColor(isOver ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(isOver ? MoneTheme.badgeRedBg : MoneTheme.badgeGreenBg)
+                                            .clipShape(Capsule())
+                                    } else {
+                                        Text("Set Cap")
+                                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                                            .foregroundColor(Color(hex: "0284C7"))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(MoneTheme.badgeBlueBg)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                
+                                // Progress bar
+                                GeometryReader { geo in
+                                    ZStack(alignment: .leading) {
+                                        Capsule()
+                                            .fill(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                                            .frame(height: 7)
+                                        
+                                        Capsule()
+                                            .fill(isOver ? Color.red : catColor)
+                                            .frame(width: max(4, min(geo.size.width, geo.size.width * CGFloat(min(1.0, pct)))), height: 7)
+                                    }
+                                }
+                                .frame(height: 7)
+                            }
+                            .whiteCard(cornerRadius: 18, padding: 14)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -1780,6 +1954,8 @@ public struct SettingsView: View {
     @State private var budgetString: String = "50000"
     @State private var showResetAlert: Bool = false
     @State private var showClearAlert: Bool = false
+    @State private var showCategoryLimitSheet: Bool = false
+    @State private var showManageCategoriesSheet: Bool = false
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
@@ -1807,13 +1983,16 @@ public struct SettingsView: View {
                 // 3. Monthly Budget Control
                 monthlyBudgetCard
                 
-                // 4. Apple Shortcuts Recipes
+                // 4. Category Limits & Category Directory
+                categoryManagementCard
+                
+                // 5. Apple Shortcuts Recipes
                 shortcutsHubCard
                 
-                // 5. Data Management (Export, Reset, Clear)
+                // 6. Data Management (Export, Reset, Clear)
                 dataManagementCard
                 
-                // 6. About Card
+                // 7. About Card
                 aboutCard
                 
                 Spacer(minLength: 110)
@@ -1822,6 +2001,12 @@ public struct SettingsView: View {
         }
         .onAppear {
             budgetString = String(format: "%.0f", database.totalMonthlyBudget)
+        }
+        .sheet(isPresented: $showCategoryLimitSheet) {
+            SetCategoryLimitSheet()
+        }
+        .sheet(isPresented: $showManageCategoriesSheet) {
+            ManageCategoriesSheet()
         }
         .alert("Reset to Demo Data?", isPresented: $showResetAlert) {
             Button("Cancel", role: .cancel) {}
@@ -1948,6 +2133,78 @@ public struct SettingsView: View {
             .padding(12)
             .background(MoneTheme.bgCanvas(isDark: isDarkMode))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .whiteCard(cornerRadius: 20, padding: 16)
+    }
+    
+    private var categoryManagementCard: some View {
+        VStack(spacing: 12) {
+            Button {
+                MoneHaptics.selection()
+                showCategoryLimitSheet = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: "E0F2FE"))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "chart.pie.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "0284C7"))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Set Category Limits")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("\(database.budgets.count) category limits configured")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+                }
+            }
+            .buttonStyle(.plain)
+            
+            Divider()
+                .background(isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
+            
+            Button {
+                MoneHaptics.selection()
+                showManageCategoriesSheet = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: "FEF3C7"))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "D97706"))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Manage Categories")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        Text("\(database.categories.count) active categories")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+                }
+            }
+            .buttonStyle(.plain)
         }
         .whiteCard(cornerRadius: 20, padding: 16)
     }
@@ -2152,6 +2409,11 @@ public struct QuickControlMenuSheet: View {
                         dismiss()
                         csvToShare = database.exportCSV()
                         showShareSheet = true
+                    }
+                    
+                    menuRow(icon: "chart.pie.fill", title: "Category Limits", subtitle: "Budgets & category caps") {
+                        dismiss()
+                        selectedTab = 1
                     }
                     
                     menuRow(icon: "gearshape.fill", title: "App Settings", subtitle: "Budget, Shortcuts, Profile") {
@@ -2569,3 +2831,309 @@ public struct AddAccountSheet: View {
         }
     }
 }
+
+// MARK: - Set Category Limit Sheet (Category Limits Management)
+public struct SetCategoryLimitSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    public var initialCategory: String?
+    
+    @State private var selectedCategory: String = "Food & Dining"
+    @State private var limitAmountString: String = ""
+    
+    public init(initialCategory: String? = nil) {
+        self.initialCategory = initialCategory
+    }
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Category Selector
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Select Category")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            
+                            let expenseCats = database.categories.filter { $0.type == "EXPENSE" }
+                            let list: [MoneCategory] = expenseCats.isEmpty ? [
+                                MoneCategory(name: "Food & Dining"),
+                                MoneCategory(name: "Shopping"),
+                                MoneCategory(name: "Transport"),
+                                MoneCategory(name: "Bills & Utilities"),
+                                MoneCategory(name: "Groceries"),
+                                MoneCategory(name: "Entertainment")
+                            ] : expenseCats
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(list) { cat in
+                                        let isSelected = selectedCategory.lowercased() == cat.name.lowercased()
+                                        Button {
+                                            MoneHaptics.selection()
+                                            selectedCategory = cat.name
+                                            if let existing = database.budgets[cat.name] {
+                                                limitAmountString = String(format: "%.0f", existing)
+                                            } else {
+                                                limitAmountString = ""
+                                            }
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: MoneCategory.icon(for: cat.name))
+                                                    .font(.system(size: 11, weight: .bold))
+                                                Text(cat.name)
+                                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(isSelected ? (isDarkMode ? Color.white : MoneTheme.deepBlack) : (isDarkMode ? Color(hex: "131722") : Color.white))
+                                            .foregroundColor(isSelected ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                                            .clipShape(Capsule())
+                                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.05), radius: 5, y: 2)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Limit Input Field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Monthly Spending Limit")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                            
+                            HStack {
+                                Text("₹")
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                TextField("5000", text: $limitAmountString)
+                                    .keyboardType(.numberPad)
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                    .monospacedDigit()
+                            }
+                            .padding(14)
+                            .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+                        }
+                        
+                        // Current status info card
+                        if let currentLimit = database.budgets[selectedCategory] {
+                            HStack {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundColor(Color(hex: "0284C7"))
+                                Text(String(format: "Current active limit: ₹%.0f / month", currentLimit))
+                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                Spacer()
+                            }
+                            .padding(.horizontal, 4)
+                        }
+                        
+                        // Save Button
+                        Button {
+                            if let limit = Double(limitAmountString), limit > 0 {
+                                database.setCategoryBudget(category: selectedCategory, limit: limit)
+                                MoneHaptics.notification(.success)
+                                dismiss()
+                            }
+                        } label: {
+                            Text("Save Category Limit")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .shadow(color: (isDarkMode ? Color.white : MoneTheme.deepBlack).opacity(0.25), radius: 8, y: 3)
+                        }
+                        .padding(.top, 10)
+                        
+                        // Remove limit if exists
+                        if database.budgets[selectedCategory] != nil {
+                            Button {
+                                database.deleteCategoryBudget(category: selectedCategory)
+                                MoneHaptics.notification(.warning)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text("Remove Limit for \(selectedCategory)")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                }
+                                .foregroundColor(MoneTheme.badgeRedText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(MoneTheme.badgeRedBg)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("Set Category Limit")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+            }
+            .onAppear {
+                if let initial = initialCategory, !initial.isEmpty {
+                    selectedCategory = initial
+                } else if let first = database.categories.first(where: { $0.type == "EXPENSE" }) {
+                    selectedCategory = first.name
+                }
+                if let existing = database.budgets[selectedCategory] {
+                    limitAmountString = String(format: "%.0f", existing)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Manage Categories Sheet
+public struct ManageCategoriesSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    @State private var selectedType: String = "EXPENSE"
+    @State private var newCategoryName: String = ""
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                VStack(spacing: 16) {
+                    // Type Segment (Expense vs Income)
+                    BlackPillSegmentedControl(
+                        items: [
+                            FluidSegmentItem(id: "EXPENSE", title: "Expense Categories"),
+                            FluidSegmentItem(id: "INCOME", title: "Income Categories")
+                        ],
+                        selection: $selectedType
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    
+                    // Add Category Inline Card
+                    HStack(spacing: 10) {
+                        TextField("New category name (e.g. Subscriptions)", text: $newCategoryName)
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        
+                        Button {
+                            let trimmed = newCategoryName.trimmingCharacters(in: .whitespaces)
+                            if !trimmed.isEmpty {
+                                database.addCategory(name: trimmed, type: selectedType)
+                                MoneHaptics.notification(.success)
+                                newCategoryName = ""
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 12, weight: .bold))
+                                Text("Add")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                            }
+                            .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(12)
+                    .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.2 : 0.04), radius: 6, y: 2)
+                    .padding(.horizontal, 20)
+                    
+                    // Categories List
+                    let currentList = database.categories.filter { $0.type.uppercased() == selectedType }
+                    
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            if currentList.isEmpty {
+                                Text("No categories found.")
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                                    .padding(.vertical, 30)
+                            } else {
+                                ForEach(currentList) { cat in
+                                    HStack(spacing: 12) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(cat.color.opacity(0.15))
+                                                .frame(width: 36, height: 36)
+                                            Image(systemName: cat.icon)
+                                                .font(.system(size: 14, weight: .bold))
+                                                .foregroundColor(cat.color)
+                                        }
+                                        
+                                        Text(cat.name)
+                                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                        
+                                        Spacer()
+                                        
+                                        if let lim = database.budgets[cat.name], lim > 0 {
+                                            Text(String(format: "Limit: ₹%.0f", lim))
+                                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                                .foregroundColor(Color(hex: "0284C7"))
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 3)
+                                                .background(MoneTheme.badgeBlueBg)
+                                                .clipShape(Capsule())
+                                        }
+                                        
+                                        Button {
+                                            if let id = cat.id {
+                                                MoneHaptics.notification(.warning)
+                                                database.deleteCategory(id: id)
+                                            }
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(MoneTheme.badgeRedText)
+                                                .frame(width: 30, height: 30)
+                                                .background(MoneTheme.badgeRedBg)
+                                                .clipShape(Circle())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .whiteCard(cornerRadius: 16, padding: 12)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
+                    }
+                }
+            }
+            .navigationTitle("Manage Categories")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(Color(hex: "0284C7"))
+                        .font(.system(size: 15, weight: .bold))
+                }
+            }
+        }
+    }
+}
+

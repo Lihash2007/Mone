@@ -64,39 +64,11 @@ public struct MoneTransaction: Identifiable, Hashable {
     }
     
     public var categoryIcon: String {
-        let lower = category.lowercased()
-        if lower.contains("food") || lower.contains("dine") || lower.contains("dining") || lower.contains("restaurant") {
-            return "fork.knife"
-        } else if lower.contains("shop") || lower.contains("cloth") {
-            return "bag.fill"
-        } else if lower.contains("transp") || lower.contains("travel") || lower.contains("fuel") || lower.contains("petrol") {
-            return "car.fill"
-        } else if lower.contains("bill") || lower.contains("util") || lower.contains("electric") {
-            return "bolt.fill"
-        } else if lower.contains("groc") || lower.contains("supermarket") {
-            return "cart.fill"
-        } else if lower.contains("entertain") || lower.contains("movie") || lower.contains("spotify") {
-            return "tv.fill"
-        } else if lower.contains("health") || lower.contains("fit") || lower.contains("med") {
-            return "heart.fill"
-        } else if lower.contains("sal") || lower.contains("income") || lower.contains("earn") {
-            return "banknote.fill"
-        } else if lower.contains("invest") || lower.contains("stock") {
-            return "chart.line.uptrend.xyaxis"
-        }
-        return "tag.fill"
+        return MoneCategory.icon(for: category)
     }
     
     public var categoryColor: Color {
-        let lower = category.lowercased()
-        if lower.contains("food") { return Color(hex: "F59E0B") }
-        if lower.contains("shop") { return Color(hex: "EC4899") }
-        if lower.contains("transp") { return Color(hex: "3B82F6") }
-        if lower.contains("bill") { return Color(hex: "8B5CF6") }
-        if lower.contains("groc") { return Color(hex: "10B981") }
-        if lower.contains("sal") { return Color(hex: "059669") }
-        if lower.contains("invest") { return Color(hex: "6366F1") }
-        return Color(hex: "6B7280")
+        return MoneCategory.color(for: category)
     }
 }
 
@@ -159,6 +131,50 @@ public struct MoneCategory: Identifiable, Hashable {
         self.id = id
         self.name = name
         self.type = type
+    }
+    
+    public var icon: String {
+        return MoneCategory.icon(for: name)
+    }
+    
+    public var color: Color {
+        return MoneCategory.color(for: name)
+    }
+    
+    public static func icon(for name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("food") || lower.contains("dine") || lower.contains("dining") || lower.contains("restaurant") {
+            return "fork.knife"
+        } else if lower.contains("shop") || lower.contains("cloth") {
+            return "bag.fill"
+        } else if lower.contains("transp") || lower.contains("travel") || lower.contains("fuel") || lower.contains("petrol") {
+            return "car.fill"
+        } else if lower.contains("bill") || lower.contains("util") || lower.contains("electric") {
+            return "bolt.fill"
+        } else if lower.contains("groc") || lower.contains("supermarket") {
+            return "cart.fill"
+        } else if lower.contains("entertain") || lower.contains("movie") || lower.contains("spotify") {
+            return "tv.fill"
+        } else if lower.contains("health") || lower.contains("fit") || lower.contains("med") {
+            return "heart.fill"
+        } else if lower.contains("sal") || lower.contains("income") || lower.contains("earn") {
+            return "banknote.fill"
+        } else if lower.contains("invest") || lower.contains("stock") {
+            return "chart.line.uptrend.xyaxis"
+        }
+        return "tag.fill"
+    }
+    
+    public static func color(for name: String) -> Color {
+        let lower = name.lowercased()
+        if lower.contains("food") { return Color(hex: "F59E0B") }
+        if lower.contains("shop") { return Color(hex: "EC4899") }
+        if lower.contains("transp") { return Color(hex: "3B82F6") }
+        if lower.contains("bill") { return Color(hex: "8B5CF6") }
+        if lower.contains("groc") { return Color(hex: "10B981") }
+        if lower.contains("sal") { return Color(hex: "059669") }
+        if lower.contains("invest") { return Color(hex: "6366F1") }
+        return Color(hex: "6B7280")
     }
 }
 
