@@ -219,7 +219,9 @@ public struct MoneAppView: View {
                             showMenuDrawer: $showMenuDrawer,
                             showAllTransactions: $showAllTransactions,
                             showProfileModal: $showProfileModal,
-                            editingTransaction: $editingTransaction
+                            editingTransaction: $editingTransaction,
+                            showAddAccountSheet: $showAddAccountSheet,
+                            editingAccount: $editingAccount
                         )
                     case 1:
                         AnalyticsTrendsView(
@@ -245,7 +247,9 @@ public struct MoneAppView: View {
                             showMenuDrawer: $showMenuDrawer,
                             showAllTransactions: $showAllTransactions,
                             showProfileModal: $showProfileModal,
-                            editingTransaction: $editingTransaction
+                            editingTransaction: $editingTransaction,
+                            showAddAccountSheet: $showAddAccountSheet,
+                            editingAccount: $editingAccount
                         )
                     }
                 }
@@ -386,6 +390,396 @@ public struct MoneAppView: View {
     }
 }
 
+// MARK: - Bespoke Apple Wallet Bank Card
+public struct AppleWalletCardView: View {
+    public let account: MoneAccount
+    public let isFocused: Bool
+    public let isDarkMode: Bool
+    
+    public var body: some View {
+        ZStack(alignment: .topLeading) {
+            // Card Background Gradient
+            LinearGradient(
+                colors: account.bankInfo.gradientColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            // Subtle Luxury Glass / Metallic Sheen
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.28),
+                    Color.white.opacity(0.08),
+                    Color.clear,
+                    Color.black.opacity(0.12)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            // Card Inner Rim
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.22), lineWidth: 1.2)
+            
+            // Card Contents
+            VStack(alignment: .leading, spacing: 0) {
+                // Top Header Row
+                HStack(alignment: .center) {
+                    HStack(spacing: 8) {
+                        account.bankInfo.badgeView(size: 28)
+                        Text(account.bankName.isEmpty ? account.name : account.bankName)
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                            .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    // Contactless Wave Symbol
+                    Image(systemName: "wave.3.right")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color.white.opacity(0.85))
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+                
+                Spacer()
+                
+                // Middle Row: EMV Chip & Balance
+                HStack(alignment: .center, spacing: 14) {
+                    // Realistic Gold EMV Chip
+                    emvChipView
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(account.type.uppercased() + " BALANCE")
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .tracking(1.2)
+                            .foregroundColor(Color.white.opacity(0.75))
+                        
+                        Text(String(format: "₹ %.2f", account.balance))
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .foregroundColor(.white)
+                            .monospacedDigit()
+                            .shadow(color: Color.black.opacity(0.4), radius: 3, y: 1.5)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+                
+                // Bottom Row: Account Name, Masked Number & Card Network
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(account.name)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        
+                        Text(account.accountNumber.isEmpty ? "•••• •••• •••• 0000" : account.maskedNumber)
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundColor(Color.white.opacity(0.85))
+                    }
+                    
+                    Spacer()
+                    
+                    // Network / Type Pill
+                    Text(account.type.uppercased())
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.8)
+                        )
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 18)
+            }
+        }
+        .frame(height: 195)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(isDarkMode ? 0.45 : 0.22), radius: isFocused ? 16 : 8, y: isFocused ? 8 : 4)
+    }
+    
+    // Realistic Gold EMV Chip Graphic
+    private var emvChipView: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "F7D788"), Color(hex: "C9993B"), Color(hex: "F3CE7B")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 34, height: 26)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .stroke(Color(hex: "8C6218"), lineWidth: 0.6)
+                )
+            
+            // Microchip circuit grid lines
+            VStack(spacing: 3) {
+                Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 24, height: 0.6)
+                HStack(spacing: 4) {
+                    Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 0.6, height: 10)
+                    Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 0.6, height: 10)
+                }
+                Rectangle().fill(Color(hex: "8C6218").opacity(0.6)).frame(width: 24, height: 0.6)
+            }
+        }
+        .shadow(color: Color.black.opacity(0.2), radius: 2, y: 1)
+    }
+}
+
+// MARK: - Apple Wallet Stacked Cards Section (Home Cockpit)
+public struct AppleWalletCardsSection: View {
+    @ObservedObject private var database = MoneDatabase.shared
+    @ObservedObject private var routeManager = MoneRouteManager.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    @Binding public var showAddAccountSheet: Bool
+    @Binding public var editingAccount: MoneAccount?
+    
+    @State private var focusedCardId: Int64? = nil
+    @State private var isStackExpanded: Bool = false
+    
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Section Header
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Bank Accounts & Cards")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text("\(database.accounts.count) Linked • Apple Wallet Stack")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 8) {
+                    // Expand / Stack Toggle Button
+                    if database.accounts.count > 1 {
+                        Button {
+                            MoneHaptics.impact(.light)
+                            withAnimation(.spring(response: 0.42, dampingFraction: 0.74)) {
+                                isStackExpanded.toggle()
+                                if isStackExpanded { focusedCardId = nil }
+                            }
+                        } label: {
+                            Image(systemName: isStackExpanded ? "rectangle.stack.fill" : "square.stack.3d.up.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(Color(hex: "0284C7"))
+                                .frame(width: 32, height: 32)
+                                .background(MoneTheme.badgeBlueBg)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // Add Bank Button
+                    Button {
+                        MoneHaptics.impact(.medium)
+                        showAddAccountSheet = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Add")
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(isDarkMode ? Color(hex: "10141D") : .white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(isDarkMode ? Color.white : MoneTheme.deepBlack)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            
+            if database.accounts.isEmpty {
+                // Empty state card
+                emptyWalletCard
+            } else if isStackExpanded {
+                // Expanded list of cards
+                VStack(spacing: 14) {
+                    ForEach(database.accounts) { acc in
+                        VStack(spacing: 8) {
+                            AppleWalletCardView(account: acc, isFocused: true, isDarkMode: isDarkMode)
+                                .onTapGesture {
+                                    MoneHaptics.selection()
+                                    editingAccount = acc
+                                }
+                            
+                            cardQuickActions(for: acc)
+                        }
+                    }
+                }
+            } else {
+                // Apple Wallet Vertical Overlapping Stack
+                walletStackContainer
+            }
+        }
+    }
+    
+    private var walletStackContainer: some View {
+        let accounts = database.accounts
+        let peekHeight: CGFloat = 58
+        let cardHeight: CGFloat = 195
+        let totalHeight: CGFloat = {
+            if let fId = focusedCardId, let fIdx = accounts.firstIndex(where: { $0.id == fId }) {
+                return cardHeight + 60 + CGFloat(max(0, accounts.count - 1)) * 36
+            } else {
+                return cardHeight + CGFloat(max(0, accounts.count - 1)) * peekHeight + 10
+            }
+        }()
+        
+        return ZStack(alignment: .top) {
+            ForEach(Array(accounts.enumerated()), id: \.element.id) { index, acc in
+                let isFocused = focusedCardId == acc.id
+                let yOffset: CGFloat = {
+                    if let fId = focusedCardId, let fIdx = accounts.firstIndex(where: { $0.id == fId }) {
+                        if index == fIdx {
+                            return 0
+                        } else if index < fIdx {
+                            return CGFloat(index) * 22
+                        } else {
+                            return cardHeight + 55 + CGFloat(index - fIdx - 1) * 36
+                        }
+                    } else {
+                        return CGFloat(index) * peekHeight
+                    }
+                }()
+                
+                VStack(spacing: 8) {
+                    AppleWalletCardView(account: acc, isFocused: isFocused, isDarkMode: isDarkMode)
+                        .onTapGesture {
+                            MoneHaptics.impact(.medium)
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.76)) {
+                                if focusedCardId == acc.id {
+                                    focusedCardId = nil
+                                } else {
+                                    focusedCardId = acc.id
+                                }
+                            }
+                        }
+                    
+                    if isFocused {
+                        cardQuickActions(for: acc)
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    }
+                }
+                .offset(y: yOffset)
+                .zIndex(isFocused ? 100 : Double(index))
+                .scaleEffect(isFocused ? 1.02 : 1.0)
+                .animation(.spring(response: 0.45, dampingFraction: 0.76), value: focusedCardId)
+            }
+        }
+        .frame(height: totalHeight)
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func cardQuickActions(for acc: MoneAccount) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                MoneHaptics.impact(.medium)
+                routeManager.prefillAccountId = acc.id
+                routeManager.prefillMerchant = nil
+                routeManager.prefillAmount = nil
+                routeManager.prefillType = "EXPENSE"
+                routeManager.showAddTransaction = true
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Add Expense")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(Color(hex: "0284C7"))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(MoneTheme.badgeBlueBg)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            
+            Button {
+                MoneHaptics.selection()
+                editingAccount = acc
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Edit Card")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(MoneTheme.bgCanvas(isDark: isDarkMode))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            
+            Spacer()
+            
+            Button {
+                MoneHaptics.selection()
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    focusedCardId = nil
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+    }
+    
+    private var emptyWalletCard: some View {
+        Button {
+            MoneHaptics.impact(.medium)
+            showAddAccountSheet = true
+        } label: {
+            VStack(spacing: 12) {
+                Image(systemName: "wallet.pass.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(Color(hex: "0284C7"))
+                Text("No Bank Accounts in Apple Wallet")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                Text("Tap here to link HDFC, SBI, ICICI, or Cash Wallet")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 36)
+            .background(MoneTheme.bgCanvas(isDark: isDarkMode))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
+                    .foregroundColor(Color(hex: "0284C7").opacity(0.4))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - 1. Overview Dashboard (Screen 2: Cockpit)
 public struct OverviewDashboardView: View {
     @Binding public var selectedTab: Int
@@ -393,6 +787,8 @@ public struct OverviewDashboardView: View {
     @Binding public var showAllTransactions: Bool
     @Binding public var showProfileModal: Bool
     @Binding public var editingTransaction: MoneTransaction?
+    @Binding public var showAddAccountSheet: Bool
+    @Binding public var editingAccount: MoneAccount?
     
     @ObservedObject private var database = MoneDatabase.shared
     @ObservedObject private var routeManager = MoneRouteManager.shared
@@ -416,6 +812,12 @@ public struct OverviewDashboardView: View {
                 
                 // Action Bar: Solid Black "+ Add money" + 3 Action Buttons
                 quickActionBar
+                
+                // Apple Wallet Stacked Bank Cards Section
+                AppleWalletCardsSection(
+                    showAddAccountSheet: $showAddAccountSheet,
+                    editingAccount: $editingAccount
+                )
                 
                 // 2x2 Feature Grid: Optimize Budget, Smart Saving, Active Banks, Expense Flow
                 featureGrid
@@ -714,31 +1116,39 @@ public struct OverviewDashboardView: View {
             .whiteCard(cornerRadius: 22, padding: 16)
             
             // 3. Indian Banks Active
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Spacer()
-                    ZStack {
-                        Circle()
-                            .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: "building.columns.fill")
-                            .font(.system(size: 15))
+            Button {
+                MoneHaptics.selection()
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                    selectedTab = 2
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Spacer()
+                        ZStack {
+                            Circle()
+                                .fill(isDarkMode ? Color(hex: "1D2433") : Color(hex: "F3F6FA"))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "building.columns.fill")
+                                .font(.system(size: 15))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        }
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Linked\nAccounts")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            .lineLimit(2)
+                        
+                        Text("\(database.accounts.count) Banks Active")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(MoneTheme.badgeBlueText)
                     }
                 }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Linked\nAccounts")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
-                        .lineLimit(2)
-                    
-                    Text("\(database.accounts.count) Banks Active")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(MoneTheme.badgeBlueText)
-                }
+                .whiteCard(cornerRadius: 22, padding: 16)
             }
-            .whiteCard(cornerRadius: 22, padding: 16)
+            .buttonStyle(.plain)
             
             // 4. Expense Velocity
             VStack(alignment: .leading, spacing: 14) {
@@ -948,6 +1358,225 @@ public struct TransactionRowView: View {
     }
 }
 
+// MARK: - Interactive Month & Year Selector Sheet
+public struct MonthPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var database = MoneDatabase.shared
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    
+    @Binding public var selectedDate: Date
+    @Binding public var selectedTimeframe: Int
+    
+    @State private var pickerYear: Int
+    
+    private let months = [
+        (1, "Jan", "January"), (2, "Feb", "February"), (3, "Mar", "March"),
+        (4, "Apr", "April"), (5, "May", "May"), (6, "Jun", "June"),
+        (7, "Jul", "July"), (8, "Aug", "August"), (9, "Sep", "September"),
+        (10, "Oct", "October"), (11, "Nov", "November"), (12, "Dec", "December")
+    ]
+    
+    public init(selectedDate: Binding<Date>, selectedTimeframe: Binding<Int>) {
+        self._selectedDate = selectedDate
+        self._selectedTimeframe = selectedTimeframe
+        let cal = Calendar.current
+        self._pickerYear = State(initialValue: cal.component(.year, from: selectedDate.wrappedValue))
+    }
+    
+    public var body: some View {
+        NavigationStack {
+            ZStack {
+                MoneTheme.bgCanvasGradient(isDark: isDarkMode).ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    // Year Stepper Header
+                    HStack {
+                        Button {
+                            MoneHaptics.selection()
+                            pickerYear -= 1
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                .frame(width: 40, height: 40)
+                                .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Spacer()
+                        
+                        Text(String(pickerYear))
+                            .font(.system(size: 26, weight: .black, design: .rounded))
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                        
+                        Spacer()
+                        
+                        Button {
+                            MoneHaptics.selection()
+                            pickerYear += 1
+                        } label: {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                                .frame(width: 40, height: 40)
+                                .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                    
+                    // 12-Month Grid
+                    let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(months, id: \.0) { mNum, mShort, mFull in
+                            monthCell(monthNumber: mNum, shortName: mShort, fullName: mFull)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    // Full Year & Jump to Current Month Actions
+                    VStack(spacing: 10) {
+                        Button {
+                            MoneHaptics.impact(.medium)
+                            var comps = DateComponents()
+                            comps.year = pickerYear
+                            comps.month = 1
+                            comps.day = 1
+                            if let newDate = Calendar.current.date(from: comps) {
+                                selectedDate = newDate
+                                selectedTimeframe = 2 // Year mode
+                            }
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chart.bar.doc.horizontal")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text("View Entire Year \(String(pickerYear)) Summary")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                            }
+                            .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(MoneTheme.bgCardBlue(isDark: isDarkMode))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button {
+                            MoneHaptics.impact(.medium)
+                            selectedDate = Date()
+                            selectedTimeframe = 1 // Month mode
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text("Jump to Current Month (\(currentMonthTitle))")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                            }
+                            .foregroundColor(Color(hex: "0284C7"))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(MoneTheme.badgeBlueBg)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    Spacer()
+                }
+            }
+            .navigationTitle("Select Month")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(Color(hex: "0284C7"))
+                        .font(.system(size: 15, weight: .bold))
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+    
+    private var currentMonthTitle: String {
+        Date().formatted(.dateTime.month(.abbreviated).year())
+    }
+    
+    private func monthCell(monthNumber: Int, shortName: String, fullName: String) -> some View {
+        let cal = Calendar.current
+        let isSelectedMonth = cal.component(.month, from: selectedDate) == monthNumber &&
+                             cal.component(.year, from: selectedDate) == pickerYear &&
+                             selectedTimeframe == 1
+        let isCurrentLiveMonth = cal.component(.month, from: Date()) == monthNumber &&
+                                cal.component(.year, from: Date()) == pickerYear
+        
+        let matchingTxs = database.transactions.filter { tx in
+            cal.component(.month, from: tx.date) == monthNumber &&
+            cal.component(.year, from: tx.date) == pickerYear
+        }
+        let totalExpense = matchingTxs.filter { $0.isExpense }.reduce(0.0) { $0 + $1.amount }
+        
+        return Button {
+            MoneHaptics.impact(.medium)
+            var comps = DateComponents()
+            comps.year = pickerYear
+            comps.month = monthNumber
+            comps.day = 1
+            if let newDate = cal.date(from: comps) {
+                selectedDate = newDate
+                selectedTimeframe = 1 // Month
+            }
+            dismiss()
+        } label: {
+            VStack(spacing: 5) {
+                HStack(spacing: 4) {
+                    Text(shortName)
+                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .foregroundColor(isSelectedMonth ? (isDarkMode ? Color(hex: "10141D") : .white) : MoneTheme.textPrimary(isDark: isDarkMode))
+                    
+                    if isCurrentLiveMonth {
+                        Circle()
+                            .fill(isSelectedMonth ? (isDarkMode ? Color(hex: "10141D") : .white) : Color(hex: "0284C7"))
+                            .frame(width: 5, height: 5)
+                    }
+                }
+                
+                if totalExpense > 0 {
+                    Text(String(format: "₹%.0f", totalExpense))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundColor(isSelectedMonth ? (isDarkMode ? Color(hex: "10141D").opacity(0.8) : Color.white.opacity(0.9)) : MoneTheme.badgeRedText)
+                } else if !matchingTxs.isEmpty {
+                    Text("\(matchingTxs.count) txs")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(isSelectedMonth ? (isDarkMode ? Color(hex: "10141D").opacity(0.8) : Color.white.opacity(0.8)) : MoneTheme.textSecondary(isDark: isDarkMode))
+                } else {
+                    Text("—")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(isSelectedMonth ? (isDarkMode ? Color(hex: "10141D").opacity(0.5) : Color.white.opacity(0.5)) : MoneTheme.textMuted(isDark: isDarkMode))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                isSelectedMonth ? (isDarkMode ? Color.white : MoneTheme.deepBlack) :
+                                  (isDarkMode ? Color(hex: "131722") : Color.white)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelectedMonth ? Color.clear : (isCurrentLiveMonth ? Color(hex: "0284C7") : Color.clear), lineWidth: 1.5)
+            )
+            .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.05), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - 2. Analytics & Historical Trends View (Screen 1)
 public struct AnalyticsTrendsView: View {
     @Binding public var showMenuDrawer: Bool
@@ -960,6 +1589,8 @@ public struct AnalyticsTrendsView: View {
     @AppStorage("userName") private var userName: String = "Lihash"
     @AppStorage("userProfilePhotoData") private var userProfilePhotoData: Data = Data()
     @State private var selectedTimeframe: Int = 1 // Month default
+    @State private var selectedDate: Date = Date() // Lively defaults to current month!
+    @State private var showMonthPickerSheet: Bool = false
     @State private var showSetCategoryLimitSheet: Bool = false
     @State private var selectedCategoryForLimit: String? = nil
     
@@ -1034,8 +1665,20 @@ public struct AnalyticsTrendsView: View {
                         FluidSegmentItem(id: 1, title: "Month"),
                         FluidSegmentItem(id: 2, title: "Year")
                     ],
-                    selection: $selectedTimeframe
+                    selection: Binding(
+                        get: { selectedTimeframe },
+                        set: { newTimeframe in
+                            selectedTimeframe = newTimeframe
+                            if newTimeframe == 2 {
+                                // "when I click year it should ask me which month in the year"
+                                showMonthPickerSheet = true
+                            }
+                        }
+                    )
                 )
+                
+                // Period Navigator (Interactive Month / Week / Year Explorer)
+                periodNavigatorBar
                 
                 // Dual Metric Card: Expenses & Income in soft sky-blue
                 dualMetricExpensesIncomeCard
@@ -1056,17 +1699,162 @@ public struct AnalyticsTrendsView: View {
         .sheet(isPresented: $showSetCategoryLimitSheet) {
             SetCategoryLimitSheet(initialCategory: selectedCategoryForLimit)
         }
+        .sheet(isPresented: $showMonthPickerSheet) {
+            MonthPickerSheet(selectedDate: $selectedDate, selectedTimeframe: $selectedTimeframe)
+        }
+    }
+    
+    private var periodNavigatorBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                stepPeriod(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    .frame(width: 36, height: 36)
+                    .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                    .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.05), radius: 4, y: 1)
+            }
+            .buttonStyle(.plain)
+            
+            Button {
+                MoneHaptics.impact(.light)
+                showMonthPickerSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Color(hex: "0284C7"))
+                    Text(periodTitleString)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.05), radius: 4, y: 1)
+            }
+            .buttonStyle(.plain)
+            
+            Button {
+                stepPeriod(by: 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    .frame(width: 36, height: 36)
+                    .background(isDarkMode ? Color(hex: "131722") : Color.white)
+                    .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(isDarkMode ? 0.3 : 0.05), radius: 4, y: 1)
+            }
+            .buttonStyle(.plain)
+            
+            Spacer()
+            
+            if !isCurrentMonth {
+                Button {
+                    MoneHaptics.impact(.medium)
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        selectedDate = Date()
+                        selectedTimeframe = 1 // lively current month!
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Current")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(Color(hex: "0284C7"))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(MoneTheme.badgeBlueBg)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .transition(.opacity.combined(with: .scale))
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+    
+    private var isCurrentMonth: Bool {
+        let cal = Calendar.current
+        return cal.isDate(selectedDate, equalTo: Date(), toGranularity: .month) &&
+               cal.isDate(selectedDate, equalTo: Date(), toGranularity: .year)
+    }
+    
+    private var periodTitleString: String {
+        let cal = Calendar.current
+        if selectedTimeframe == 0 { // Week
+            let startOfWeek = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate)) ?? selectedDate
+            let endOfWeek = cal.date(byAdding: .day, value: 6, to: startOfWeek) ?? selectedDate
+            let f = DateFormatter()
+            f.dateFormat = "d MMM"
+            return "\(f.string(from: startOfWeek)) – \(f.string(from: endOfWeek))"
+        } else if selectedTimeframe == 2 { // Year
+            let f = DateFormatter()
+            f.dateFormat = "yyyy"
+            return "Year \(f.string(from: selectedDate))"
+        } else { // Month
+            let f = DateFormatter()
+            f.dateFormat = "MMMM yyyy"
+            return f.string(from: selectedDate)
+        }
+    }
+    
+    private func stepPeriod(by delta: Int) {
+        MoneHaptics.selection()
+        let cal = Calendar.current
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            if selectedTimeframe == 0 {
+                selectedDate = cal.date(byAdding: .weekOfYear, value: delta, to: selectedDate) ?? selectedDate
+            } else if selectedTimeframe == 2 {
+                selectedDate = cal.date(byAdding: .year, value: delta, to: selectedDate) ?? selectedDate
+            } else {
+                selectedDate = cal.date(byAdding: .month, value: delta, to: selectedDate) ?? selectedDate
+            }
+        }
+    }
+    
+    private var filteredPeriodTransactions: [MoneTransaction] {
+        let cal = Calendar.current
+        return database.transactions.filter { tx in
+            switch selectedTimeframe {
+            case 0:
+                return cal.isDate(tx.date, equalTo: selectedDate, toGranularity: .weekOfYear) &&
+                       cal.isDate(tx.date, equalTo: selectedDate, toGranularity: .yearForWeekOfYear)
+            case 2:
+                return cal.isDate(tx.date, equalTo: selectedDate, toGranularity: .year)
+            default:
+                return cal.isDate(tx.date, equalTo: selectedDate, toGranularity: .month) &&
+                       cal.isDate(tx.date, equalTo: selectedDate, toGranularity: .year)
+            }
+        }
     }
     
     private var dualMetricExpensesIncomeCard: some View {
-        let expenses = database.transactions.filter { $0.isExpense }.reduce(0.0) { $0 + $1.amount }
-        let income = database.transactions.filter { !$0.isExpense }.reduce(0.0) { $0 + $1.amount }
+        let periodTxs = filteredPeriodTransactions
+        let expenses = periodTxs.filter { $0.isExpense }.reduce(0.0) { $0 + $1.amount }
+        let income = periodTxs.filter { !$0.isExpense }.reduce(0.0) { $0 + $1.amount }
         
         return HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Expenses")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : MoneTheme.textSecondary(isDark: isDarkMode))
+                HStack(spacing: 4) {
+                    Text("Expenses")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : MoneTheme.textSecondary(isDark: isDarkMode))
+                    Text("• " + periodTitleString)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(hex: "0284C7"))
+                        .lineLimit(1)
+                }
                 Text(String(format: "₹%.2f", expenses))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(isDarkMode ? Color.white : MoneTheme.textPrimary(isDark: isDarkMode))
@@ -1213,11 +2001,18 @@ public struct AnalyticsTrendsView: View {
     }
     
     private var transactionsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let periodTxs = filteredPeriodTransactions
+        
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Transactions")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Transactions")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(MoneTheme.textPrimary(isDark: isDarkMode))
+                    Text("\(periodTxs.count) recorded in \(periodTitleString)")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
                 Spacer()
                 Button {
                     MoneHaptics.selection()
@@ -1229,15 +2024,21 @@ public struct AnalyticsTrendsView: View {
                 }
             }
             
-            if database.transactions.isEmpty {
-                Text("No transactions logged yet.")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 24)
+            if periodTxs.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 28))
+                        .foregroundColor(MoneTheme.textMuted(isDark: isDarkMode))
+                    Text("No transactions logged in \(periodTitleString)")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(MoneTheme.textSecondary(isDark: isDarkMode))
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 32)
+                .whiteCard(cornerRadius: 18, padding: 16)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(database.transactions.prefix(10)) { tx in
+                    ForEach(periodTxs.prefix(15)) { tx in
                         TransactionRowView(tx: tx) {
                             editingTransaction = tx
                         }
@@ -1248,20 +2049,7 @@ public struct AnalyticsTrendsView: View {
     }
     
     private var categoryLimitsSection: some View {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        let filteredExpenses: [MoneTransaction] = database.transactions.filter { tx in
-            guard tx.isExpense else { return false }
-            switch selectedTimeframe {
-            case 0: // Week
-                return calendar.isDate(tx.date, equalTo: now, toGranularity: .weekOfYear)
-            case 2: // Year
-                return calendar.isDate(tx.date, equalTo: now, toGranularity: .year)
-            default: // Month
-                return calendar.isDate(tx.date, equalTo: now, toGranularity: .month)
-            }
-        }
+        let filteredExpenses = filteredPeriodTransactions.filter { $0.isExpense }
         
         var spentByCat: [String: Double] = [:]
         for tx in filteredExpenses {
@@ -1418,23 +2206,14 @@ public struct AnalyticsTrendsView: View {
             grouped[key, default: 0.0] += t.amount
         }
         
-        if grouped.isEmpty {
-            let cal = Calendar.current
-            let now = Date()
-            for i in (0..<6).reversed() {
-                if let d = cal.date(byAdding: .month, value: -i, to: now) {
-                    let k = f.string(from: d)
-                    grouped[k] = Double([1200, 1800, 2457, 1900, 2100, 2300][i])
-                }
-            }
-        }
-        
-        let sortedKeys = grouped.keys.sorted()
+        let cal = Calendar.current
         var result: [MonthlyTrend] = []
-        for k in sortedKeys.suffix(6) {
-            if let date = f.date(from: k) {
-                let label = displayF.string(from: date)
-                result.append(MonthlyTrend(monthKey: k, monthLabel: label, expenseTotal: grouped[k] ?? 0.0))
+        for i in (0..<6).reversed() {
+            if let d = cal.date(byAdding: .month, value: -i, to: selectedDate) {
+                let k = f.string(from: d)
+                let label = displayF.string(from: d)
+                let amount = grouped[k] ?? 0.0
+                result.append(MonthlyTrend(monthKey: k, monthLabel: label, expenseTotal: amount))
             }
         }
         return result
