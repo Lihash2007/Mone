@@ -12,6 +12,7 @@ class AppleWalletCardItem {
   final double balance;
   final String type;
   final BankInfo bankInfo;
+  final int? memberId;
 
   AppleWalletCardItem({
     required this.id,
@@ -22,6 +23,7 @@ class AppleWalletCardItem {
     required this.balance,
     required this.type,
     required this.bankInfo,
+    this.memberId,
   });
 
   factory AppleWalletCardItem.fromMap(Map<String, dynamic> map) {
@@ -59,6 +61,7 @@ class AppleWalletCardItem {
       balance: ((map['balance'] as num?) ?? 0.0).toDouble(),
       type: aType,
       bankInfo: info,
+      memberId: map['member_id'] as int?,
     );
   }
 }

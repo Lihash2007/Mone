@@ -31,6 +31,10 @@ class MoneTheme {
     return isDark ? const Color(0xFF131722) : Colors.white;
   }
 
+  static Color bgElevated(bool isDark) {
+    return isDark ? const Color(0xFF131722) : Colors.white;
+  }
+
   static Color cardBorder(bool isDark) {
     return isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04);
   }

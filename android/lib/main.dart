@@ -16,15 +16,20 @@ import 'dart:async';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:quick_actions/quick_actions.dart';
+import 'models/family_member.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/cards_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'services/indian_banks.dart';
 import 'services/sms_parser.dart';
 import 'theme/mone_theme.dart';
-import 'widgets/biometric_lock_overlay.dart';
+import 'widgets/add_transaction_sheet.dart';
 import 'widgets/apple_wallet_stack.dart';
+import 'widgets/biometric_lock_overlay.dart';
 import 'widgets/floating_capsule_dock.dart';
 import 'widgets/kpi_cards.dart';
+import 'widgets/manage_family_sheet.dart';
+import 'widgets/quick_control_menu_sheet.dart';
 
 int? smartAccountMatch(String text, List<Map<String, dynamic>> accountsData, {String? senderAddress}) {
   return IndianBankDirectory.matchAccountFromSms(
@@ -541,6 +546,36 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       await _database.insert('accounts', {'name': 'Cash', 'type': 'CASH', 'balance': 0.0, 'account_number': ''});
     }
 
+    // Household & Family Members Table (Option A Architecture)
+    await _database.execute('''
+      CREATE TABLE IF NOT EXISTS family_members(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'Family',
+        avatar_emoji TEXT NOT NULL DEFAULT '👤',
+        color_hex TEXT NOT NULL DEFAULT '0284C7',
+        monthly_allowance REAL NOT NULL DEFAULT 0.0
+      )
+    ''');
+    try {
+      await _database.execute('ALTER TABLE accounts ADD COLUMN member_id INTEGER');
+    } catch (_) {}
+    try {
+      await _database.execute('ALTER TABLE transactions ADD COLUMN member_id INTEGER');
+    } catch (_) {}
+
+    var existingMembers = await _database.query('family_members');
+    if (existingMembers.isEmpty) {
+      final pName = _userName.trim().isNotEmpty ? _userName.trim() : 'Primary';
+      await _database.insert('family_members', {
+        'name': pName,
+        'role': 'Primary',
+        'avatar_emoji': '👤',
+        'color_hex': '0284C7',
+        'monthly_allowance': 0.0,
+      });
+    }
+
     setState(() => _isDbReady = true);
     
     // Check if biometric is enabled
@@ -747,223 +782,204 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     }
   }
 
-  void _showAddTransactionModal({Map<String, dynamic>? existingTx}) async {
-    final catsRaw = await _database.query('categories');
-    final accountsRaw = await _database.query('accounts');
-    List<String> expenseCats = catsRaw.where((c) => c['type'] == 'EXPENSE').map((c) => c['name'] as String).toList();
-    List<String> incomeCats = catsRaw.where((c) => c['type'] == 'INCOME').map((c) => c['name'] as String).toList();
-    
-    final _merchantCtrl = TextEditingController(text: existingTx?['merchant'] ?? '');
-    final _amountCtrl = TextEditingController(text: existingTx?['amount']?.toString() ?? '');
-    String _selectedType = existingTx?['type'] ?? 'EXPENSE';
-    DateTime _selectedDate = (existingTx != null && existingTx['date'] != null) ? DateTime.parse(existingTx['date']) : DateTime.now();
-    
-    String _selectedExpCat = expenseCats.contains(existingTx?['category']) ? existingTx!['category'] : (expenseCats.isNotEmpty ? expenseCats.first : 'Other');
-    String _selectedIncCat = incomeCats.contains(existingTx?['category']) ? existingTx!['category'] : (incomeCats.isNotEmpty ? incomeCats.first : 'Salary');
-    
-    int? _selectedAccountId = existingTx?['account_id'];
-    if (_selectedAccountId == null && accountsRaw.isNotEmpty) {
-       _selectedAccountId = accountsRaw.first['id'] as int;
-    }
-
-    int? _toAccountId = accountsRaw.length > 1 ? accountsRaw.last['id'] as int : _selectedAccountId;
+  void _showAddTransactionModal({Map<String, dynamic>? existingTx, int? defaultMemberId}) async {
     showModalBottomSheet(
-      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(builder: (context, setModalState) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300), curve: Curves.easeOutExpo,
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 32),
-            decoration: BoxDecoration(color: const Color(0xFF18181B), borderRadius: const BorderRadius.vertical(top: Radius.circular(40)), border: Border.all(color: Colors.white.withOpacity(0.1))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)))),
-                const SizedBox(height: 24),
-                Text(existingTx == null ? 'Track Record' : 'Edit Record', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                
-                Row(
-                  children: [
-                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'EXPENSE'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Expense', style: TextStyle(color: _selectedType == 'EXPENSE' ? const Color(0xFFF43F5E) : Colors.white, fontWeight: FontWeight.bold))))),
-                    const SizedBox(width: 8),
-                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'INCOME'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'INCOME' ? const Color(0xFF10B981).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'INCOME' ? const Color(0xFF10B981) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Income', style: TextStyle(color: _selectedType == 'INCOME' ? const Color(0xFF10B981) : Colors.white, fontWeight: FontWeight.bold))))),
-                    const SizedBox(width: 8),
-                    Expanded(child: GestureDetector(onTap: () => setModalState(() => _selectedType = 'TRANSFER'), child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6).withOpacity(0.2) : Colors.transparent, borderRadius: BorderRadius.circular(30), border: Border.all(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6) : Colors.white.withOpacity(0.1))), alignment: Alignment.center, child: Text('Move Funds', style: TextStyle(color: _selectedType == 'TRANSFER' ? const Color(0xFF3B82F6) : Colors.white, fontWeight: FontWeight.bold))))),
-                  ],
-                ),
-                
-                const SizedBox(height: 24),
-                TextField(controller: _amountCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), decoration: InputDecoration(prefixText: '₹ ', prefixStyle: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), labelText: 'Amount', labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)), filled: true, fillColor: Colors.white.withOpacity(0.03), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: Color(0xFF6366F1))))),
-                const SizedBox(height: 16),
-                TextField(controller: _merchantCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Title / Description', labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)), filled: true, fillColor: Colors.white.withOpacity(0.03), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: Color(0xFF6366F1))))),
-                const SizedBox(height: 16),
-                
-                if (_selectedType != 'TRANSFER') ...[
-                  DropdownButtonFormField<String>(
-                    value: _selectedType == 'EXPENSE' ? _selectedExpCat : _selectedIncCat,
-                    dropdownColor: const Color(0xFF18181B), style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(labelText: 'Category', labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)), filled: true, fillColor: Colors.white.withOpacity(0.03), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.1)))),
-                    items: (_selectedType == 'EXPENSE' ? expenseCats : incomeCats).map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                    onChanged: (val) { setModalState(() { if (_selectedType == 'EXPENSE') _selectedExpCat = val!; else _selectedIncCat = val!; }); },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                
-                DropdownButtonFormField<int>(
-                  value: _selectedAccountId,
-                  dropdownColor: const Color(0xFF18181B),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: _selectedType == 'TRANSFER' ? 'From Account' : 'Account',
-                    labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.03),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-                  ),
-                  items: accountsRaw.map((a) {
-                    final b = IndianBankDirectory.findBankByName((a['bank_code'] ?? a['bank_name'] ?? (a['type'] == 'CASH' ? 'cash' : '')).toString());
-                    return DropdownMenuItem(
-                      value: a['id'] as int,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          b.buildBadge(size: 20, showBorder: false),
-                          const SizedBox(width: 8),
-                          Text('${a['name']}${a['account_number'] != null && a['account_number'].toString().isNotEmpty ? " (•• ${a['account_number']})" : ""}'),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) { setModalState(() { _selectedAccountId = val; }); },
-                ),
-                if (_selectedType == 'TRANSFER') ...[
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    value: _toAccountId,
-                    dropdownColor: const Color(0xFF18181B),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'To Account',
-                      labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.03),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-                    ),
-                    items: accountsRaw.map((a) {
-                      final b = IndianBankDirectory.findBankByName((a['bank_code'] ?? a['bank_name'] ?? (a['type'] == 'CASH' ? 'cash' : '')).toString());
-                      return DropdownMenuItem(
-                        value: a['id'] as int,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            b.buildBadge(size: 20, showBorder: false),
-                            const SizedBox(width: 8),
-                            Text('${a['name']}${a['account_number'] != null && a['account_number'].toString().isNotEmpty ? " (•• ${a['account_number']})" : ""}'),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) { setModalState(() { _toAccountId = val; }); },
-                  ),
-                ],
-                const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () async {
-                    DateTime? picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), onPrimary: Colors.white, surface: Color(0xFF18181B), onSurface: Colors.white)), child: child!));
-                    if (picked != null) setModalState(() => _selectedDate = picked);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white.withOpacity(0.1))),
-                    child: Row(children: [const Icon(Icons.calendar_today, color: Colors.white54), const SizedBox(width: 16), Text('${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}', style: const TextStyle(color: Colors.white, fontSize: 16))]),
-                  ),
-                ),
-                
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity, height: 60,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 15, spreadRadius: -5)]),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                      onPressed: () async {
-                        if (_amountCtrl.text.isEmpty || _merchantCtrl.text.isEmpty || double.tryParse(_amountCtrl.text) == null || double.tryParse(_amountCtrl.text)! <= 0) {
-                          showDialog(context: context, builder: (ctx) => AlertDialog(
-                            backgroundColor: const Color(0xFF18181B),
-                            title: const Text('Missing Details', style: TextStyle(color: Colors.red)),
-                            content: const Text('Please enter a valid amount and a title/description.', style: TextStyle(color: Colors.white)),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK', style: TextStyle(color: Colors.white)))
-                            ]
-                          ));
-                          return;
-                        }
-                        double amt = double.parse(_amountCtrl.text);
-                        String finalCat = _selectedType == 'EXPENSE' ? _selectedExpCat : _selectedIncCat;
-                        
-                        if (_selectedType == 'EXPENSE') {
-                          final budgets = await _database.query('budgets', where: 'category = ?', whereArgs: [finalCat]);
-                          if (budgets.isNotEmpty) {
-                            double limit = budgets.first['limit_amount'] as double;
-                            DateTime startOfMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
-                            final txs = await _database.query('transactions', where: 'type = ? AND category = ? AND date >= ?', whereArgs: ['EXPENSE', finalCat, startOfMonth.toIso8601String()]);
-                            double spent = txs.fold(0.0, (sum, item) => sum + (item['amount'] as double));
-                            if (existingTx != null) spent -= (existingTx['amount'] as double);
-                            
-                            if (spent + amt > limit) {
-                              bool? proceed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-                                backgroundColor: const Color(0xFF18181B),
-                                title: const Text('Budget Warning', style: TextStyle(color: Colors.red)),
-                                content: Text('Adding this will exceed your $finalCat limit of ₹$limit by ₹${(spent + amt - limit).toStringAsFixed(0)}.', style: const TextStyle(color: Colors.white)),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
-                                  ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Proceed', style: TextStyle(color: Colors.white))),
-                                ]
-                              ));
-                              if (proceed != true) return;
-                            }
-                          }
-                        }
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => AddTransactionSheet(
+        database: _database,
+        isDark: _isDarkMode,
+        existingTx: existingTx,
+        prefillMemberId: defaultMemberId,
+        onSaved: () {
+          setState(() {});
+          _updateWidget();
+        },
+      ),
+    );
+  }
 
-                        
-                        if (_selectedType == 'TRANSFER') {
-if (existingTx == null) {
-await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'category': 'Transfer Out', 'amount': amt, 'type': 'TRANSFER_OUT', 'date': _selectedDate.toIso8601String(), 'goal_id': null, 'account_id': _selectedAccountId });
-if (_toAccountId != null && _toAccountId != _selectedAccountId) {
-await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'category': 'Transfer In', 'amount': amt, 'type': 'TRANSFER_IN', 'date': _selectedDate.toIso8601String(), 'goal_id': null, 'account_id': _toAccountId });
-}
-}
-                        } else {
-                          final data = { 'merchant': _merchantCtrl.text, 'category': finalCat, 'amount': amt, 'type': _selectedType, 'date': _selectedDate.toIso8601String(), 'goal_id': null, 'account_id': _selectedAccountId };
-                          if (existingTx == null) { 
-                            await _database.insert('transactions', data); 
-                            if (_selectedAccountId != null) {
-                              var acc = accountsRaw.firstWhere((a) => a['id'] == _selectedAccountId, orElse: () => {'balance': 0.0});
-                              double newBal = (acc['balance'] as double) + (_selectedType == 'INCOME' ? amt : -amt);
-                              await _database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [_selectedAccountId]);
-                            }
-                            setState(() { _lastIslandTx = data; _showIsland = true; }); 
-                            Future.delayed(const Duration(seconds: 4), () { if (mounted) setState(() => _showIsland = false); });
-                          }
-                          else { 
-                             await _database.update('transactions', data, where: 'id = ?', whereArgs: [existingTx['id']]);
-                          }
-                        }
-                        Navigator.pop(context);
-                        setState(() {}); 
-                      },
-                      child: Text(existingTx == null ? 'Save Record' : 'Update Record', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
+  void _showManageFamilyModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ManageFamilySheet(
+        database: _database,
+        isDark: _isDarkMode,
+        onFamilyChanged: () {
+          setState(() {});
+        },
+      ),
+    );
+  }
+
+  void _showQuickControlMenuSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => QuickControlMenuSheet(
+        isDark: _isDarkMode,
+        isBiometricEnabled: _isBiometricEnabled,
+        onOpenFamily: () {
+          Navigator.pop(ctx);
+          _showManageFamilyModal();
+        },
+        onOpenAllTransactions: () {
+          Navigator.pop(ctx);
+          _showAllTransactionsModal(context);
+        },
+        onAddAccount: () {
+          Navigator.pop(ctx);
+          _showManageAccountsModal();
+        },
+        onToggleTheme: () {
+          _toggleDarkMode(!_isDarkMode);
+        },
+        onToggleBiometrics: () async {
+          Navigator.pop(ctx);
+          final newVal = !_isBiometricEnabled;
+          if (newVal) {
+            bool canCheck = await auth.canCheckBiometrics;
+            if (!canCheck) return;
+            bool authd = await auth.authenticate(localizedReason: 'Authenticate to enable biometric lock');
+            if (!authd) return;
+          }
+          await _database.insert('settings', {'key': 'biometric_enabled', 'value': newVal ? 1.0 : 0.0}, conflictAlgorithm: ConflictAlgorithm.replace);
+          setState(() => _isBiometricEnabled = newVal);
+        },
+        onExportCsv: () {
+          Navigator.pop(ctx);
+          setState(() => _selectedIndex = 3);
+        },
+        onOpenCategoryLimits: () {
+          Navigator.pop(ctx);
+          _showSetBudgetModal();
+        },
+        onOpenSettings: () {
+          Navigator.pop(ctx);
+          setState(() => _selectedIndex = 3);
+        },
+      ),
+    );
+  }
+
+  void _showAllTransactionsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: MoneTheme.bgElevated(_isDarkMode),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        padding: const EdgeInsets.only(top: 16, left: 20, right: 20, bottom: 24),
+        child: Column(
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'All Transactions',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: MoneTheme.textPrimary(_isDarkMode),
                   ),
                 ),
-                const SizedBox(height: 32),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: MoneTheme.textSecondary(_isDarkMode)),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
               ],
             ),
-          );
-        });
-      }
+            const SizedBox(height: 10),
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _database.query('transactions', orderBy: 'date DESC'),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator(color: MoneTheme.primaryBlue));
+                  }
+                  final txs = snapshot.data!;
+                  if (txs.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No transactions recorded yet.',
+                        style: TextStyle(color: MoneTheme.textSecondary(_isDarkMode)),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    itemCount: txs.length,
+                    separatorBuilder: (_, __) => Divider(color: MoneTheme.cardBorder(_isDarkMode), height: 1),
+                    itemBuilder: (context, index) {
+                      final t = txs[index];
+                      final isIncome = t['type'] == 'INCOME' || t['type'] == 'TRANSFER_IN';
+                      final amt = (t['amount'] as num).toDouble();
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: (isIncome ? MoneTheme.badgeGreenBg : MoneTheme.badgeRedBg),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                            color: isIncome ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          t['merchant'] ?? t['category'] ?? 'Transaction',
+                          style: TextStyle(
+                            color: MoneTheme.textPrimary(_isDarkMode),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${t['category'] ?? ''} • ${t['date'] != null ? t['date'].toString().substring(0, 10) : ''}',
+                          style: TextStyle(color: MoneTheme.textMuted(_isDarkMode), fontSize: 12),
+                        ),
+                        trailing: Text(
+                          '${isIncome ? '+' : '-'}₹${amt.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            color: isIncome ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showAddTransactionModal(existingTx: t);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1012,9 +1028,9 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
               right: 20,
               top: 24,
             ),
-            decoration: const BoxDecoration(
-              color: Color(0xFF14151F),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            decoration: BoxDecoration(
+              color: MoneTheme.bgElevated(_isDarkMode),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -1047,9 +1063,9 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Monthly Budget & Starting Spend',
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode), fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -1250,10 +1266,10 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
     
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
       return AlertDialog(
-        backgroundColor: const Color(0xFF18181B), title: const Text('Set Category Limit', style: TextStyle(color: Colors.white)),
+        backgroundColor: MoneTheme.bgElevated(_isDarkMode), title: Text('Set Category Limit', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode))),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           DropdownButtonFormField<String>(
-            value: _selectedCat, dropdownColor: const Color(0xFF18181B), style: const TextStyle(color: Colors.white),
+            value: _selectedCat, dropdownColor: MoneTheme.bgElevated(_isDarkMode), style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode)),
             decoration: const InputDecoration(labelText: 'Category', labelStyle: TextStyle(color: Colors.grey)),
             items: expenseCats.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
             onChanged: (val) => setDialogState(() => _selectedCat = val!),
@@ -1278,7 +1294,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
     final _titleCtrl = TextEditingController(text: existingGoal?['title'] ?? '');
     final _targetCtrl = TextEditingController(text: existingGoal?['target']?.toString() ?? '');
     showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF18181B), title: Text(existingGoal == null ? 'Create New Goal' : 'Edit Goal', style: const TextStyle(color: Colors.white)),
+      backgroundColor: MoneTheme.bgElevated(_isDarkMode), title: Text(existingGoal == null ? 'Create New Goal' : 'Edit Goal', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode))),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(controller: _titleCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Goal Title', labelStyle: TextStyle(color: Colors.grey))),
         TextField(controller: _targetCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Target (₹)', labelStyle: TextStyle(color: Colors.grey))),
@@ -1317,11 +1333,11 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
             return Container(
               height: MediaQuery.of(context).size.height * 0.8,
               padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 32),
-              decoration: BoxDecoration(color: const Color(0xFF18181B), borderRadius: const BorderRadius.vertical(top: Radius.circular(40))),
+              decoration: BoxDecoration(color: MoneTheme.bgElevated(_isDarkMode), borderRadius: const BorderRadius.vertical(top: Radius.circular(40))),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Manage Categories', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text('Manage Categories', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode), fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
                   Row(children: [
                     Expanded(child: TextField(controller: _nameCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'New Category...', hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5)), filled: true, fillColor: Colors.white.withOpacity(0.05), border: OutlineInputBorder(borderRadius: BorderRadius.circular(20))))),
@@ -1375,7 +1391,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF14151B),
+            backgroundColor: MoneTheme.bgElevated(_isDarkMode),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),
               side: BorderSide(color: Colors.white.withOpacity(0.1)),
@@ -1391,7 +1407,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
                   child: const Icon(Icons.edit_rounded, color: Color(0xFF818CF8), size: 20),
                 ),
                 const SizedBox(width: 12),
-                const Text('Edit Account', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Edit Account', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode), fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
             content: SingleChildScrollView(
@@ -1581,22 +1597,22 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         return FutureBuilder<List<dynamic>>(
           future: _database.query('accounts'),
           builder: (context, snapshot) {
-            if (snapshot.hasError) return Container(color: const Color(0xFF18181B), child: Center(child: Text(snapshot.error.toString(), style: const TextStyle(color: Colors.red))));
+            if (snapshot.hasError) return Container(color: MoneTheme.bgElevated(_isDarkMode), child: Center(child: Text(snapshot.error.toString(), style: const TextStyle(color: Colors.red))));
             final accs = snapshot.data ?? [];
             return Container(
               height: MediaQuery.of(context).size.height * 0.88,
               padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 28),
-              decoration: BoxDecoration(color: const Color(0xFF12141D), borderRadius: const BorderRadius.vertical(top: Radius.circular(36)), border: Border.all(color: Colors.white.withOpacity(0.08))),
+              decoration: BoxDecoration(color: MoneTheme.bgElevated(_isDarkMode), borderRadius: const BorderRadius.vertical(top: Radius.circular(36)), border: Border.all(color: MoneTheme.cardBorder(_isDarkMode))),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Bank & Wallets', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                          Text('Bank & Wallets', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode), fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                           SizedBox(height: 2),
                           Text('Connect & manage your accounts', style: TextStyle(color: Colors.grey, fontSize: 12)),
                         ],
@@ -1884,7 +1900,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active goals to sweep to!')));
       return;
     }
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF18181B), builder: (ctx) => Container(
+    showModalBottomSheet(context: context, backgroundColor: MoneTheme.bgElevated(_isDarkMode), builder: (ctx) => Container(
       padding: const EdgeInsets.all(24),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Select Goal to Fund', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
@@ -1906,7 +1922,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
 
   void _showMonthEndResolutionModal(double difference, bool overspent, {String? periodKeyOverride}) {
     showDialog(barrierDismissible: false, context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF18181B),
+      backgroundColor: MoneTheme.bgElevated(_isDarkMode),
       title: Text(overspent ? 'Budget Exceeded!' : 'Budget Surplus!', style: TextStyle(color: overspent ? Colors.red : Colors.green)),
       content: Text(overspent ? 'You overspent your overall budget by ₹${difference.abs().toStringAsFixed(0)}. Please review your spending habits.' 
                               : 'You have ₹${difference.toStringAsFixed(0)} unspent budget left. What would you like to do?', style: const TextStyle(color: Colors.white)),
@@ -1936,11 +1952,11 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
   void _showEditProfileModal() {
     TextEditingController ctrl = TextEditingController(text: _userName);
     showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF18181B),
-      title: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+      backgroundColor: MoneTheme.bgElevated(_isDarkMode),
+      title: Text('Edit Profile', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode))),
       content: TextField(
         controller: ctrl,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode)),
         decoration: InputDecoration(
           labelText: 'Your Name', labelStyle: const TextStyle(color: Colors.grey),
           enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white.withOpacity(0.3))),
@@ -1953,6 +1969,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
           if (ctrl.text.trim().isNotEmpty) {
             await _database.insert('user_profile', {'key': 'name', 'value': ctrl.text.trim()}, conflictAlgorithm: ConflictAlgorithm.replace);
             setState(() => _userName = ctrl.text.trim());
+            await _database.update('family_members', {'name': ctrl.text.trim()}, where: 'role = ?', whereArgs: ['Primary']);
           }
           Navigator.pop(ctx);
         }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)), child: const Text('Save'))
@@ -2013,17 +2030,21 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
     final List<Widget> _screens = [
       DashboardScreen(
         database: _database,
-        onAddRequested: _showAddTransactionModal,
-        onTransactionChanged: () => setState(() {}),
-        timePeriod: _timePeriod,
-        userName: _userName,
-        onManageAccountsRequested: _showManageAccountsModal,
-        onNavigateTab: (idx) => setState(() => _selectedIndex = idx),
-        onRefreshRequested: _manualSyncSms,
-        onSetTotalBudget: _showSetTotalBudgetModal,
         isDark: _isDarkMode,
+        userName: _userName,
         profilePhotoFile: _profilePhotoFile,
         onProfileTap: () => setState(() => _selectedIndex = 3),
+        onToggleTheme: () => _toggleDarkMode(!_isDarkMode),
+        onOpenMenu: _showQuickControlMenuSheet,
+        onNavigateTab: (idx) => setState(() => _selectedIndex = idx),
+        onAddTransaction: ({Map<String, dynamic>? existingTx, int? memberId}) {
+          _showAddTransactionModal(existingTx: existingTx, defaultMemberId: memberId);
+        },
+        onOpenManageFamily: _showManageFamilyModal,
+        onOpenManageAccounts: _showManageAccountsModal,
+        onOpenAllTransactions: () => _showAllTransactionsModal(context),
+        onOpenSetBudget: _showSetTotalBudgetModal,
+        onRefreshRequested: _manualSyncSms,
       ),
       ModernAnalyticsScreen(
         database: _database,
@@ -2049,6 +2070,7 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         onGoalEdit: (g) => _showSetGoalModal(existingGoal: g),
         onManageCategories: _showManageCategoriesModal,
         onManageAccounts: _showManageAccountsModal,
+        onOpenManageFamily: _showManageFamilyModal,
         userName: _userName,
         onEditProfile: _showEditProfileModal,
         isBiometricEnabled: _isBiometricEnabled,
@@ -2465,914 +2487,6 @@ class InteractiveCardStack extends StatelessWidget {
   }
 }
 
-class DashboardScreen extends StatelessWidget {
-  final Database database;
-  final Function({Map<String, dynamic>? existingTx}) onAddRequested;
-  final VoidCallback onTransactionChanged;
-  final String timePeriod;
-  final String userName;
-  final VoidCallback onManageAccountsRequested;
-  final Function(int) onNavigateTab;
-  final Future<void> Function() onRefreshRequested;
-  final VoidCallback onSetTotalBudget;
-  final bool isDark;
-  final File? profilePhotoFile;
-  final VoidCallback? onProfileTap;
-
-  const DashboardScreen({
-    Key? key,
-    required this.database,
-    required this.onAddRequested,
-    required this.onTransactionChanged,
-    required this.timePeriod,
-    required this.userName,
-    required this.onManageAccountsRequested,
-    required this.onNavigateTab,
-    required this.onRefreshRequested,
-    required this.onSetTotalBudget,
-    this.isDark = true,
-    this.profilePhotoFile,
-    this.onProfileTap,
-  }) : super(key: key);
-
-  String _getGreeting() {
-    int hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning,';
-    if (hour < 17) return 'Good Afternoon,';
-    if (hour < 21) return 'Good Evening,';
-    return 'Good Night,';
-  }
-
-  void _showQuickReviewSheet(BuildContext context, Map<String, dynamic> tx, Map<dynamic, dynamic> accountMap) {
-    HapticFeedback.mediumImpact();
-    final amt = (tx['amount'] as num).toDouble();
-    final txId = tx['id'] as int;
-    final String type = tx['type'] as String;
-    final int? accId = tx['account_id'] as int?;
-    String accName = 'Account';
-    if (accId != null && accountMap.containsKey(accId)) {
-      final a = accountMap[accId]!;
-      accName = a['name'] ?? 'Account';
-      if (a['account_number'] != null && a['account_number'].toString().isNotEmpty) {
-        accName += ' (•• ${a['account_number']})';
-      }
-    }
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 34),
-          decoration: BoxDecoration(
-            color: const Color(0xFF13151F),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 42, height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B), size: 14),
-                        SizedBox(width: 4),
-                        Text('SMS AUTO-SYNCED', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
-                      ],
-                    ),
-                  ),
-                  Text(accName, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w600)),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(tx['merchant'] ?? 'Transaction', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('₹${amt.toStringAsFixed(2)} • ${tx['category']}', style: TextStyle(color: type == 'INCOME' ? const Color(0xFF10B981) : Colors.white70, fontSize: 16, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 24),
-              const Text('Confirm or Reclassify with 1-Tap:', style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-              const SizedBox(height: 12),
-              
-              // 1. Confirm Option
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), shape: BoxShape.circle),
-                  child: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 20),
-                ),
-                title: Text(type == 'INCOME' ? 'Confirm as Income' : 'Confirm as Expense', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: Text('Keep ₹${amt.toStringAsFixed(0)} logged to ${tx['category']}', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11)),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  await database.update('transactions', {'needs_review': 0}, where: 'id = ?', whereArgs: [txId]);
-                  Navigator.pop(ctx);
-                  onTransactionChanged();
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // 2. Transfer / Move Option
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF3B82F6).withOpacity(0.15), shape: BoxShape.circle),
-                  child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF3B82F6), size: 20),
-                ),
-                title: const Text('Move / Transfer Between Accounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Reclassify as transfer without affecting spending budget', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  if (accId != null && type == 'INCOME') {
-                    final accs = await database.query('accounts', where: 'id = ?', whereArgs: [accId]);
-                    if (accs.isNotEmpty) {
-                      double bal = (accs.first['balance'] as num).toDouble();
-                      await database.update('accounts', {'balance': bal - amt}, where: 'id = ?', whereArgs: [accId]);
-                    }
-                  }
-                  await database.update('transactions', {
-                    'type': 'TRANSFER_OUT',
-                    'category': 'Transfer Out',
-                    'needs_review': 0,
-                  }, where: 'id = ?', whereArgs: [txId]);
-                  Navigator.pop(ctx);
-                  onTransactionChanged();
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // 3. Switch Direction (Expense <-> Income)
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withOpacity(0.15), shape: BoxShape.circle),
-                  child: Icon(type == 'INCOME' ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, color: const Color(0xFF8B5CF6), size: 20),
-                ),
-                title: Text(type == 'INCOME' ? 'Switch to Expense' : 'Switch to Income', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Correct transaction flow and account balance', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  String newType = type == 'INCOME' ? 'EXPENSE' : 'INCOME';
-                  String newCat = newType == 'INCOME' ? 'Salary' : 'Other';
-                  if (accId != null) {
-                    final accs = await database.query('accounts', where: 'id = ?', whereArgs: [accId]);
-                    if (accs.isNotEmpty) {
-                      double bal = (accs.first['balance'] as num).toDouble();
-                      double newBal = newType == 'INCOME' ? bal + (2 * amt) : bal - (2 * amt);
-                      await database.update('accounts', {'balance': newBal}, where: 'id = ?', whereArgs: [accId]);
-                    }
-                  }
-                  await database.update('transactions', {
-                    'type': newType,
-                    'category': newCat,
-                    'needs_review': 0,
-                  }, where: 'id = ?', whereArgs: [txId]);
-                  Navigator.pop(ctx);
-                  onTransactionChanged();
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // 4. Edit full details
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.08))),
-                tileColor: Colors.white.withOpacity(0.04),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.edit_rounded, color: Colors.white70, size: 20),
-                ),
-                title: const Text('Edit Full Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Change merchant, custom category, or account', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onAddRequested(existingTx: tx);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    List<String> range = getDateRange(timePeriod);
-    DateTime now = DateTime.now();
-    int daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-    int daysRemaining = (daysInMonth - now.day + 1).clamp(1, 31);
-
-    return FutureBuilder<List<dynamic>>(
-      future: Future.wait([
-        database.query('transactions', orderBy: 'id DESC'), 
-        database.query('transactions', where: 'type = ? AND date >= ? AND date < ?', whereArgs: ['EXPENSE', range[0], range[1]]), 
-        database.query('settings'),
-        database.query('accounts'),
-      ]),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
-        final allTxs = snapshot.data![0];
-        final periodExpenses = snapshot.data![1];
-        final settings = snapshot.data![2];
-        final accounts = snapshot.data![3];
-
-        double periodSpent = 0;
-        for (var e in periodExpenses) periodSpent += (e['amount'] as num).toDouble();
-        
-        double baseBudget = 0;
-        double initialSpent = 0.0;
-        int initialSpentYear = 0;
-        int initialSpentMonth = 0;
-
-        for (var s in settings) {
-          if (s['key'] == 'total_budget') baseBudget = (s['value'] as num).toDouble();
-          if (s['key'] == 'initial_month_spent') initialSpent = (s['value'] as num).toDouble();
-          if (s['key'] == 'initial_month_spent_year') initialSpentYear = (s['value'] as num).toInt();
-          if (s['key'] == 'initial_month_spent_month') initialSpentMonth = (s['value'] as num).toInt();
-        }
-
-        double activeInitialSpent = 0.0;
-        if (timePeriod == 'Monthly' && initialSpentYear == now.year && initialSpentMonth == now.month) {
-          activeInitialSpent = initialSpent;
-        } else if (timePeriod == 'Yearly' && initialSpentYear == now.year) {
-          activeInitialSpent = initialSpent;
-        }
-
-        double effectiveSpent = periodSpent + activeInitialSpent;
-        double unspentBudget = baseBudget - effectiveSpent;
-        double safeDailyAllowance = (unspentBudget > 0 ? (unspentBudget / daysRemaining) : 0.0);
-
-        List<CardInfo> stackCards = [];
-        double totalBalance = 0.0;
-        
-        Map<int, double> computedBalances = {};
-        for (var acc in accounts) {
-           int id = acc['id'] as int;
-           computedBalances[id] = (acc['initial_balance'] as num?)?.toDouble() ?? (acc['balance'] as num?)?.toDouble() ?? 0.0;
-        }
-        for (var t in allTxs) {
-           int? accId = t['account_id'] as int?;
-           if (accId != null && computedBalances.containsKey(accId)) {
-               double amt = (t['amount'] as num).toDouble();
-               if (t['type'] == 'INCOME' || t['type'] == 'TRANSFER_IN') computedBalances[accId] = computedBalances[accId]! + amt;
-               else if (t['type'] == 'EXPENSE' || t['type'] == 'TRANSFER_OUT') computedBalances[accId] = computedBalances[accId]! - amt;
-           }
-        }
-        
-        for (var acc in accounts) {
-          int include = (acc['include_in_total'] as int?) ?? 1;
-          double bal = computedBalances[acc['id'] as int] ?? 0.0;
-          if (include == 1) {
-            totalBalance += bal;
-          }
-        }
-        
-        String formattedTotal = totalBalance < 0 ? '-₹ ${totalBalance.abs().toStringAsFixed(0)}' : '₹ ${totalBalance.toStringAsFixed(0)}';
-        
-        // Map accounts for instant lookup
-        Map<int, Map<String, dynamic>> accountMap = {};
-        for (var acc in accounts) {
-          accountMap[acc['id'] as int] = acc;
-        }
-
-        // Card 1: Executive Titanium Net Worth Card
-        stackCards.add(CardInfo(
-          title: 'Total Liquid Assets',
-          amount: formattedTotal,
-          subtitle: 'MONE • 8820',
-          network: 'PLATINUM OS',
-          startColor: const Color(0xFF1E212B),
-          endColor: const Color(0xFF0F1117),
-          icon: Icons.shield_rounded,
-          cardHolder: userName.isNotEmpty ? userName.toUpperCase() : 'USER',
-          bankBadge: const Icon(Icons.all_inclusive_rounded, color: Colors.white70, size: 20),
-          onTap: onManageAccountsRequested,
-        ));
-        
-        // Card 2+: Authentic Indian Bank Cards
-        for (var acc in accounts) {
-          double bal = computedBalances[acc['id'] as int] ?? 0.0;
-          bool isCash = acc['type'] == 'CASH';
-          String bankName = acc['bank_name']?.toString() ?? '';
-          String bankCode = acc['bank_code']?.toString() ?? '';
-          BankInfo bank = isCash
-              ? IndianBankDirectory.getBankById('cash')
-              : IndianBankDirectory.findBankByName(bankCode.isNotEmpty ? bankCode : bankName);
-          String accNum = acc['account_number']?.toString() ?? '';
-          String cleanAccNum = accNum.isNotEmpty ? '•••• $accNum' : (isCash ? 'WALLET CASH' : '•••• 0000');
-          String title = isCash ? '${acc['name']} Wallet' : '${acc['name']} (${bank.shortName})';
-          
-          stackCards.add(CardInfo(
-            title: title,
-            amount: '₹ ${bal.toStringAsFixed(0)}',
-            subtitle: cleanAccNum,
-            network: isCash ? 'CASH LEDGER' : bank.defaultCardNetwork,
-            startColor: bank.gradientColors.first,
-            endColor: bank.gradientColors.last,
-            icon: isCash ? Icons.payments_rounded : Icons.account_balance_rounded,
-            cardHolder: userName.isNotEmpty ? userName.toUpperCase() : 'USER',
-            bankBadge: bank.buildBadge(size: 26, showBorder: false),
-            onTap: onManageAccountsRequested,
-          ));
-        }
-
-        List<AppleWalletCardItem> appleWalletCards = [];
-        for (var acc in accounts) {
-          double bal = computedBalances[acc['id'] as int] ?? 0.0;
-          var copy = Map<String, dynamic>.from(acc);
-          copy['balance'] = bal;
-          appleWalletCards.add(AppleWalletCardItem.fromMap(copy));
-        }
-
-        return RefreshIndicator(
-          onRefresh: onRefreshRequested,
-          color: MoneTheme.primaryBlue,
-          backgroundColor: MoneTheme.cardBg(isDark),
-          displacement: 40,
-          strokeWidth: 2.5,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-            padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Formal Executive Header with User Avatar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: onProfileTap,
-                          child: Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: MoneTheme.primaryBlue.withOpacity(0.4),
-                                width: 1.5,
-                              ),
-                              image: profilePhotoFile != null
-                                  ? DecorationImage(image: FileImage(profilePhotoFile!), fit: BoxFit.cover)
-                                  : null,
-                              color: MoneTheme.primaryBlue.withOpacity(0.12),
-                            ),
-                            child: profilePhotoFile == null
-                                ? Center(
-                                    child: Text(
-                                      userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
-                                      style: const TextStyle(
-                                        color: MoneTheme.primaryBlue,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                  )
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getGreeting(),
-                              style: TextStyle(
-                                color: MoneTheme.textSecondary(isDark),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              '$userName 👋',
-                              style: TextStyle(
-                                color: MoneTheme.textPrimary(isDark),
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: MoneTheme.badgeGreenBg,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: MoneTheme.badgeGreenBorder),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.circle, color: MoneTheme.badgeGreenText, size: 6),
-                              SizedBox(width: 6),
-                              Text(
-                                'LIVE SYNC',
-                                style: TextStyle(
-                                  color: MoneTheme.badgeGreenText,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Image.asset('assets/mone_logo.png', width: 36, height: 36),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-
-                // Dual KPI Cards (Net Balance & Monthly Spent)
-                DualKpiCards(
-                  totalBalance: totalBalance,
-                  monthlySpent: effectiveSpent,
-                  monthlyBudget: baseBudget,
-                  isDark: isDark,
-                  onBalanceTap: onManageAccountsRequested,
-                  onBudgetTap: onSetTotalBudget,
-                ),
-                const SizedBox(height: 20),
-
-                // Apple Wallet Interactive Card Stack
-                AppleWalletCardsSection(
-                  accounts: appleWalletCards,
-                  isDark: isDark,
-                  onCardTap: (card) {
-                    onManageAccountsRequested();
-                  },
-                  onAddAccount: onManageAccountsRequested,
-                ),
-                const SizedBox(height: 20),
-
-                // Formal 4-Action Fintech Dock
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                  decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildQuickAction(
-                        icon: Icons.add_circle_outline_rounded,
-                        label: 'Record',
-                        isDark: isDark,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          onAddRequested();
-                        },
-                      ),
-                      _buildQuickAction(
-                        icon: Icons.sync_alt_rounded,
-                        label: 'Transfer',
-                        isDark: isDark,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          onAddRequested(existingTx: {'type': 'TRANSFER'});
-                        },
-                      ),
-                      _buildQuickAction(
-                        icon: Icons.account_balance_wallet_outlined,
-                        label: 'Accounts',
-                        isDark: isDark,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          onManageAccountsRequested();
-                        },
-                      ),
-                      _buildQuickAction(
-                        icon: Icons.insights_rounded,
-                        label: 'Analytics',
-                        isDark: isDark,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          onNavigateTab(1);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Feature Showcase Strip: Indian Bank SMS & Active Protection
-                Container(
-                  margin: const EdgeInsets.only(top: 14),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: MoneTheme.badgeGreenBg,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.sensors_rounded, color: MoneTheme.badgeGreenText, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Text(
-                                  'AUTO-READING BANK SMS',
-                                  style: TextStyle(
-                                    color: MoneTheme.badgeGreenText,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Icon(Icons.check_circle_rounded, color: MoneTheme.badgeGreenText, size: 12),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Active for SBI, HDFC, ICICI, Axis & 25+ Indian Banks',
-                              style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                      InkWell(
-                        onTap: onManageAccountsRequested,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'BANKS',
-                            style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-
-                // Formal Adaptive Daily Pacer & Budget Status Card
-                InkWell(
-                  borderRadius: BorderRadius.circular(24),
-                  onTap: onSetTotalBudget,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(22),
-                    decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: MoneTheme.primaryBlue.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(Icons.speed_rounded, color: MoneTheme.primaryBlue, size: 20),
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          'DAILY SAFE SPENDING PACER',
-                                          style: TextStyle(color: MoneTheme.primaryBlue, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Icon(Icons.edit_rounded, color: MoneTheme.primaryBlue.withOpacity(0.6), size: 12),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
-                                      style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.w900),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                if (activeInitialSpent > 0)
-                                  Container(
-                                    margin: const EdgeInsets.only(right: 6),
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: MoneTheme.badgeAmberBg,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: MoneTheme.badgeAmberBorder),
-                                    ),
-                                    child: Text(
-                                      '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
-                                      style: const TextStyle(color: MoneTheme.badgeAmberText, fontSize: 10, fontWeight: FontWeight.w800),
-                                    ),
-                                  ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '$daysRemaining d left',
-                                    style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
-                            backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
-                            color: unspentBudget < 0 ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText,
-                            minHeight: 10,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
-                              style: TextStyle(
-                                color: unspentBudget < 0 ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              activeInitialSpent > 0
-                                  ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
-                                  : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
-                              style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 12, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 26),
-
-                // Recent Transactions Feed
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Recent Activity', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('${allTxs.length} items', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                if (allTxs.isEmpty) Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Text("No records yet.", style: TextStyle(color: MoneTheme.textMuted(isDark))),
-                  ),
-                ),
-                ...allTxs.take(15).toList().map((tx) {
-                  DateTime d = DateTime.parse(tx['date']);
-                  String dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
-                  return Dismissible(
-                    key: Key(tx['id'].toString()),
-                    background: Container(alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 20), margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.red.withOpacity(0.5), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.delete, color: Colors.white)),
-                    secondaryBackground: Container(alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.green.withOpacity(0.5), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.edit, color: Colors.white)),
-                    confirmDismiss: (dir) async {
-                      if (dir == DismissDirection.startToEnd) {
-                        HapticFeedback.heavyImpact();
-                        await database.delete('transactions', where: 'id = ?', whereArgs: [tx['id']]);
-                        onTransactionChanged();
-                        return true;
-                      } else {
-                        HapticFeedback.lightImpact();
-                        onAddRequested(existingTx: tx);
-                        return false;
-                      }
-                    },
-                    child: GestureDetector(
-                      onTap: () {
-                        if (tx['needs_review'] == 1) {
-                          _showQuickReviewSheet(context, tx, accountMap);
-                        } else {
-                          onAddRequested(existingTx: tx);
-                        }
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: MoneTheme.cardBg(isDark),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: tx['needs_review'] == 1 ? MoneTheme.badgeAmberBorder : MoneTheme.cardBorder(isDark),
-                            width: tx['needs_review'] == 1 ? 1.2 : 1.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: getCategoryColor(tx['category']).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(getCategoryIcon(tx['category']), color: getCategoryColor(tx['category']), size: 20),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          tx['merchant'],
-                                          style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold, fontSize: 15),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (tx['needs_review'] == 1) ...[
-                                        GestureDetector(
-                                          onTap: () => _showQuickReviewSheet(context, tx, accountMap),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: MoneTheme.badgeAmberBg,
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: MoneTheme.badgeAmberBorder, width: 0.8),
-                                            ),
-                                            child: const Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.bolt_rounded, color: MoneTheme.badgeAmberText, size: 10),
-                                                SizedBox(width: 3),
-                                                Text(
-                                                  'REVIEW',
-                                                  style: TextStyle(
-                                                    color: MoneTheme.badgeAmberText,
-                                                    fontSize: 8.5,
-                                                    fontWeight: FontWeight.w900,
-                                                    letterSpacing: 0.5,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    children: [
-                                      if (accountMap.containsKey(tx['account_id'])) ...[
-                                        Builder(builder: (context) {
-                                          final txAcc = accountMap[tx['account_id']]!;
-                                          BankInfo b = IndianBankDirectory.findBankByName(
-                                            txAcc['bank_code'] ?? txAcc['bank_name'] ?? (txAcc['type'] == 'CASH' ? 'cash' : ''),
-                                          );
-                                          return Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                            margin: const EdgeInsets.only(right: 6),
-                                            decoration: BoxDecoration(
-                                              color: b.accentColor.withOpacity(0.18),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              b.shortName,
-                                              style: TextStyle(color: b.accentColor, fontSize: 9, fontWeight: FontWeight.w900),
-                                            ),
-                                          );
-                                        }),
-                                      ],
-                                      Text('${tx['category']} • $dateStr', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${tx['type'] == 'INCOME' ? '+' : '-'}₹${tx['amount']}',
-                              style: TextStyle(
-                                color: tx['type'] == 'INCOME' ? MoneTheme.badgeGreenText : MoneTheme.textPrimary(isDark),
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildQuickAction({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isDark = true,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
-              shape: BoxShape.circle,
-              border: Border.all(color: MoneTheme.cardBorder(isDark)),
-            ),
-            child: Icon(icon, color: MoneTheme.textPrimary(isDark), size: 22),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: MoneTheme.textSecondary(isDark),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ---------------------------------------------------------
 // ANALYTICS & BUDGETS
 // ---------------------------------------------------------
@@ -3605,6 +2719,7 @@ class ProfileScreen extends StatelessWidget {
   final Function(Map<String, dynamic>) onGoalEdit;
   final VoidCallback onManageCategories;
   final VoidCallback onManageAccounts;
+  final VoidCallback onOpenManageFamily;
   final String userName;
   final VoidCallback onEditProfile;
   final bool isBiometricEnabled;
@@ -3629,6 +2744,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onGoalEdit,
     required this.onManageCategories,
     required this.onManageAccounts,
+    required this.onOpenManageFamily,
     required this.userName,
     required this.onEditProfile,
     required this.isBiometricEnabled,
@@ -3647,17 +2763,17 @@ class ProfileScreen extends StatelessWidget {
     String? selectedPeriod = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF18181B),
-        title: const Text('Export Data', style: TextStyle(color: Colors.white)),
+        backgroundColor: MoneTheme.bgElevated(isDark),
+        title: Text('Export Data', style: TextStyle(color: MoneTheme.textPrimary(isDark))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Choose a time period to export:', style: TextStyle(color: Colors.white70)),
+            Text('Choose a time period to export:', style: TextStyle(color: MoneTheme.textSecondary(isDark))),
             const SizedBox(height: 16),
-            ListTile(title: const Text('Last 1 Month', style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(ctx, '1M')),
-            ListTile(title: const Text('Last 3 Months', style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(ctx, '3M')),
-            ListTile(title: const Text('Last 6 Months', style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(ctx, '6M')),
-            ListTile(title: const Text('All Time', style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(ctx, 'ALL')),
+            ListTile(title: Text('Last 1 Month', style: TextStyle(color: MoneTheme.textPrimary(isDark))), onTap: () => Navigator.pop(ctx, '1M')),
+            ListTile(title: Text('Last 3 Months', style: TextStyle(color: MoneTheme.textPrimary(isDark))), onTap: () => Navigator.pop(ctx, '3M')),
+            ListTile(title: Text('Last 6 Months', style: TextStyle(color: MoneTheme.textPrimary(isDark))), onTap: () => Navigator.pop(ctx, '6M')),
+            ListTile(title: Text('All Time', style: TextStyle(color: MoneTheme.textPrimary(isDark))), onTap: () => Navigator.pop(ctx, 'ALL')),
           ],
         ),
       ),
@@ -3697,9 +2813,9 @@ class ProfileScreen extends StatelessWidget {
       bool? doDelete = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF18181B),
-          title: const Text('Purge Exported Data?', style: TextStyle(color: Colors.white)),
-          content: const Text('Would you like to delete these exported transactions from the app to save space?\n\nYour Account Balances will NOT be affected and will remain perfectly accurate!', style: TextStyle(color: Colors.white70)),
+          backgroundColor: MoneTheme.bgElevated(isDark),
+          title: Text('Purge Exported Data?', style: TextStyle(color: MoneTheme.textPrimary(isDark))),
+          content: Text('Would you like to delete these exported transactions from the app to save space?\n\nYour Account Balances will NOT be affected and will remain perfectly accurate!', style: TextStyle(color: MoneTheme.textSecondary(isDark))),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Data', style: TextStyle(color: Colors.grey))),
             TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete Data', style: TextStyle(color: Colors.redAccent))),
@@ -3936,6 +3052,34 @@ class ProfileScreen extends StatelessWidget {
                       activeColor: Colors.cyanAccent,
                     ),
                   ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Household & Family Multi-Member Architecture (Option A)
+              Text(
+                'HOUSEHOLD & FAMILY',
+                style: TextStyle(
+                  color: MoneTheme.textMuted(isDark),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                child: ListTile(
+                  onTap: onOpenManageFamily,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFF0284C7).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.family_restroom_rounded, color: Color(0xFF0284C7), size: 20),
+                  ),
+                  title: Text('Family & Household Members', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                  subtitle: Text('Manage multi-member roles, allowances & cards', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
                 ),
               ),
 
