@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:sqflite/sqflite.dart';
 import '../services/analytics_service.dart';
+import '../theme/mone_theme.dart';
+import '../widgets/month_picker_sheet.dart';
 
 class ModernAnalyticsScreen extends StatefulWidget {
   final Database database;
@@ -222,6 +224,18 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
 
   Widget _buildTimeHorizonSelector() {
     final horizons = ['This Month', 'Last 30D', 'YTD'];
+    final bool isCustomSelected = _customMonth != null;
+
+    String customLabel = 'Month';
+    if (isCustomSelected) {
+      final parts = _customMonth!.split('-');
+      if (parts.length == 2) {
+        final m = int.tryParse(parts[1]) ?? 1;
+        const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        customLabel = '${shortMonths[m - 1]} \'${parts[0].substring(2)}';
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -230,27 +244,86 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Row(
-        children: horizons.map((h) {
-          final isSelected = _timeHorizon == h && _customMonth == null;
-          return Expanded(
+        children: [
+          ...horizons.map((h) {
+            final isSelected = _timeHorizon == h && _customMonth == null;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _timeHorizon = h;
+                    _customMonth = null;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? MoneTheme.primaryBlue : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: MoneTheme.primaryBlue.withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            )
+                          ]
+                        : [],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    h,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+
+          // Month Picker Capsule
+          Expanded(
             child: GestureDetector(
               onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  _timeHorizon = h;
-                  _customMonth = null;
-                });
+                HapticFeedback.lightImpact();
+                DateTime initial = DateTime.now();
+                if (_customMonth != null) {
+                  final parts = _customMonth!.split('-');
+                  if (parts.length == 2) {
+                    initial = DateTime(int.parse(parts[0]), int.parse(parts[1]), 1);
+                  }
+                }
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (ctx) => MonthPickerSheet(
+                    selectedDate: initial,
+                    isDark: true,
+                    onMonthSelected: (picked) {
+                      setState(() {
+                        _customMonth = '${picked.year}-${picked.month.toString().padLeft(2, '0')}';
+                        _timeHorizon = 'Custom';
+                      });
+                    },
+                  ),
+                );
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF6366F1) : Colors.transparent,
+                  color: isCustomSelected ? MoneTheme.primaryBlue : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: isSelected
+                  boxShadow: isCustomSelected
                       ? [
                           BoxShadow(
-                            color: Color(0xFF6366F1).withOpacity(0.4),
+                            color: MoneTheme.primaryBlue.withOpacity(0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           )
@@ -258,18 +331,29 @@ class _ModernAnalyticsScreenState extends State<ModernAnalyticsScreen> {
                       : [],
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  h,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    fontSize: 13,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.calendar_month_rounded,
+                      size: 13,
+                      color: isCustomSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      customLabel,
+                      style: TextStyle(
+                        color: isCustomSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                        fontWeight: isCustomSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          );
-        }).toList(),
+          ),
+        ],
       ),
     );
   }

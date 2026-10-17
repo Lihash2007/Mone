@@ -3,23 +3,28 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'dart:ui';
-import 'dart:math' as math;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:telephony/telephony.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/services.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'screens/analytics_screen.dart';
+import 'screens/cards_screen.dart';
 import 'services/indian_banks.dart';
 import 'services/sms_parser.dart';
+import 'theme/mone_theme.dart';
+import 'widgets/biometric_lock_overlay.dart';
+import 'widgets/apple_wallet_stack.dart';
+import 'widgets/floating_capsule_dock.dart';
+import 'widgets/kpi_cards.dart';
 
 int? smartAccountMatch(String text, List<Map<String, dynamic>> accountsData, {String? senderAddress}) {
   return IndianBankDirectory.matchAccountFromSms(
@@ -350,7 +355,30 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     } catch (_) {}
   }
 
-  bool _ambientAnimations = true;
+  bool _isDarkMode = true;
+  File? _profilePhotoFile;
+  bool _isUnlockingTransition = false;
+
+  Future<void> _pickProfilePhoto() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600, maxHeight: 600);
+      if (image != null) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final savedImage = await File(image.path).copy(p.join(appDir.path, 'profile_avatar.jpg'));
+        await _database.insert('user_profile', {'key': 'profile_photo_path', 'value': savedImage.path}, conflictAlgorithm: ConflictAlgorithm.replace);
+        if (mounted) setState(() => _profilePhotoFile = savedImage);
+      }
+    } catch (e) {
+      debugPrint("Image picker error: $e");
+    }
+  }
+
+  Future<void> _toggleDarkMode(bool val) async {
+    await _database.insert('user_profile', {'key': 'dark_mode', 'value': val ? 'true' : 'false'}, conflictAlgorithm: ConflictAlgorithm.replace);
+    if (mounted) setState(() => _isDarkMode = val);
+  }
+
   late AnimationController _ambientController;
   bool _showIsland = false;
   Map<String, dynamic>? _lastIslandTx;
@@ -538,6 +566,19 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     var autoSmsRes = await _database.query('user_profile', where: 'key = ?', whereArgs: ['auto_sms']);
     if (autoSmsRes.isNotEmpty && autoSmsRes.first['value'] == 'true') {
       _isAutoSmsEnabled = true;
+    }
+
+    var darkRes = await _database.query('user_profile', where: 'key = ?', whereArgs: ['dark_mode']);
+    if (darkRes.isNotEmpty) {
+      _isDarkMode = darkRes.first['value'] != 'false';
+    }
+
+    var photoRes = await _database.query('user_profile', where: 'key = ?', whereArgs: ['profile_photo_path']);
+    if (photoRes.isNotEmpty && photoRes.first['value'] != null) {
+      final pFile = File(photoRes.first['value'].toString());
+      if (pFile.existsSync()) {
+        _profilePhotoFile = pFile;
+      }
     }
     
     _checkPendingResolutions();
@@ -1969,28 +2010,6 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
       );
     }
 
-    if (!_isAuthenticated) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock, size: 80, color: Colors.white.withOpacity(0.5)),
-              const SizedBox(height: 24),
-              const Text('mone is locked', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: _authenticate,
-                icon: const Icon(Icons.fingerprint, color: Colors.white),
-                label: const Text('Unlock with Biometrics', style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16)),
-              )
-            ],
-          ),
-        ),
-      );
-    }
-
     final List<Widget> _screens = [
       DashboardScreen(
         database: _database,
@@ -2002,17 +2021,44 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
         onNavigateTab: (idx) => setState(() => _selectedIndex = idx),
         onRefreshRequested: _manualSyncSms,
         onSetTotalBudget: _showSetTotalBudgetModal,
+        isDark: _isDarkMode,
+        profilePhotoFile: _profilePhotoFile,
+        onProfileTap: () => setState(() => _selectedIndex = 3),
       ),
-      ModernAnalyticsScreen(database: _database, initialTimePeriod: _timePeriod, onAddRequested: _showAddTransactionModal),
-      TrendsScreen(database: _database, onAddRequested: _showAddTransactionModal, onTransactionChanged: () => setState(() {})),
+      ModernAnalyticsScreen(
+        database: _database,
+        initialTimePeriod: _timePeriod,
+        onAddRequested: _showAddTransactionModal,
+      ),
+      CardsScreen(
+        database: _database,
+        isDark: _isDarkMode,
+        userName: _userName,
+        onAddAccountRequested: _showManageAccountsModal,
+        onEditAccountRequested: (acc) => _showEditAccountDialog(acc, setState),
+        onAddRequested: _showAddTransactionModal,
+        onTransactionChanged: () => setState(() {}),
+      ),
       ProfileScreen(
-        database: _database, currentPeriod: _timePeriod, onPeriodChanged: (val) => setState(() => _timePeriod = val),
-        onSetTotalBudget: _showSetTotalBudgetModal, onAddBudget: _showSetBudgetModal, onAddGoal: () => _showSetGoalModal(), onGoalEdit: (g) => _showSetGoalModal(existingGoal: g), onManageCategories: _showManageCategoriesModal, onManageAccounts: _showManageAccountsModal,
-        userName: _userName, onEditProfile: _showEditProfileModal,
+        database: _database,
+        currentPeriod: _timePeriod,
+        onPeriodChanged: (val) => setState(() => _timePeriod = val),
+        onSetTotalBudget: _showSetTotalBudgetModal,
+        onAddBudget: _showSetBudgetModal,
+        onAddGoal: () => _showSetGoalModal(),
+        onGoalEdit: (g) => _showSetGoalModal(existingGoal: g),
+        onManageCategories: _showManageCategoriesModal,
+        onManageAccounts: _showManageAccountsModal,
+        userName: _userName,
+        onEditProfile: _showEditProfileModal,
         isBiometricEnabled: _isBiometricEnabled,
         isAutoSmsEnabled: _isAutoSmsEnabled,
         isBatteryOptimizationIgnored: _isBatteryIgnored,
         onRequestBatteryOptimization: _requestBatteryOptimization,
+        isDark: _isDarkMode,
+        onToggleDarkMode: _toggleDarkMode,
+        profilePhotoFile: _profilePhotoFile,
+        onPickProfilePhoto: _pickProfilePhoto,
         onToggleBiometric: (val) async {
           if (val) {
              bool canCheck = await auth.canCheckBiometrics;
@@ -2048,21 +2094,35 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
 
     return Scaffold(
       extendBody: true,
-      backgroundColor: const Color(0xFF090A0E),
+      backgroundColor: MoneTheme.bgCanvas(_isDarkMode),
       body: Stack(
         children: [
+          // Background Canvas Gradient matching iOS Frost Light / Dark Midnight
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF13151F), Color(0xFF090A0E), Color(0xFF07080B)],
-                stops: [0.0, 0.45, 1.0],
+            decoration: BoxDecoration(
+              gradient: MoneTheme.bgCanvasGradient(_isDarkMode),
+            ),
+          ),
+
+          // Main App Content with 3D Spatial Scale Surge & Smooth Transition
+          AnimatedScale(
+            scale: (!_isBiometricEnabled || _isAuthenticated || _isUnlockingTransition) ? 1.0 : 0.88,
+            duration: const Duration(milliseconds: 520),
+            curve: Curves.easeOutBack,
+            child: AnimatedOpacity(
+              opacity: (!_isBiometricEnabled || _isAuthenticated || _isUnlockingTransition) ? 1.0 : 0.05,
+              duration: const Duration(milliseconds: 400),
+              child: SafeArea(
+                bottom: false,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _screens[_selectedIndex],
+                ),
               ),
             ),
           ),
-          SafeArea(bottom: false, child: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _screens[_selectedIndex])),
-          
+
+          // Dynamic Island Live SMS Feedback Banner
           AnimatedPositioned(
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeOutBack,
@@ -2091,71 +2151,35 @@ await _database.insert('transactions', { 'merchant': _merchantCtrl.text, 'catego
               ),
             ),
           ),
+
+          // Biometric Lock Overlay (shown when lock is active)
+          if (_isBiometricEnabled && !_isAuthenticated)
+            Positioned.fill(
+              child: BiometricLockOverlay(
+                isDark: _isDarkMode,
+                userName: _userName,
+                profilePhotoFile: _profilePhotoFile,
+                onBeginUnlock: () {
+                  setState(() => _isUnlockingTransition = true);
+                },
+                onFinishUnlock: () {
+                  setState(() {
+                    _isAuthenticated = true;
+                    _isUnlockingTransition = false;
+                  });
+                },
+              ),
+            ),
         ],
       ),
-      bottomNavigationBar: _buildFloatingBottomNav(),
-    );
-  }
-
-  Widget _buildFloatingBottomNav() {
-    return Container(
-      margin: const EdgeInsets.only(left: 24, right: 24, bottom: 20),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
-          child: Container(
-            height: 72,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF12141D).withOpacity(0.94),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.0),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 8))
-              ]
+      bottomNavigationBar: (_isBiometricEnabled && !_isAuthenticated)
+          ? const SizedBox.shrink()
+          : FloatingCapsuleDock(
+              selectedIndex: _selectedIndex,
+              isDark: _isDarkMode,
+              onTabSelected: (idx) => setState(() => _selectedIndex = idx),
+              onAddRequested: _showAddTransactionModal,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(Icons.account_balance_wallet_rounded, 0),
-                _buildNavItem(Icons.pie_chart_rounded, 1),
-                Container(
-                  width: 52, height: 52,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 14, offset: const Offset(0, 4))
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      _showAddTransactionModal();
-                    },
-                  ),
-                ),
-                _buildNavItem(Icons.bar_chart_rounded, 2),
-                _buildNavItem(Icons.settings_rounded, 3),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, int index) {
-    final isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      child: AnimatedContainer(duration: const Duration(milliseconds: 250), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: isSelected ? Colors.white.withOpacity(0.1) : Colors.transparent, shape: BoxShape.circle), child: Icon(icon, color: isSelected ? const Color(0xFF818CF8) : Colors.white.withOpacity(0.35), size: 26)),
     );
   }
 }
@@ -2451,6 +2475,9 @@ class DashboardScreen extends StatelessWidget {
   final Function(int) onNavigateTab;
   final Future<void> Function() onRefreshRequested;
   final VoidCallback onSetTotalBudget;
+  final bool isDark;
+  final File? profilePhotoFile;
+  final VoidCallback? onProfileTap;
 
   const DashboardScreen({
     Key? key,
@@ -2463,6 +2490,9 @@ class DashboardScreen extends StatelessWidget {
     required this.onNavigateTab,
     required this.onRefreshRequested,
     required this.onSetTotalBudget,
+    this.isDark = true,
+    this.profilePhotoFile,
+    this.onProfileTap,
   }) : super(key: key);
 
   String _getGreeting() {
@@ -2778,455 +2808,541 @@ class DashboardScreen extends StatelessWidget {
           ));
         }
 
+        List<AppleWalletCardItem> appleWalletCards = [];
+        for (var acc in accounts) {
+          double bal = computedBalances[acc['id'] as int] ?? 0.0;
+          var copy = Map<String, dynamic>.from(acc);
+          copy['balance'] = bal;
+          appleWalletCards.add(AppleWalletCardItem.fromMap(copy));
+        }
+
         return RefreshIndicator(
           onRefresh: onRefreshRequested,
-          color: const Color(0xFF6366F1),
-          backgroundColor: const Color(0xFF13151F),
+          color: MoneTheme.primaryBlue,
+          backgroundColor: MoneTheme.cardBg(isDark),
           displacement: 40,
           strokeWidth: 2.5,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
             padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Formal Executive Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Formal Executive Header with User Avatar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: onProfileTap,
+                          child: Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: MoneTheme.primaryBlue.withOpacity(0.4),
+                                width: 1.5,
+                              ),
+                              image: profilePhotoFile != null
+                                  ? DecorationImage(image: FileImage(profilePhotoFile!), fit: BoxFit.cover)
+                                  : null,
+                              color: MoneTheme.primaryBlue.withOpacity(0.12),
+                            ),
+                            child: profilePhotoFile == null
+                                ? Center(
+                                    child: Text(
+                                      userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
+                                      style: const TextStyle(
+                                        color: MoneTheme.primaryBlue,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getGreeting(),
+                              style: TextStyle(
+                                color: MoneTheme.textSecondary(isDark),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              '$userName 👋',
+                              style: TextStyle(
+                                color: MoneTheme.textPrimary(isDark),
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: MoneTheme.badgeGreenBg,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: MoneTheme.badgeGreenBorder),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle, color: MoneTheme.badgeGreenText, size: 6),
+                              SizedBox(width: 6),
+                              Text(
+                                'LIVE SYNC',
+                                style: TextStyle(
+                                  color: MoneTheme.badgeGreenText,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Image.asset('assets/mone_logo.png', width: 36, height: 36),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // Dual KPI Cards (Net Balance & Monthly Spent)
+                DualKpiCards(
+                  totalBalance: totalBalance,
+                  monthlySpent: effectiveSpent,
+                  monthlyBudget: baseBudget,
+                  isDark: isDark,
+                  onBalanceTap: onManageAccountsRequested,
+                  onBudgetTap: onSetTotalBudget,
+                ),
+                const SizedBox(height: 20),
+
+                // Apple Wallet Interactive Card Stack
+                AppleWalletCardsSection(
+                  accounts: appleWalletCards,
+                  isDark: isDark,
+                  onCardTap: (card) {
+                    onManageAccountsRequested();
+                  },
+                  onAddAccount: onManageAccountsRequested,
+                ),
+                const SizedBox(height: 20),
+
+                // Formal 4-Action Fintech Dock
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                  decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Text(_getGreeting(), style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 2),
-                      Text('$userName 👋', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                    ]
+                      _buildQuickAction(
+                        icon: Icons.add_circle_outline_rounded,
+                        label: 'Record',
+                        isDark: isDark,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          onAddRequested();
+                        },
+                      ),
+                      _buildQuickAction(
+                        icon: Icons.sync_alt_rounded,
+                        label: 'Transfer',
+                        isDark: isDark,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          onAddRequested(existingTx: {'type': 'TRANSFER'});
+                        },
+                      ),
+                      _buildQuickAction(
+                        icon: Icons.account_balance_wallet_outlined,
+                        label: 'Accounts',
+                        isDark: isDark,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          onManageAccountsRequested();
+                        },
+                      ),
+                      _buildQuickAction(
+                        icon: Icons.insights_rounded,
+                        label: 'Analytics',
+                        isDark: isDark,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          onNavigateTab(1);
+                        },
+                      ),
+                    ],
                   ),
-                  Row(
+                ),
+
+                // Feature Showcase Strip: Indian Bank SMS & Active Protection
+                Container(
+                  margin: const EdgeInsets.only(top: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                  child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: MoneTheme.badgeGreenBg,
+                          shape: BoxShape.circle,
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
+                        child: const Icon(Icons.sensors_rounded, color: MoneTheme.badgeGreenText, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.circle, color: Color(0xFF10B981), size: 7),
-                            SizedBox(width: 6),
-                            Text('LIVE SYNC', style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                            const Row(
+                              children: [
+                                Text(
+                                  'AUTO-READING BANK SMS',
+                                  style: TextStyle(
+                                    color: MoneTheme.badgeGreenText,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Icon(Icons.check_circle_rounded, color: MoneTheme.badgeGreenText, size: 12),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Active for SBI, HDFC, ICICI, Axis & 25+ Indian Banks',
+                              style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 11),
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Image.asset('assets/mone_logo.png', width: 40, height: 40),
-                    ],
-                  ),
-                ]
-              ),
-              const SizedBox(height: 18),
-
-              // Executive Card Carousel
-              HorizontalCardCarousel(cards: stackCards),
-              const SizedBox(height: 20),
-
-              // Formal 4-Action Fintech Dock
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF12141D),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildQuickAction(
-                      icon: Icons.add_circle_outline_rounded,
-                      label: 'Record',
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        onAddRequested();
-                      },
-                    ),
-                    _buildQuickAction(
-                      icon: Icons.sync_alt_rounded,
-                      label: 'Transfer',
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        onAddRequested(existingTx: {'type': 'TRANSFER'});
-                      },
-                    ),
-                    _buildQuickAction(
-                      icon: Icons.account_balance_wallet_outlined,
-                      label: 'Accounts',
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        onManageAccountsRequested();
-                      },
-                    ),
-                    _buildQuickAction(
-                      icon: Icons.insights_rounded,
-                      label: 'Analytics',
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        onNavigateTab(1);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              // Feature Showcase Strip: Indian Bank SMS & Active Protection
-              Container(
-                margin: const EdgeInsets.only(top: 14),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF131A29), Color(0xFF0F1420)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.sensors_rounded, color: Color(0xFF10B981), size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'AUTO-READING BANK SMS',
-                                style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8),
-                              ),
-                              SizedBox(width: 6),
-                              Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 12),
-                            ],
+                      InkWell(
+                        onTap: onManageAccountsRequested,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Active for SBI, HDFC, ICICI, Axis & 25+ Indian Banks',
-                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                          child: Text(
+                            'BANKS',
+                            style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 10, fontWeight: FontWeight.bold),
                           ),
-                        ],
-                      ),
-                    ),
-                    InkWell(
-                      onTap: onManageAccountsRequested,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text('BANKS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // Formal Adaptive Daily Pacer & Budget Status Card
-              InkWell(
-                borderRadius: BorderRadius.circular(24),
-                onTap: onSetTotalBudget,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF12141D),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))
-                    ]
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF6366F1).withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(Icons.speed_rounded, color: Color(0xFF818CF8), size: 20),
-                              ),
-                              const SizedBox(width: 10),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Text(
-                                        'DAILY SAFE SPENDING PACER',
-                                        style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Icon(Icons.edit_rounded, color: const Color(0xFF818CF8).withOpacity(0.6), size: 12),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
-                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              if (activeInitialSpent > 0)
-                                Container(
-                                  margin: const EdgeInsets.only(right: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
-                                  ),
-                                  child: Text(
-                                    '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
-                                    style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w800),
-                                  ),
-                                ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.06),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '$daysRemaining d left',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
-                          backgroundColor: Colors.white.withOpacity(0.06),
-                          color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                          minHeight: 10,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
-                            style: TextStyle(
-                              color: unspentBudget < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            activeInitialSpent > 0
-                                ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
-                                : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
-                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w500),
-                          ),
-                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 26),
+                const SizedBox(height: 18),
 
-              // Recent Transactions Feed
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Recent Activity', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text('${allTxs.length} items', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 14),
-              if (allTxs.isEmpty) Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Text("No records yet.", style: TextStyle(color: Colors.white.withOpacity(0.4))),
-                ),
-              ),
-              ...allTxs.take(15).toList().map((tx) {
-                DateTime d = DateTime.parse(tx['date']);
-                String dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
-                return Dismissible(
-                  key: Key(tx['id'].toString()),
-                  background: Container(alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 20), margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.red.withOpacity(0.5), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.delete, color: Colors.white)),
-                  secondaryBackground: Container(alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.green.withOpacity(0.5), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.edit, color: Colors.white)),
-                  confirmDismiss: (dir) async {
-                    if (dir == DismissDirection.startToEnd) {
-                      HapticFeedback.heavyImpact();
-                      await database.delete('transactions', where: 'id = ?', whereArgs: [tx['id']]);
-                      onTransactionChanged();
-                      return true;
-                    } else {
-                      HapticFeedback.lightImpact();
-                      onAddRequested(existingTx: tx);
-                      return false;
-                    }
-                  },
-                  child: GestureDetector(
-                    onTap: () {
-                      if (tx['needs_review'] == 1) {
-                        _showQuickReviewSheet(context, tx, accountMap);
-                      } else {
-                        onAddRequested(existingTx: tx);
-                      }
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF12141D),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: tx['needs_review'] == 1 ? const Color(0xFFF59E0B).withOpacity(0.35) : Colors.white.withOpacity(0.04),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: getCategoryColor(tx['category']).withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(getCategoryIcon(tx['category']), color: getCategoryColor(tx['category']), size: 20),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                // Formal Adaptive Daily Pacer & Budget Status Card
+                InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: onSetTotalBudget,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(22),
+                    decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        tx['merchant'],
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (tx['needs_review'] == 1) ...[
-                                      GestureDetector(
-                                        onTap: () => _showQuickReviewSheet(context, tx, accountMap),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF59E0B).withOpacity(0.18),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5), width: 0.8),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B), size: 10),
-                                              SizedBox(width: 3),
-                                              Text(
-                                                'REVIEW',
-                                                style: TextStyle(
-                                                  color: Color(0xFFFBBF24),
-                                                  fontSize: 8.5,
-                                                  fontWeight: FontWeight.w900,
-                                                  letterSpacing: 0.5,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: MoneTheme.primaryBlue.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.speed_rounded, color: MoneTheme.primaryBlue, size: 20),
                                 ),
-                                const SizedBox(height: 3),
-                                Row(
+                                const SizedBox(width: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (accountMap.containsKey(tx['account_id'])) ...[
-                                      Builder(builder: (context) {
-                                        final txAcc = accountMap[tx['account_id']]!;
-                                        BankInfo b = IndianBankDirectory.findBankByName(
-                                          txAcc['bank_code'] ?? txAcc['bank_name'] ?? (txAcc['type'] == 'CASH' ? 'cash' : ''),
-                                        );
-                                        return Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                          margin: const EdgeInsets.only(right: 6),
-                                          decoration: BoxDecoration(
-                                            color: b.accentColor.withOpacity(0.18),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            b.shortName,
-                                            style: TextStyle(color: b.accentColor, fontSize: 9, fontWeight: FontWeight.w900),
-                                          ),
-                                        );
-                                      }),
-                                    ],
-                                    Text('${tx['category']} • $dateStr', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 12)),
+                                    Row(
+                                      children: [
+                                        const Text(
+                                          'DAILY SAFE SPENDING PACER',
+                                          style: TextStyle(color: MoneTheme.primaryBlue, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Icon(Icons.edit_rounded, color: MoneTheme.primaryBlue.withOpacity(0.6), size: 12),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '₹ ${safeDailyAllowance.toStringAsFixed(0)} / day',
+                                      style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.w900),
+                                    ),
                                   ],
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${tx['type'] == 'INCOME' ? '+' : '-'}₹${tx['amount']}',
-                            style: TextStyle(
-                              color: tx['type'] == 'INCOME' ? const Color(0xFF10B981) : Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
+                            Row(
+                              children: [
+                                if (activeInitialSpent > 0)
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: MoneTheme.badgeAmberBg,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: MoneTheme.badgeAmberBorder),
+                                    ),
+                                    child: Text(
+                                      '+₹${activeInitialSpent.toStringAsFixed(0)} prior',
+                                      style: const TextStyle(color: MoneTheme.badgeAmberText, fontSize: 10, fontWeight: FontWeight.w800),
+                                    ),
+                                  ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '$daysRemaining d left',
+                                    style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: (effectiveSpent / (baseBudget == 0 ? 1 : baseBudget)).clamp(0.0, 1.0),
+                            backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+                            color: unspentBudget < 0 ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText,
+                            minHeight: 10,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              unspentBudget < 0 ? 'Exceeded by ₹${unspentBudget.abs().toStringAsFixed(0)}' : '₹${unspentBudget.toStringAsFixed(0)} unspent',
+                              style: TextStyle(
+                                color: unspentBudget < 0 ? MoneTheme.badgeRedText : MoneTheme.badgeGreenText,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              activeInitialSpent > 0
+                                  ? '₹${effectiveSpent.toStringAsFixed(0)} spent of ₹${baseBudget.toStringAsFixed(0)}'
+                                  : 'Limit: ₹${baseBudget.toStringAsFixed(0)} ($timePeriod)',
+                              style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }).toList(),
-            ],
+                ),
+
+                const SizedBox(height: 26),
+
+                // Recent Transactions Feed
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Recent Activity', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('${allTxs.length} items', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (allTxs.isEmpty) Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Text("No records yet.", style: TextStyle(color: MoneTheme.textMuted(isDark))),
+                  ),
+                ),
+                ...allTxs.take(15).toList().map((tx) {
+                  DateTime d = DateTime.parse(tx['date']);
+                  String dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+                  return Dismissible(
+                    key: Key(tx['id'].toString()),
+                    background: Container(alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 20), margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.red.withOpacity(0.5), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.delete, color: Colors.white)),
+                    secondaryBackground: Container(alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.green.withOpacity(0.5), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.edit, color: Colors.white)),
+                    confirmDismiss: (dir) async {
+                      if (dir == DismissDirection.startToEnd) {
+                        HapticFeedback.heavyImpact();
+                        await database.delete('transactions', where: 'id = ?', whereArgs: [tx['id']]);
+                        onTransactionChanged();
+                        return true;
+                      } else {
+                        HapticFeedback.lightImpact();
+                        onAddRequested(existingTx: tx);
+                        return false;
+                      }
+                    },
+                    child: GestureDetector(
+                      onTap: () {
+                        if (tx['needs_review'] == 1) {
+                          _showQuickReviewSheet(context, tx, accountMap);
+                        } else {
+                          onAddRequested(existingTx: tx);
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: MoneTheme.cardBg(isDark),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: tx['needs_review'] == 1 ? MoneTheme.badgeAmberBorder : MoneTheme.cardBorder(isDark),
+                            width: tx['needs_review'] == 1 ? 1.2 : 1.0,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: getCategoryColor(tx['category']).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(getCategoryIcon(tx['category']), color: getCategoryColor(tx['category']), size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          tx['merchant'],
+                                          style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold, fontSize: 15),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (tx['needs_review'] == 1) ...[
+                                        GestureDetector(
+                                          onTap: () => _showQuickReviewSheet(context, tx, accountMap),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: MoneTheme.badgeAmberBg,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: MoneTheme.badgeAmberBorder, width: 0.8),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.bolt_rounded, color: MoneTheme.badgeAmberText, size: 10),
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  'REVIEW',
+                                                  style: TextStyle(
+                                                    color: MoneTheme.badgeAmberText,
+                                                    fontSize: 8.5,
+                                                    fontWeight: FontWeight.w900,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      if (accountMap.containsKey(tx['account_id'])) ...[
+                                        Builder(builder: (context) {
+                                          final txAcc = accountMap[tx['account_id']]!;
+                                          BankInfo b = IndianBankDirectory.findBankByName(
+                                            txAcc['bank_code'] ?? txAcc['bank_name'] ?? (txAcc['type'] == 'CASH' ? 'cash' : ''),
+                                          );
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                            margin: const EdgeInsets.only(right: 6),
+                                            decoration: BoxDecoration(
+                                              color: b.accentColor.withOpacity(0.18),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              b.shortName,
+                                              style: TextStyle(color: b.accentColor, fontSize: 9, fontWeight: FontWeight.w900),
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                      Text('${tx['category']} • $dateStr', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${tx['type'] == 'INCOME' ? '+' : '-'}₹${tx['amount']}',
+                              style: TextStyle(
+                                color: tx['type'] == 'INCOME' ? MoneTheme.badgeGreenText : MoneTheme.textPrimary(isDark),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
   }
 
   Widget _buildQuickAction({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    bool isDark = true,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -3236,17 +3352,17 @@ class DashboardScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: MoneTheme.cardBorder(isDark)),
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: MoneTheme.textPrimary(isDark), size: 22),
           ),
           const SizedBox(height: 6),
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: MoneTheme.textSecondary(isDark),
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
@@ -3321,13 +3437,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         
         Set<String> allCats = {...catSpent.keys, ...limits.keys};
         var sortedCats = allCats.toList()..sort((a, b) => (catSpent[b] ?? 0).compareTo(catSpent[a] ?? 0));
-        
-        double baseBudget = 0; bool isResolved = false;
-        for (var s in settings) { 
-          if (s['key'] == 'total_budget') baseBudget = s['value'] as double; 
-          if (s['key'] == 'resolved_') isResolved = (s['value'] as double) > 0;
-        }
-        double unspent = baseBudget - totalExpense;
         
         List<PieChartSectionData> pieSections = [];
         for (var cat in sortedCats) {
@@ -3504,6 +3613,10 @@ class ProfileScreen extends StatelessWidget {
   final Function(bool) onToggleAutoSms;
   final bool isBatteryOptimizationIgnored;
   final VoidCallback onRequestBatteryOptimization;
+  final bool isDark;
+  final Function(bool) onToggleDarkMode;
+  final File? profilePhotoFile;
+  final VoidCallback onPickProfilePhoto;
 
   const ProfileScreen({
     Key? key,
@@ -3524,8 +3637,11 @@ class ProfileScreen extends StatelessWidget {
     required this.onToggleAutoSms,
     required this.isBatteryOptimizationIgnored,
     required this.onRequestBatteryOptimization,
+    required this.isDark,
+    required this.onToggleDarkMode,
+    this.profilePhotoFile,
+    required this.onPickProfilePhoto,
   }) : super(key: key);
-
 
   Future<void> _exportToCsv(BuildContext context) async {
     String? selectedPeriod = await showDialog<String>(
@@ -3542,9 +3658,9 @@ class ProfileScreen extends StatelessWidget {
             ListTile(title: const Text('Last 3 Months', style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(ctx, '3M')),
             ListTile(title: const Text('Last 6 Months', style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(ctx, '6M')),
             ListTile(title: const Text('All Time', style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(ctx, 'ALL')),
-          ]
-        )
-      )
+          ],
+        ),
+      ),
     );
 
     if (selectedPeriod == null) return;
@@ -3567,7 +3683,7 @@ class ProfileScreen extends StatelessWidget {
       String csv = 'ID,Date,Amount,Type,Category,Merchant,Account ID\n';
       for (var row in data) {
         String merchant = (row['merchant'] ?? '').toString().replaceAll('"', '""');
-        csv += '${row['id']},${row['date']},${row['amount']},${row['type']},${row['category']},"${merchant}",${row['account_id'] ?? ''}\n';
+        csv += '${row['id']},${row['date']},${row['amount']},${row['type']},${row['category']},"$merchant",${row['account_id'] ?? ''}\n';
       }
       
       final directory = await getTemporaryDirectory();
@@ -3583,12 +3699,12 @@ class ProfileScreen extends StatelessWidget {
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF18181B),
           title: const Text('Purge Exported Data?', style: TextStyle(color: Colors.white)),
-          content: const Text('Would you like to delete these exported transactions from the app to save space?\\n\\nYour Account Balances will NOT be affected and will remain perfectly accurate!', style: TextStyle(color: Colors.white70)),
+          content: const Text('Would you like to delete these exported transactions from the app to save space?\n\nYour Account Balances will NOT be affected and will remain perfectly accurate!', style: TextStyle(color: Colors.white70)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Data', style: TextStyle(color: Colors.grey))),
             TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete Data', style: TextStyle(color: Colors.redAccent))),
-          ]
-        )
+          ],
+        ),
       );
 
       if (doDelete == true) {
@@ -3597,7 +3713,6 @@ class ProfileScreen extends StatelessWidget {
          await database.delete('transactions', where: 'id IN ($idString)');
          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transactions deleted. Balances remain intact.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green));
       }
-      
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
     }
@@ -3611,103 +3726,427 @@ class ProfileScreen extends StatelessWidget {
         final goals = snapshot.data ?? [];
 
         return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(), padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 120),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 64, height: 64, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF6366F1).withOpacity(0.2), border: Border.all(color: const Color(0xFF6366F1), width: 2)),
-                    child: Center(child: Text(userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 28, fontWeight: FontWeight.bold))),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(userName, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                    const Text('Money OS User', style: TextStyle(color: Colors.white54, fontSize: 14)),
-                  ])),
-                  IconButton(icon: const Icon(Icons.edit, color: Colors.grey), onPressed: onEditProfile),
-                ],
-              ),
-              const SizedBox(height: 32),
-              const Text('System Setup', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
-              Material(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(24),
-                child: Column(
+              // 1. Profile Header Glass Card with Avatar Picker
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(22),
+                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                child: Row(
                   children: [
-                    ListTile(leading: const Icon(Icons.calendar_month, color: Color(0xFF8B5CF6)), title: const Text('View Analytics As', style: TextStyle(color: Colors.white)), trailing: DropdownButton<String>(dropdownColor: const Color(0xFF18181B), value: currentPeriod, style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold), underline: const SizedBox(), items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (val) => onPeriodChanged(val!))),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onSetTotalBudget, leading: const Icon(Icons.account_balance, color: Color(0xFF10B981)), title: const Text('Overall Monthly Budget & Starting Spend', style: TextStyle(color: Colors.white)), subtitle: const Text('Set monthly limit & mid-month already spent offset', style: TextStyle(color: Colors.grey, fontSize: 12)), trailing: const Icon(Icons.edit, color: Colors.grey)),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onAddBudget, leading: const Icon(Icons.track_changes, color: Color(0xFF6366F1)), title: const Text('Set Category Limits', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.add, color: Color(0xFF6366F1))),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onManageCategories, leading: const Icon(Icons.category, color: Color(0xFFF59E0B)), title: const Text('Manage Categories', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    ListTile(onTap: onManageAccounts, leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)), title: const Text('Manage Accounts', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
-            const SizedBox(height: 12),
-            const Text('Tools', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            const SizedBox(height: 12),
-                    SwitchListTile(
-                      value: isAutoSmsEnabled,
-                      onChanged: onToggleAutoSms,
-                      secondary: const Icon(Icons.message, color: Colors.greenAccent),
-                      title: const Text('Auto Sync SMS', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Read incoming bank messages automatically', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      activeColor: Colors.greenAccent,
+                    Stack(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            onPickProfilePhoto();
+                          },
+                          child: Container(
+                            width: 68,
+                            height: 68,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: MoneTheme.primaryBlue.withOpacity(0.5), width: 2),
+                              image: profilePhotoFile != null
+                                  ? DecorationImage(image: FileImage(profilePhotoFile!), fit: BoxFit.cover)
+                                  : null,
+                              color: MoneTheme.primaryBlue.withOpacity(0.12),
+                            ),
+                            child: profilePhotoFile == null
+                                ? Center(
+                                    child: Text(
+                                      userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
+                                      style: const TextStyle(
+                                        color: MoneTheme.primaryBlue,
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: GestureDetector(
+                            onTap: onPickProfilePhoto,
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: const BoxDecoration(
+                                color: MoneTheme.primaryBlue,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 13),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    SwitchListTile(
-                      value: isBatteryOptimizationIgnored,
-                      onChanged: (val) => onRequestBatteryOptimization(),
-                      secondary: Icon(Icons.bolt_rounded, color: isBatteryOptimizationIgnored ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
-                      title: const Text('24/7 Background SMS Sync', style: TextStyle(color: Colors.white)),
-                      subtitle: Text(
-                        isBatteryOptimizationIgnored 
-                          ? 'Battery unrestricted • 100% reliable instant capture'
-                          : 'Tap to exempt from OS battery sleep for 24/7 sync',
-                        style: TextStyle(color: isBatteryOptimizationIgnored ? const Color(0xFF10B981).withOpacity(0.8) : Colors.grey, fontSize: 12),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName,
+                            style: TextStyle(
+                              color: MoneTheme.textPrimary(isDark),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Personal Finance OS',
+                            style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 13),
+                          ),
+                        ],
                       ),
-                      activeColor: const Color(0xFF10B981),
                     ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                    SwitchListTile(
-                      value: isBiometricEnabled,
-                      onChanged: onToggleBiometric,
-                      secondary: const Icon(Icons.fingerprint, color: Colors.cyanAccent),
-                      title: const Text('Biometric App Lock', style: TextStyle(color: Colors.white)),
-                      activeColor: Colors.cyanAccent,
+                    IconButton(
+                      icon: Icon(Icons.edit_rounded, color: MoneTheme.textSecondary(isDark)),
+                      onPressed: onEditProfile,
                     ),
-                    Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                  ListTile(onTap: () => _exportToCsv(context), leading: const Icon(Icons.file_download, color: Colors.purpleAccent), title: const Text('Export Data to CSV', style: TextStyle(color: Colors.white)), subtitle: const Text('Share your transactions as a spreadsheet', style: TextStyle(color: Colors.grey, fontSize: 12)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
-                  Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                  ListTile(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())), leading: const Icon(Icons.help_outline, color: Colors.blueAccent), title: const Text('How to Use?', style: TextStyle(color: Colors.white)), trailing: const Icon(Icons.chevron_right, color: Colors.grey)),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('My Goals', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.add_circle, color: Color(0xFF6366F1), size: 30), onPressed: onAddGoal)]),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 24),
+
+              // 2. Appearance Section
+              Text(
+                'APPEARANCE',
+                style: TextStyle(
+                  color: MoneTheme.textMuted(isDark),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                child: SwitchListTile(
+                  value: isDark,
+                  onChanged: onToggleDarkMode,
+                  secondary: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                      color: const Color(0xFF818CF8),
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    isDark ? 'Dark Midnight Mode' : 'Light Frost Mode',
+                    style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    isDark ? 'High-contrast AMOLED dark canvas' : 'Pure frosty white iOS styling',
+                    style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12),
+                  ),
+                  activeColor: MoneTheme.primaryBlue,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 3. Android Engine & Automation Section
+              Text(
+                'ANDROID ENGINE & SYNC',
+                style: TextStyle(
+                  color: MoneTheme.textMuted(isDark),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      value: isAutoSmsEnabled,
+                      onChanged: onToggleAutoSms,
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: MoneTheme.badgeGreenBg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.mark_email_unread_rounded, color: MoneTheme.badgeGreenText, size: 20),
+                      ),
+                      title: Text('Real-Time SMS Auto-Sync', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      subtitle: Text('Captures debit & credit SMS from 25+ Indian banks', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                      activeColor: MoneTheme.badgeGreenText,
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    SwitchListTile(
+                      value: isBatteryOptimizationIgnored,
+                      onChanged: (val) => onRequestBatteryOptimization(),
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (isBatteryOptimizationIgnored ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.bolt_rounded,
+                          color: isBatteryOptimizationIgnored ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                          size: 20,
+                        ),
+                      ),
+                      title: Text('24/7 Background SMS Sync', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        isBatteryOptimizationIgnored
+                            ? 'Battery unrestricted • 100% reliable instant capture'
+                            : 'Tap to exempt from OS battery sleep for 24/7 sync',
+                        style: TextStyle(
+                          color: isBatteryOptimizationIgnored ? const Color(0xFF10B981) : MoneTheme.textMuted(isDark),
+                          fontSize: 12,
+                        ),
+                      ),
+                      activeColor: const Color(0xFF10B981),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    SwitchListTile(
+                      value: isBiometricEnabled,
+                      onChanged: onToggleBiometric,
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.cyan.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.fingerprint_rounded, color: Colors.cyanAccent, size: 20),
+                      ),
+                      title: Text('Biometric App Lock', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      subtitle: Text('3D spatial fly-through face/fingerprint authentication', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                      activeColor: Colors.cyanAccent,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 4. Budgets & Ledgers Section
+              Text(
+                'BUDGETS & LEDGERS',
+                style: TextStyle(
+                  color: MoneTheme.textMuted(isDark),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.calendar_month_rounded, color: Color(0xFF8B5CF6), size: 20),
+                      ),
+                      title: Text('View Analytics As', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      trailing: DropdownButton<String>(
+                        dropdownColor: MoneTheme.cardBg(isDark),
+                        value: currentPeriod,
+                        style: TextStyle(color: MoneTheme.primaryBlue, fontWeight: FontWeight.bold),
+                        underline: const SizedBox(),
+                        items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                        onChanged: (val) => onPeriodChanged(val!),
+                      ),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    ListTile(
+                      onTap: onSetTotalBudget,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.account_balance_rounded, color: Color(0xFF10B981), size: 20),
+                      ),
+                      title: Text('Monthly Budget & Starting Spend', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      subtitle: Text('Set spending ceiling & mid-month already-spent pacer offset', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    ListTile(
+                      onTap: onAddBudget,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.track_changes_rounded, color: Color(0xFF6366F1), size: 20),
+                      ),
+                      title: Text('Category Spending Limits', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    ListTile(
+                      onTap: onManageCategories,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.category_rounded, color: Color(0xFFF59E0B), size: 20),
+                      ),
+                      title: Text('Manage Expense Categories', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    ListTile(
+                      onTap: onManageAccounts,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF10B981), size: 20),
+                      ),
+                      title: Text('Manage Bank & Cash Accounts', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 5. Data & Tools Section
+              Text(
+                'DATA & SUPPORT',
+                style: TextStyle(
+                  color: MoneTheme.textMuted(isDark),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                child: Column(
+                  children: [
+                    ListTile(
+                      onTap: () => _exportToCsv(context),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.purple.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.file_download_rounded, color: Colors.purpleAccent, size: 20),
+                      ),
+                      title: Text('Export Ledger to CSV', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      subtitle: Text('Share complete ledger as spreadsheet', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    ListTile(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.help_outline_rounded, color: Colors.blueAccent, size: 20),
+                      ),
+                      title: Text('How to Use mone?', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // 6. Savings Goals Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Financial Goals',
+                    style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_rounded, color: MoneTheme.primaryBlue, size: 28),
+                    onPressed: onAddGoal,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (goals.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                  child: Center(
+                    child: Text(
+                      'No active micro-goals yet. Tap + to create one!',
+                      style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 13),
+                    ),
+                  ),
+                ),
               ...goals.map((g) {
-                double target = g['target']; double saved = g['saved']; double pct = (saved / target).clamp(0.0, 1.0);
+                double target = (g['target'] as num).toDouble();
+                double saved = (g['saved'] as num).toDouble();
+                double pct = target > 0 ? (saved / target).clamp(0.0, 1.0) : 0.0;
                 return GestureDetector(
                   onTap: () => onGoalEdit(g),
                   child: Container(
-                    margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(32)),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(g['title'], style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text('${(pct * 100).toInt()}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold))]),
-                      const SizedBox(height: 16),
-                      ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: pct, backgroundColor: Colors.white.withOpacity(0.05), color: const Color(0xFF818CF8), minHeight: 12)),
-                      const SizedBox(height: 12), Text('Saved: ₹${saved.toStringAsFixed(0)} / Target: ₹${target.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
-                    ]),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(20),
+                    decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              g['title'].toString(),
+                              style: TextStyle(
+                                color: MoneTheme.textPrimary(isDark),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${(pct * 100).toInt()}%',
+                              style: const TextStyle(color: MoneTheme.badgeGreenText, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: pct,
+                            backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+                            color: MoneTheme.primaryBlue,
+                            minHeight: 8,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Saved: ₹${saved.toStringAsFixed(0)} / Target: ₹${target.toStringAsFixed(0)}',
+                          style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }).toList(),
             ],
           ),
         );
-      }
+      },
     );
   }
 }
