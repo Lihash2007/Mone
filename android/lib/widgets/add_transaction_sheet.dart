@@ -193,6 +193,77 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     if (mounted) Navigator.pop(context);
   }
 
+  Future<void> _confirmDeleteRecord() async {
+    if (widget.existingTx == null) return;
+    HapticFeedback.lightImpact();
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: MoneTheme.bgElevated(widget.isDark),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Delete Record',
+              style: TextStyle(
+                color: MoneTheme.textPrimary(widget.isDark),
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete this transaction record? This cannot be undone.',
+          style: TextStyle(
+            color: MoneTheme.textSecondary(widget.isDark),
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: MoneTheme.textSecondary(widget.isDark))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      HapticFeedback.heavyImpact();
+      await widget.database.delete('transactions', where: 'id = ?', whereArgs: [widget.existingTx!['id']]);
+      widget.onSaved();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transaction record deleted successfully.'),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -279,10 +350,22 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                       letterSpacing: -0.3,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: _saveRecord,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.existingTx != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
+                          onPressed: _confirmDeleteRecord,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Delete Record',
+                        ),
+                      if (widget.existingTx != null) const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: _saveRecord,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
                         color: widget.isDark ? Colors.white : MoneTheme.deepBlack,
                         borderRadius: BorderRadius.circular(16),
@@ -294,12 +377,14 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
 
               // 1. Balance Pill Badge & Date Stamp Pill
               Row(
@@ -560,6 +645,25 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                   ),
                 ),
               ),
+              if (widget.existingTx != null) ...[
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _confirmDeleteRecord,
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
+                    label: const Text(
+                      'Delete Record',
+                      style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.35)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

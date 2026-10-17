@@ -1040,66 +1040,140 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _database.query('transactions', orderBy: 'date DESC'),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator(color: MoneTheme.primaryBlue));
-                  }
-                  final txs = snapshot.data!;
-                  if (txs.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No transactions recorded yet.',
-                        style: TextStyle(color: MoneTheme.textSecondary(_isDarkMode)),
-                      ),
-                    );
-                  }
-                  return ListView.separated(
-                    itemCount: txs.length,
-                    separatorBuilder: (_, __) => Divider(color: MoneTheme.cardBorder(_isDarkMode), height: 1),
-                    itemBuilder: (context, index) {
-                      final t = txs[index];
-                      final isIncome = t['type'] == 'INCOME' || t['type'] == 'TRANSFER_IN';
-                      final amt = (t['amount'] as num).toDouble();
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: (isIncome ? MoneTheme.badgeGreenBg : MoneTheme.badgeRedBg),
-                            borderRadius: BorderRadius.circular(14),
+              child: StatefulBuilder(
+                builder: (context, setListState) {
+                  return FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _database.query('transactions', orderBy: 'date DESC'),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator(color: MoneTheme.primaryBlue));
+                      }
+                      final txs = snapshot.data!;
+                      if (txs.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'No transactions recorded yet.',
+                            style: TextStyle(color: MoneTheme.textSecondary(_isDarkMode)),
                           ),
-                          child: Icon(
-                            isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                            color: isIncome ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          t['merchant'] ?? t['category'] ?? 'Transaction',
-                          style: TextStyle(
-                            color: MoneTheme.textPrimary(_isDarkMode),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${t['category'] ?? ''} • ${t['date'] != null ? t['date'].toString().substring(0, 10) : ''}',
-                          style: TextStyle(color: MoneTheme.textMuted(_isDarkMode), fontSize: 12),
-                        ),
-                        trailing: Text(
-                          '${isIncome ? '+' : '-'}₹${amt.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            color: isIncome ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          _showAddTransactionModal(existingTx: t);
+                        );
+                      }
+                      return ListView.separated(
+                        itemCount: txs.length,
+                        separatorBuilder: (_, __) => Divider(color: MoneTheme.cardBorder(_isDarkMode), height: 1),
+                        itemBuilder: (context, index) {
+                          final t = txs[index];
+                          final isIncome = t['type'] == 'INCOME' || t['type'] == 'TRANSFER_IN';
+                          final amt = (t['amount'] as num).toDouble();
+                          return Dismissible(
+                            key: ValueKey(t['id']),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.delete_rounded, color: Colors.white, size: 22),
+                            ),
+                            confirmDismiss: (_) async {
+                              HapticFeedback.mediumImpact();
+                              return await showDialog<bool>(
+                                context: context,
+                                builder: (c) => AlertDialog(
+                                  backgroundColor: MoneTheme.bgElevated(_isDarkMode),
+                                  title: Text('Delete Record?', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode))),
+                                  content: Text('Permanently delete this transaction of ₹${amt.toStringAsFixed(0)}?', style: TextStyle(color: MoneTheme.textSecondary(_isDarkMode))),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                      onPressed: () => Navigator.pop(c, true),
+                                      child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            onDismissed: (_) async {
+                              await _database.delete('transactions', where: 'id = ?', whereArgs: [t['id']]);
+                              setState(() {});
+                              _updateWidget();
+                              setListState(() {});
+                            },
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: (isIncome ? MoneTheme.badgeGreenBg : MoneTheme.badgeRedBg),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                                  color: isIncome ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText,
+                                  size: 18,
+                                ),
+                              ),
+                              title: Text(
+                                t['merchant'] ?? t['category'] ?? 'Transaction',
+                                style: TextStyle(
+                                  color: MoneTheme.textPrimary(_isDarkMode),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${t['category'] ?? ''} • ${t['date'] != null ? t['date'].toString().substring(0, 10) : ''}',
+                                style: TextStyle(color: MoneTheme.textMuted(_isDarkMode), fontSize: 11),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${isIncome ? '+' : '-'}₹${amt.toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      color: isIncome ? MoneTheme.badgeGreenText : MoneTheme.badgeRedText,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.grey, size: 18),
+                                    onPressed: () async {
+                                      final bool? ok = await showDialog<bool>(
+                                        context: context,
+                                        builder: (c) => AlertDialog(
+                                          backgroundColor: MoneTheme.bgElevated(_isDarkMode),
+                                          title: Text('Delete Record?', style: TextStyle(color: MoneTheme.textPrimary(_isDarkMode))),
+                                          content: Text('Delete this transaction of ₹${amt.toStringAsFixed(0)}?', style: TextStyle(color: MoneTheme.textSecondary(_isDarkMode))),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                              onPressed: () => Navigator.pop(c, true),
+                                              child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (ok == true) {
+                                        await _database.delete('transactions', where: 'id = ?', whereArgs: [t['id']]);
+                                        setState(() {});
+                                        _updateWidget();
+                                        setListState(() {});
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                _showAddTransactionModal(existingTx: t);
+                              },
+                            ),
+                          );
                         },
                       );
                     },
@@ -2218,6 +2292,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
         onToggleDarkMode: _toggleDarkMode,
         profilePhotoFile: _profilePhotoFile,
         onPickProfilePhoto: _pickProfilePhoto,
+        onDataChanged: () => setState(() {}),
         onToggleBiometric: (val) async {
           if (val) {
              bool canCheck = await auth.canCheckBiometrics;
@@ -2869,6 +2944,7 @@ class ProfileScreen extends StatelessWidget {
   final Function(bool) onToggleDarkMode;
   final File? profilePhotoFile;
   final VoidCallback onPickProfilePhoto;
+  final VoidCallback? onDataChanged;
 
   const ProfileScreen({
     Key? key,
@@ -2894,7 +2970,260 @@ class ProfileScreen extends StatelessWidget {
     required this.onToggleDarkMode,
     this.profilePhotoFile,
     required this.onPickProfilePhoto,
+    this.onDataChanged,
   }) : super(key: key);
+
+  Future<void> _showDeleteRecordsModal(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    final countRes = await database.rawQuery("SELECT COUNT(*) as c FROM transactions");
+    final int totalCount = (countRes.isNotEmpty ? countRes.first['c'] as int? : 0) ?? 0;
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: MoneTheme.bgElevated(isDark),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          border: Border.all(color: MoneTheme.cardBorder(isDark)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Delete & Purge Records',
+                          style: TextStyle(
+                            color: MoneTheme.textPrimary(isDark),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '$totalCount transactions currently recorded',
+                          style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: MoneTheme.textSecondary(isDark)),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              if (totalCount == 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'No transaction records to delete.',
+                      style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 13),
+                    ),
+                  ),
+                )
+              else ...[
+                _buildDeleteActionTile(
+                  ctx: ctx,
+                  context: context,
+                  title: 'Delete Last 7 Days',
+                  subtitle: 'Clear recent test or sync transactions',
+                  icon: Icons.history_rounded,
+                  onConfirm: () async {
+                    final cutoff = DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+                    final count = await database.delete('transactions', where: 'date >= ?', whereArgs: [cutoff]);
+                    _afterDelete(context, count);
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildDeleteActionTile(
+                  ctx: ctx,
+                  context: context,
+                  title: 'Delete Last 30 Days',
+                  subtitle: 'Clear recent 30 days of activity',
+                  icon: Icons.calendar_today_rounded,
+                  onConfirm: () async {
+                    final cutoff = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+                    final count = await database.delete('transactions', where: 'date >= ?', whereArgs: [cutoff]);
+                    _afterDelete(context, count);
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildDeleteActionTile(
+                  ctx: ctx,
+                  context: context,
+                  title: 'Delete Older Than 90 Days',
+                  subtitle: 'Archive old records to free up space',
+                  icon: Icons.auto_delete_rounded,
+                  onConfirm: () async {
+                    final cutoff = DateTime.now().subtract(const Duration(days: 90)).toIso8601String();
+                    final count = await database.delete('transactions', where: 'date < ?', whereArgs: [cutoff]);
+                    _afterDelete(context, count);
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildDeleteActionTile(
+                  ctx: ctx,
+                  context: context,
+                  title: 'Purge All Records (Clean Slate)',
+                  subtitle: 'Permanently remove all $totalCount transaction records',
+                  icon: Icons.warning_amber_rounded,
+                  isDestructive: true,
+                  onConfirm: () async {
+                    final count = await database.delete('transactions');
+                    _afterDelete(context, count);
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteActionTile({
+    required BuildContext ctx,
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Future<void> Function() onConfirm,
+    bool isDestructive = false,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () async {
+        Navigator.pop(ctx);
+        final bool? confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dCtx) => AlertDialog(
+            backgroundColor: MoneTheme.bgElevated(isDark),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            title: Text(
+              isDestructive ? 'Confirm Complete Purge' : 'Confirm Deletion',
+              style: TextStyle(
+                color: isDestructive ? Colors.redAccent : MoneTheme.textPrimary(isDark),
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: Text(
+              'Are you sure you want to proceed with: "$title"? This permanently deletes records.',
+              style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 13),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(dCtx, true),
+                child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed == true) {
+          HapticFeedback.heavyImpact();
+          await onConfirm();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDestructive
+              ? Colors.redAccent.withValues(alpha: 0.08)
+              : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDestructive
+                ? Colors.redAccent.withValues(alpha: 0.25)
+                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isDestructive ? Colors.redAccent : MoneTheme.textSecondary(isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isDestructive ? Colors.redAccent : MoneTheme.textPrimary(isDark),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: MoneTheme.textMuted(isDark)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _afterDelete(BuildContext context, int count) {
+    onDataChanged?.call();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$count transaction record(s) deleted successfully.'),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   Future<void> _exportToCsv(BuildContext context) async {
     String? selectedPeriod = await showDialog<String>(
@@ -2980,14 +3309,14 @@ class ProfileScreen extends StatelessWidget {
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 120),
+          padding: const EdgeInsets.only(left: 20, right: 20, top: 32, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 1. Profile Header Glass Card with Avatar Picker
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                 decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
                 child: Row(
                   children: [
@@ -2999,8 +3328,8 @@ class ProfileScreen extends StatelessWidget {
                             onPickProfilePhoto();
                           },
                           child: Container(
-                            width: 68,
-                            height: 68,
+                            width: 52,
+                            height: 52,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(color: MoneTheme.primaryBlue.withOpacity(0.5), width: 2),
@@ -3015,7 +3344,7 @@ class ProfileScreen extends StatelessWidget {
                                       userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U',
                                       style: const TextStyle(
                                         color: MoneTheme.primaryBlue,
-                                        fontSize: 26,
+                                        fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -3029,18 +3358,18 @@ class ProfileScreen extends StatelessWidget {
                           child: GestureDetector(
                             onTap: onPickProfilePhoto,
                             child: Container(
-                              padding: const EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(4),
                               decoration: const BoxDecoration(
                                 color: MoneTheme.primaryBlue,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 13),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 11),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 18),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3049,107 +3378,113 @@ class ProfileScreen extends StatelessWidget {
                             userName,
                             style: TextStyle(
                               color: MoneTheme.textPrimary(isDark),
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Personal Finance OS',
-                            style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 13),
+                            style: TextStyle(color: MoneTheme.textSecondary(isDark), fontSize: 11.5),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.edit_rounded, color: MoneTheme.textSecondary(isDark)),
+                      icon: Icon(Icons.edit_rounded, color: MoneTheme.textSecondary(isDark), size: 18),
                       onPressed: onEditProfile,
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               // 2. Appearance Section
               Text(
                 'APPEARANCE',
                 style: TextStyle(
                   color: MoneTheme.textMuted(isDark),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
                 decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
                 child: SwitchListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                   value: isDark,
                   onChanged: onToggleDarkMode,
                   secondary: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
                       color: const Color(0xFF6366F1).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(9),
                     ),
                     child: Icon(
                       isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
                       color: const Color(0xFF818CF8),
-                      size: 20,
+                      size: 17,
                     ),
                   ),
                   title: Text(
                     isDark ? 'Dark Midnight Mode' : 'Light Frost Mode',
-                    style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold),
+                    style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     isDark ? 'High-contrast AMOLED dark canvas' : 'Pure frosty white iOS styling',
-                    style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12),
+                    style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11, height: 1.25),
                   ),
                   activeColor: MoneTheme.primaryBlue,
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               // 3. Android Engine & Automation Section
               Text(
                 'ANDROID ENGINE & SYNC',
                 style: TextStyle(
                   color: MoneTheme.textMuted(isDark),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
                 decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
                 child: Column(
                   children: [
                     SwitchListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       value: isAutoSmsEnabled,
                       onChanged: onToggleAutoSms,
                       secondary: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(7),
                         decoration: const BoxDecoration(
                           color: MoneTheme.badgeGreenBg,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.mark_email_unread_rounded, color: MoneTheme.badgeGreenText, size: 20),
+                        child: const Icon(Icons.mark_email_unread_rounded, color: MoneTheme.badgeGreenText, size: 17),
                       ),
-                      title: Text('Real-Time SMS Auto-Sync', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      subtitle: Text('Captures debit & credit SMS from 25+ Indian banks', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                      title: Text('Real-Time SMS Auto-Sync', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      subtitle: Text('Captures debit & credit SMS from 25+ Indian banks', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11, height: 1.25)),
                       activeColor: MoneTheme.badgeGreenText,
                     ),
                     Divider(color: MoneTheme.cardBorder(isDark), height: 1),
                     SwitchListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       value: isBatteryOptimizationIgnored,
                       onChanged: (val) => onRequestBatteryOptimization(),
                       secondary: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
                           color: (isBatteryOptimizationIgnored ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withOpacity(0.15),
                           shape: BoxShape.circle,
@@ -3157,97 +3492,104 @@ class ProfileScreen extends StatelessWidget {
                         child: Icon(
                           Icons.bolt_rounded,
                           color: isBatteryOptimizationIgnored ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                          size: 20,
+                          size: 17,
                         ),
                       ),
-                      title: Text('24/7 Background SMS Sync', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      title: Text('24/7 Background SMS Sync', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         isBatteryOptimizationIgnored
                             ? 'Battery unrestricted • 100% reliable instant capture'
                             : 'Tap to exempt from OS battery sleep for 24/7 sync',
                         style: TextStyle(
                           color: isBatteryOptimizationIgnored ? const Color(0xFF10B981) : MoneTheme.textMuted(isDark),
-                          fontSize: 12,
+                          fontSize: 11,
+                          height: 1.25,
                         ),
                       ),
                       activeColor: const Color(0xFF10B981),
                     ),
                     Divider(color: MoneTheme.cardBorder(isDark), height: 1),
                     SwitchListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       value: isBiometricEnabled,
                       onChanged: onToggleBiometric,
                       secondary: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
                           color: Colors.cyan.withOpacity(0.15),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.fingerprint_rounded, color: Colors.cyanAccent, size: 20),
+                        child: const Icon(Icons.fingerprint_rounded, color: Colors.cyanAccent, size: 17),
                       ),
-                      title: Text('Biometric App Lock', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      subtitle: Text('3D spatial fly-through face/fingerprint authentication', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
+                      title: Text('Biometric App Lock', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      subtitle: Text('3D spatial fly-through face/fingerprint authentication', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11, height: 1.25)),
                       activeColor: Colors.cyanAccent,
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               // Household & Family Multi-Member Architecture (Option A)
               Text(
                 'HOUSEHOLD & FAMILY',
                 style: TextStyle(
                   color: MoneTheme.textMuted(isDark),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
                 decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
                 child: ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                   onTap: onOpenManageFamily,
                   leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: const Color(0xFF0284C7).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.family_restroom_rounded, color: Color(0xFF0284C7), size: 20),
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(color: const Color(0xFF0284C7).withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                    child: const Icon(Icons.family_restroom_rounded, color: Color(0xFF0284C7), size: 17),
                   ),
-                  title: Text('Family & Household Members', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                  subtitle: Text('Manage multi-member roles, allowances & cards', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                  title: Text('Family & Household Members', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                  subtitle: Text('Manage multi-member roles, allowances & cards', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11, height: 1.25)),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               // 4. Budgets & Ledgers Section
               Text(
                 'BUDGETS & LEDGERS',
                 style: TextStyle(
                   color: MoneTheme.textMuted(isDark),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
                 decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
                 child: Column(
                   children: [
                     ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.calendar_month_rounded, color: Color(0xFF8B5CF6), size: 20),
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.calendar_month_rounded, color: Color(0xFF8B5CF6), size: 17),
                       ),
-                      title: Text('View Analytics As', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
+                      title: Text('View Analytics As', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
                       trailing: DropdownButton<String>(
                         dropdownColor: MoneTheme.cardBg(isDark),
                         value: currentPeriod,
-                        style: TextStyle(color: MoneTheme.primaryBlue, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: MoneTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 12),
                         underline: const SizedBox(),
                         items: ['Weekly', 'Monthly', 'Yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                         onChanged: (val) => onPeriodChanged(val!),
@@ -3255,48 +3597,117 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     Divider(color: MoneTheme.cardBorder(isDark), height: 1),
                     ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       onTap: onSetTotalBudget,
                       leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.account_balance_rounded, color: Color(0xFF10B981), size: 20),
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.account_balance_rounded, color: Color(0xFF10B981), size: 17),
                       ),
-                      title: Text('Monthly Budget & Starting Spend', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      subtitle: Text('Set spending ceiling & mid-month already-spent pacer offset', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                      title: Text('Monthly Budget & Starting Spend', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      subtitle: Text('Set spending ceiling & mid-month already-spent pacer offset', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11, height: 1.25)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
                     ),
                     Divider(color: MoneTheme.cardBorder(isDark), height: 1),
                     ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       onTap: onAddBudget,
                       leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.track_changes_rounded, color: Color(0xFF6366F1), size: 20),
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.track_changes_rounded, color: Color(0xFF6366F1), size: 17),
                       ),
-                      title: Text('Category Spending Limits', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                      title: Text('Category Spending Limits', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
                     ),
                     Divider(color: MoneTheme.cardBorder(isDark), height: 1),
                     ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       onTap: onManageCategories,
                       leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.category_rounded, color: Color(0xFFF59E0B), size: 20),
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.category_rounded, color: Color(0xFFF59E0B), size: 17),
                       ),
-                      title: Text('Manage Expense Categories', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                      title: Text('Manage Expense Categories', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
                     ),
                     Divider(color: MoneTheme.cardBorder(isDark), height: 1),
                     ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
                       onTap: onManageAccounts,
                       leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF10B981), size: 20),
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF10B981), size: 17),
                       ),
-                      title: Text('Manage Bank & Cash Accounts', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                      title: Text('Manage Bank & Cash Accounts', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // 5. Data & Tools Section
+              Text(
+                'DATA & SUPPORT',
+                style: TextStyle(
+                  color: MoneTheme.textMuted(isDark),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
+                child: Column(
+                  children: [
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
+                      onTap: () => _showDeleteRecordsModal(context),
+                      leading: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 17),
+                      ),
+                      title: Text('Delete & Purge Records', style: TextStyle(color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      subtitle: Text('Purge records by date range or clear all transactions', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11, height: 1.25)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
+                      onTap: () => _exportToCsv(context),
+                      leading: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: Colors.purple.withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.file_download_rounded, color: Colors.purpleAccent, size: 17),
+                      ),
+                      title: Text('Export Ledger to CSV', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      subtitle: Text('Share complete ledger as spreadsheet', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11, height: 1.25)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
+                    ),
+                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())),
+                      leading: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.15), borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.help_outline_rounded, color: Colors.blueAccent, size: 17),
+                      ),
+                      title: Text('How to Use mone?', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
                     ),
                   ],
                 ),
@@ -3304,73 +3715,30 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // 5. Data & Tools Section
-              Text(
-                'DATA & SUPPORT',
-                style: TextStyle(
-                  color: MoneTheme.textMuted(isDark),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
-                child: Column(
-                  children: [
-                    ListTile(
-                      onTap: () => _exportToCsv(context),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.purple.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.file_download_rounded, color: Colors.purpleAccent, size: 20),
-                      ),
-                      title: Text('Export Ledger to CSV', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      subtitle: Text('Share complete ledger as spreadsheet', style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
-                    ),
-                    Divider(color: MoneTheme.cardBorder(isDark), height: 1),
-                    ListTile(
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HowToUseScreen())),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.help_outline_rounded, color: Colors.blueAccent, size: 20),
-                      ),
-                      title: Text('How to Use mone?', style: TextStyle(color: MoneTheme.textPrimary(isDark), fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
               // 6. Savings Goals Section
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Financial Goals',
-                    style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: MoneTheme.textPrimary(isDark), fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_rounded, color: MoneTheme.primaryBlue, size: 28),
+                    icon: const Icon(Icons.add_circle_rounded, color: MoneTheme.primaryBlue, size: 24),
                     onPressed: onAddGoal,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               if (goals.isEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
                   child: Center(
                     child: Text(
                       'No active micro-goals yet. Tap + to create one!',
-                      style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 13),
+                      style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12),
                     ),
                   ),
                 ),
@@ -3381,8 +3749,8 @@ class ProfileScreen extends StatelessWidget {
                 return GestureDetector(
                   onTap: () => onGoalEdit(g),
                   child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(20),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(16),
                     decoration: MoneTheme.whiteCardDecoration(isDark: isDark),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3394,30 +3762,30 @@ class ProfileScreen extends StatelessWidget {
                               g['title'].toString(),
                               style: TextStyle(
                                 color: MoneTheme.textPrimary(isDark),
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             Text(
                               '${(pct * 100).toInt()}%',
-                              style: const TextStyle(color: MoneTheme.badgeGreenText, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: MoneTheme.badgeGreenText, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: LinearProgressIndicator(
                             value: pct,
                             backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
                             color: MoneTheme.primaryBlue,
-                            minHeight: 8,
+                            minHeight: 6,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         Text(
                           'Saved: ₹${saved.toStringAsFixed(0)} / Target: ₹${target.toStringAsFixed(0)}',
-                          style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 12),
+                          style: TextStyle(color: MoneTheme.textMuted(isDark), fontSize: 11),
                         ),
                       ],
                     ),
