@@ -29,22 +29,50 @@ class BankInfo {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(size * 0.28),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF10B981), Color(0xFF047857)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: showBorder ? Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1) : null,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10B981).withValues(alpha: 0.35),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(Icons.payments_rounded, color: Colors.white, size: size * 0.52),
+        ),
+      );
+    }
+
+    if (id == 'other') {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.28),
           gradient: LinearGradient(
             colors: gradientColors,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: showBorder ? Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1) : null,
+          border: showBorder ? Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1) : null,
           boxShadow: [
             BoxShadow(
-              color: gradientColors.first.withValues(alpha: 0.35),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 4,
+              offset: const Offset(0, 1.5),
             ),
           ],
         ),
-        child: Icon(Icons.payments_rounded, color: Colors.white, size: size * 0.52),
+        child: Center(
+          child: Icon(Icons.account_balance_rounded, color: Colors.white, size: size * 0.48),
+        ),
       );
     }
 
@@ -453,19 +481,47 @@ class IndianBankDirectory {
 
   static BankInfo findBankByName(dynamic name) {
     String clean = (name ?? '').toString().toLowerCase().trim();
-    if (clean.isEmpty) return allBanks.last;
+    if (clean.isEmpty) return allBanks.first;
 
+    // 1. Exact match on id, shortName, or name
     for (var b in allBanks) {
-      if (b.name.toLowerCase() == clean || b.shortName.toLowerCase() == clean || b.id == clean) {
+      if (b.id == clean || b.shortName.toLowerCase() == clean || b.name.toLowerCase() == clean) {
         return b;
       }
+    }
+
+    // 2. High priority direct substrings for major Indian banks
+    if (clean.contains('hdfc')) return allBanks.firstWhere((b) => b.id == 'hdfc');
+    if (clean.contains('sbi') || clean.contains('state bank')) return allBanks.firstWhere((b) => b.id == 'sbi');
+    if (clean.contains('icici')) return allBanks.firstWhere((b) => b.id == 'icici');
+    if (clean.contains('axis')) return allBanks.firstWhere((b) => b.id == 'axis');
+    if (clean.contains('kotak')) return allBanks.firstWhere((b) => b.id == 'kotak');
+    if (clean.contains('pnb') || clean.contains('punjab')) return allBanks.firstWhere((b) => b.id == 'pnb');
+    if (clean.contains('bob') || clean.contains('baroda')) return allBanks.firstWhere((b) => b.id == 'bob');
+    if (clean.contains('canara')) return allBanks.firstWhere((b) => b.id == 'canara');
+    if (clean.contains('idfc')) return allBanks.firstWhere((b) => b.id == 'idfc');
+    if (clean.contains('indus')) return allBanks.firstWhere((b) => b.id == 'indusind');
+    if (clean.contains('paytm')) return allBanks.firstWhere((b) => b.id == 'paytm');
+    if (clean.contains('airtel')) return allBanks.firstWhere((b) => b.id == 'airtel');
+    if (clean.contains('jupiter')) return allBanks.firstWhere((b) => b.id == 'jupiter');
+    if (clean.contains('fi ') || clean == 'fi') return allBanks.firstWhere((b) => b.id == 'fi');
+    if (clean.contains('federal')) return allBanks.firstWhere((b) => b.id == 'federal');
+    if (clean.contains('yes')) return allBanks.firstWhere((b) => b.id == 'yes');
+    if (clean.contains('citi')) return allBanks.firstWhere((b) => b.id == 'citi');
+    if (clean.contains('hsbc')) return allBanks.firstWhere((b) => b.id == 'hsbc');
+    if (clean.contains('standard chartered') || clean.contains('sc')) return allBanks.firstWhere((b) => b.id == 'sc');
+    if (clean.contains('cash') || clean.contains('wallet')) return allBanks.firstWhere((b) => b.id == 'cash');
+
+    // 3. Keyword matches (skip 'other' to prevent generic 'bank' collision)
+    for (var b in allBanks) {
+      if (b.id == 'other') continue;
       for (var kw in b.keywords) {
         if (clean.contains(kw) || kw.contains(clean)) {
           return b;
         }
       }
     }
-    return allBanks.last;
+    return allBanks.firstWhere((b) => b.id == 'other', orElse: () => allBanks.last);
   }
 
   /// Detects the Indian bank from the SMS sender header (e.g. VK-HDFCBK-S, AD-ICICIB, BZ-BOBTXN)

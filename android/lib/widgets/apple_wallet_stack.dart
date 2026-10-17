@@ -31,23 +31,17 @@ class AppleWalletCardItem {
     final bCode = map['bank_code'] as String?;
     final aType = (map['type'] as String?) ?? 'BANK';
     final name = (map['name'] as String?) ?? 'Account';
-    
+
     // Resolve BankInfo
     BankInfo info;
     if (aType.toUpperCase() == 'CASH') {
-      info = const BankInfo(
-        id: 'cash',
-        name: 'Physical Cash',
-        shortName: 'CASH',
-        gradientColors: [Color(0xFF0F766E), Color(0xFF134E4A)],
-        accentColor: Color(0xFF2DD4BF),
-        smsSenderCodes: [],
-        keywords: ['cash'],
-        isCash: true,
+      info = IndianBankDirectory.allBanks.firstWhere(
+        (b) => b.isCash,
+        orElse: () => IndianBankDirectory.allBanks.last,
       );
     } else {
       info = IndianBankDirectory.getBankById(bCode);
-      if (info.id == 'cash' || info.id == IndianBankDirectory.allBanks.last.id) {
+      if (info.id == 'cash' || info.id == 'other') {
         info = IndianBankDirectory.findBankByName(bName ?? name);
       }
     }
@@ -71,6 +65,7 @@ class AppleWalletCardsSection extends StatefulWidget {
   final bool isDark;
   final Function(AppleWalletCardItem) onCardTap;
   final VoidCallback onAddAccount;
+  final Function(AppleWalletCardItem)? onCardSelected;
 
   const AppleWalletCardsSection({
     super.key,
@@ -78,6 +73,7 @@ class AppleWalletCardsSection extends StatefulWidget {
     required this.isDark,
     required this.onCardTap,
     required this.onAddAccount,
+    this.onCardSelected,
   });
 
   @override
@@ -85,22 +81,38 @@ class AppleWalletCardsSection extends StatefulWidget {
 }
 
 class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
-  int? _focusedCardId;
+  late final PageController _pageController;
+  double _currentPage = 0.0;
+  int _lastSnappedIndex = 0;
 
-  static const double cardHeight = 195.0;
+  static const double cardHeight = 205.0;
 
-  double get dynamicPeekHeight {
-    final count = widget.accounts.length;
-    if (count <= 1) return cardHeight;
-    if (count == 2) return 55.0;
-    if (count == 3) return 50.0;
-    return 44.0;
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.88);
+    _pageController.addListener(() {
+      final page = _pageController.page ?? 0.0;
+      if (mounted) {
+        setState(() {
+          _currentPage = page;
+        });
+      }
+      final rounded = page.round();
+      if (rounded != _lastSnappedIndex && rounded >= 0 && rounded < widget.accounts.length) {
+        _lastSnappedIndex = rounded;
+        HapticFeedback.selectionClick();
+        if (widget.onCardSelected != null) {
+          widget.onCardSelected!(widget.accounts[rounded]);
+        }
+      }
+    });
   }
 
-  double get totalStackHeight {
-    final count = widget.accounts.length;
-    if (count == 0) return 140.0;
-    return ((count - 1) * dynamicPeekHeight) + cardHeight + 14.0;
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -146,16 +158,9 @@ class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
       );
     }
 
-    final accounts = List<AppleWalletCardItem>.from(widget.accounts);
-
-    // Reorder so focused card is on top
-    if (_focusedCardId != null) {
-      final focusedIndex = accounts.indexWhere((a) => a.id == _focusedCardId);
-      if (focusedIndex != -1) {
-        final focusedItem = accounts.removeAt(focusedIndex);
-        accounts.add(focusedItem);
-      }
-    }
+    final activeIndex = _currentPage.round().clamp(0, widget.accounts.length - 1);
+    final activeAccount = widget.accounts[activeIndex];
+    final activeGlowColor = activeAccount.bankInfo.gradientColors.first;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,7 +176,7 @@ class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
                   Icon(Icons.style_rounded, size: 18, color: MoneTheme.primaryBlue),
                   const SizedBox(width: 8),
                   Text(
-                    "BANK CARDS & WALLET",
+                    "CARDS & WALLET DECK",
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -189,13 +194,13 @@ class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
                     color: MoneTheme.badgeBlueBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(Icons.add_rounded, size: 14, color: MoneTheme.badgeBlueText),
-                      const SizedBox(width: 4),
+                      Icon(Icons.add_rounded, size: 14, color: MoneTheme.badgeBlueText),
+                      SizedBox(width: 4),
                       Text(
                         "Add Card",
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: MoneTheme.badgeBlueText,
@@ -209,41 +214,87 @@ class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
           ),
         ),
 
-        // Stack Container with dynamic natural downward height
-        SizedBox(
-          height: totalStackHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: List.generate(accounts.length, (index) {
-              final acc = accounts[index];
-              final isTopCard = index == accounts.length - 1;
-              final topOffset = index * dynamicPeekHeight;
+        // 3D Perspective Card Stack Carousel with Ambient Glow
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            // Dynamic Ambient Back-Glow matching active bank card
+            Positioned(
+              top: 20,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 260,
+                height: 140,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(40),
+                  boxShadow: [
+                    BoxShadow(
+                      color: activeGlowColor.withValues(alpha: widget.isDark ? 0.40 : 0.22),
+                      blurRadius: 36,
+                      spreadRadius: 8,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-              return AnimatedPositioned(
-                key: ValueKey(acc.id),
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutCubic,
-                top: topOffset,
-                left: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    setState(() {
-                      if (_focusedCardId == acc.id) {
-                        _focusedCardId = null;
-                      } else {
-                        _focusedCardId = acc.id;
-                      }
-                    });
-                    widget.onCardTap(acc);
-                  },
-                  child: _buildPhysicalCard(acc, isTopCard),
+            // Horizontal 3D Page View
+            SizedBox(
+              height: cardHeight + 12,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.accounts.length,
+                clipBehavior: Clip.none,
+                physics: const BouncingScrollPhysics(),
+                itemBuilder: (context, index) {
+                  final acc = widget.accounts[index];
+                  final pageDiff = (_currentPage - index).abs();
+                  final scale = (1.0 - (pageDiff * 0.08)).clamp(0.88, 1.0);
+                  final opacity = (1.0 - (pageDiff * 0.20)).clamp(0.65, 1.0);
+                  final isFocused = pageDiff < 0.5;
+
+                  return Transform.scale(
+                    scale: scale,
+                    child: Opacity(
+                      opacity: opacity,
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          widget.onCardTap(acc);
+                        },
+                        child: _buildPhysicalCard(acc, isFocused),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Deck Page Indicator Dots
+        if (widget.accounts.length > 1)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.accounts.length, (index) {
+              final isSelected = index == activeIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isSelected ? 22 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? activeGlowColor
+                      : (widget.isDark ? Colors.white24 : Colors.black12),
+                  borderRadius: BorderRadius.circular(3),
                 ),
               );
             }),
           ),
-        ),
       ],
     );
   }
@@ -256,168 +307,212 @@ class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
 
     return Container(
       height: cardHeight,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         gradient: LinearGradient(
           colors: colors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isTopCard ? 0.35 : 0.20),
-            blurRadius: isTopCard ? 16 : 8,
+            color: Colors.black.withValues(alpha: isTopCard ? 0.35 : 0.15),
+            blurRadius: isTopCard ? 18 : 8,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          // Background ambient glossy glow
-          Positioned(
-            top: -40,
-            right: -40,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            // Realistic Brushed Sheen Diagonal Highlight
+            Positioned(
+              top: -80,
+              right: -40,
+              child: Transform.rotate(
+                angle: -0.5,
+                child: Container(
+                  width: 220,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.12),
+                        Colors.white.withValues(alpha: 0.0),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
 
-          // Card Content
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Top Row: Bank Badge + Name + Chip
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
+            // Card Content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Top Row: Bank Badge + Name + Chip & Contactless
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            acc.bankInfo.buildBadge(size: 38, showBorder: true),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    acc.bankInfo.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    acc.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.78),
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // EMV Gold Chip & Contactless Wave
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          acc.bankInfo.buildBadge(size: 34),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  acc.bankInfo.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                Text(
-                                  acc.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.75),
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 11,
-                                  ),
+                          Icon(
+                            Icons.contactless_rounded,
+                            color: Colors.white.withValues(alpha: 0.70),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          // Authentic Metallic EMV Gold Chip
+                          Container(
+                            decoration: BoxDecoration(
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1.5),
                                 ),
                               ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Image.asset(
+                                'assets/chip.png',
+                                width: 36,
+                                height: 29,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
+                    ],
+                  ),
 
-                    // Realistic Gold Metallic EMV Chip
-                    Container(
-                      decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1.5),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.asset(
-                          'assets/chip.png',
-                          width: 36,
-                          height: 29,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Middle: Account Balance
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Available Balance",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.65),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "₹${acc.balance.toStringAsFixed(0)}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Bottom Row: Masked Number + Network Brand
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "•••• •••• •••• $last4",
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    Flexible(
-                      child: Text(
-                        acc.bankInfo.defaultCardNetwork,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  // Middle: Available Balance
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "AVAILABLE BALANCE",
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withValues(alpha: 0.65),
+                          letterSpacing: 1.0,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "₹${acc.balance.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Bottom Row: Masked Number + Cardholder + Network Brand
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "•••• •••• •••• $last4",
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.20),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            acc.bankInfo.defaultCardNetwork,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

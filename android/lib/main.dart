@@ -413,6 +413,18 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     });
   }
 
+  void _precacheAssets() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final bank in IndianBankDirectory.allBanks) {
+        if (!bank.isCash && bank.id != 'other') {
+          precacheImage(AssetImage('assets/banks/${bank.id}.png'), context).catchError((_) {});
+        }
+      }
+      precacheImage(const AssetImage('assets/chip.png'), context).catchError((_) {});
+    });
+  }
+
   void _setupSmsListener() {
     final Telephony telephony = Telephony.instance;
     _startSmsListening(telephony);
@@ -542,8 +554,125 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
     } catch (_) {}
     
     var existingAccs = await _database.query('accounts');
-    if (existingAccs.isEmpty) {
-      await _database.insert('accounts', {'name': 'Cash', 'type': 'CASH', 'balance': 0.0, 'account_number': ''});
+    bool onlyEmptyCash = existingAccs.isEmpty ||
+        (existingAccs.length == 1 &&
+            existingAccs.first['type'] == 'CASH' &&
+            ((existingAccs.first['balance'] as num?)?.toDouble() ?? 0.0) == 0.0);
+
+    if (onlyEmptyCash) {
+      await _database.delete('accounts');
+      await _database.insert('accounts', {
+        'id': 1,
+        'name': 'Regalia Gold Credit',
+        'type': 'BANK',
+        'bank_name': 'HDFC Bank',
+        'bank_code': 'hdfc',
+        'account_number': '8492',
+        'balance': 142850.0,
+        'initial_balance': 142850.0,
+        'include_in_total': 1,
+      });
+      await _database.insert('accounts', {
+        'id': 2,
+        'name': 'Premier Global Savings',
+        'type': 'BANK',
+        'bank_name': 'State Bank of India',
+        'bank_code': 'sbi',
+        'account_number': '3910',
+        'balance': 87420.0,
+        'initial_balance': 87420.0,
+        'include_in_total': 1,
+      });
+      await _database.insert('accounts', {
+        'id': 3,
+        'name': 'Coral Debit A/C',
+        'type': 'BANK',
+        'bank_name': 'ICICI Bank',
+        'bank_code': 'icici',
+        'account_number': '1044',
+        'balance': 34200.0,
+        'initial_balance': 34200.0,
+        'include_in_total': 1,
+      });
+      await _database.insert('accounts', {
+        'id': 4,
+        'name': 'Cash Wallet',
+        'type': 'CASH',
+        'bank_name': 'Cash',
+        'bank_code': 'cash',
+        'account_number': '',
+        'balance': 5400.0,
+        'initial_balance': 5400.0,
+        'include_in_total': 1,
+      });
+    }
+
+    var existingTxs = await _database.query('transactions');
+    if (existingTxs.isEmpty) {
+      final now = DateTime.now();
+      final todayStr = now.toIso8601String().split('T').first;
+      final yestStr = now.subtract(const Duration(days: 1)).toIso8601String().split('T').first;
+      final twoDaysAgoStr = now.subtract(const Duration(days: 2)).toIso8601String().split('T').first;
+
+      await _database.insert('transactions', {
+        'merchant': 'Swiggy',
+        'category': 'Food & Dining',
+        'amount': 480.0,
+        'type': 'EXPENSE',
+        'date': todayStr,
+        'account_id': 1,
+        'needs_review': 0,
+      });
+      await _database.insert('transactions', {
+        'merchant': 'Starbucks Coffee',
+        'category': 'Food & Dining',
+        'amount': 380.0,
+        'type': 'EXPENSE',
+        'date': todayStr,
+        'account_id': 1,
+        'needs_review': 0,
+      });
+      await _database.insert('transactions', {
+        'merchant': 'Amazon India',
+        'category': 'Shopping',
+        'amount': 2499.0,
+        'type': 'EXPENSE',
+        'date': yestStr,
+        'account_id': 2,
+        'needs_review': 0,
+      });
+      await _database.insert('transactions', {
+        'merchant': 'Uber India',
+        'category': 'Transport',
+        'amount': 320.0,
+        'type': 'EXPENSE',
+        'date': yestStr,
+        'account_id': 3,
+        'needs_review': 0,
+      });
+      await _database.insert('transactions', {
+        'merchant': 'Netflix Subscription',
+        'category': 'Entertainment',
+        'amount': 649.0,
+        'type': 'EXPENSE',
+        'date': twoDaysAgoStr,
+        'account_id': 1,
+        'needs_review': 0,
+      });
+      await _database.insert('transactions', {
+        'merchant': 'Tech Salary Credit',
+        'category': 'Salary',
+        'amount': 95000.0,
+        'type': 'INCOME',
+        'date': twoDaysAgoStr,
+        'account_id': 2,
+        'needs_review': 0,
+      });
+    }
+
+    var budgetSetting = await _database.query('settings', where: 'key = ?', whereArgs: ['total_budget']);
+    if (budgetSetting.isEmpty || ((budgetSetting.first['value'] as num?)?.toDouble() ?? 0.0) == 0.0) {
+      await _database.insert('settings', {'key': 'total_budget', 'value': 45000.0}, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // Household & Family Members Table (Option A Architecture)
@@ -576,6 +705,7 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
       });
     }
 
+    _precacheAssets();
     setState(() => _isDbReady = true);
     
     // Check if biometric is enabled
