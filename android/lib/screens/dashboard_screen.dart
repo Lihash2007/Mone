@@ -840,7 +840,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       mainAxisSpacing: 12,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.35,
+      childAspectRatio: 1.25,
       children: [
         // 1. Optimize Budget
         _buildGridTile(
@@ -929,6 +929,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -1181,22 +1183,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Text(
-                        category,
-                        style: TextStyle(fontSize: 11, color: MoneTheme.textSecondary(widget.isDark)),
-                      ),
-                      if (dateStr.isNotEmpty) ...[
-                        Text(' • $dateStr', style: TextStyle(fontSize: 11, color: MoneTheme.textSecondary(widget.isDark))),
+                  Text.rich(
+                    TextSpan(
+                      text: category,
+                      style: TextStyle(fontSize: 11, color: MoneTheme.textSecondary(widget.isDark)),
+                      children: [
+                        if (dateStr.isNotEmpty)
+                          TextSpan(
+                            text: ' • $dateStr',
+                            style: TextStyle(fontSize: 11, color: MoneTheme.textSecondary(widget.isDark)),
+                          ),
+                        if (member != null)
+                          TextSpan(
+                            text: ' • ${member.avatarEmoji} ${member.name}',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: member.accentColor),
+                          ),
                       ],
-                      if (member != null) ...[
-                        Text(
-                          ' • ${member.avatarEmoji} ${member.name}',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: member.accentColor),
-                        ),
-                      ],
-                    ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -1229,12 +1234,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 if (acc != null) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    acc['name'].toString(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: MoneTheme.textSecondary(widget.isDark),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 110),
+                    child: Text(
+                      acc['name'].toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: MoneTheme.textSecondary(widget.isDark),
+                      ),
                     ),
                   ),
                 ],

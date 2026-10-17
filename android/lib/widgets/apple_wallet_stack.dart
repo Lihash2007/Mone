@@ -299,45 +299,62 @@ class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        acc.bankInfo.buildBadge(size: 34),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              acc.bankInfo.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                              ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          acc.bankInfo.buildBadge(size: 34),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  acc.bankInfo.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  acc.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.75),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              acc.name,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.75),
-                                fontWeight: FontWeight.w500,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    // Chip Emblem
-                    Container(
-                      width: 32,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37).withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 0.5),
+                          ),
+                        ],
                       ),
-                      child: Center(
-                        child: Icon(Icons.memory_rounded, size: 16, color: Colors.white.withValues(alpha: 0.9)),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Realistic Gold Metallic EMV Chip
+                    Container(
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1.5),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.asset(
+                          'assets/chip.png',
+                          width: 36,
+                          height: 29,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ],
@@ -382,13 +399,17 @@ class _AppleWalletCardsSectionState extends State<AppleWalletCardsSection> {
                         letterSpacing: 1.5,
                       ),
                     ),
-                    Text(
-                      acc.bankInfo.defaultCardNetwork,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
+                    Flexible(
+                      child: Text(
+                        acc.bankInfo.defaultCardNetwork,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
                       ),
                     ),
                   ],

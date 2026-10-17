@@ -35,10 +35,10 @@ class BankInfo {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: showBorder ? Border.all(color: Colors.white.withOpacity(0.18), width: 1) : null,
+          border: showBorder ? Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1) : null,
           boxShadow: [
             BoxShadow(
-              color: gradientColors.first.withOpacity(0.35),
+              color: gradientColors.first.withValues(alpha: 0.35),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -48,33 +48,54 @@ class BankInfo {
       );
     }
 
+    final String assetPath = 'assets/banks/$id.png';
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(size * 0.28),
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: showBorder ? Border.all(color: Colors.white.withOpacity(0.2), width: 1) : null,
+        border: showBorder
+            ? Border.all(
+                color: Colors.black.withValues(alpha: 0.08),
+                width: 0.8,
+              )
+            : null,
         boxShadow: [
           BoxShadow(
-            color: gradientColors.first.withOpacity(0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 4,
+            offset: const Offset(0, 1.5),
           ),
         ],
       ),
-      child: Center(
-        child: Text(
-          shortName.length > 5 ? shortName.substring(0, 4) : shortName,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: size * 0.32,
-            letterSpacing: 0.5,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.28),
+        child: Padding(
+          padding: EdgeInsets.all(size * 0.12),
+          child: Image.asset(
+            assetPath,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  shortName.length > 5 ? shortName.substring(0, 4) : shortName,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: size * 0.32,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

@@ -653,12 +653,17 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                   children: [
                     b.buildBadge(size: 18, showBorder: false),
                     const SizedBox(width: 8),
-                    Text(
-                      a['name'].toString(),
-                      style: TextStyle(
-                        color: MoneTheme.textPrimary(widget.isDark),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 160),
+                      child: Text(
+                        a['name'].toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: MoneTheme.textPrimary(widget.isDark),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],

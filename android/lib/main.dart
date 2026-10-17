@@ -1823,10 +1823,17 @@ class _MainAppScreenState extends State<MainAppScreen> with SingleTickerProvider
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(a['name'] ?? 'Account', style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                                    Text(
+                                      a['name'] ?? 'Account',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                    ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '${b.shortName} • A/C: ${a['account_number'] != null && a['account_number'].toString().isNotEmpty ? a['account_number'] : 'N/A'} • ₹${bal.toStringAsFixed(0)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
                                     ),
                                   ],
